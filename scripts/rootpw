@@ -1,0 +1,21 @@
+#!/bin/sh
+
+# PROVIDE: rootpw
+# REQUIRE: LOGIN
+# KEYWORD: FreeBSD
+
+. /etc/rc.subr
+
+name="rootpw"
+start_cmd="rootpw_start"
+stop_cmd=":"
+
+rootpw_start()
+{
+	if [ -n "${rootpw}" ]; then
+	    echo ${rootpw} | pw usermod root -h 0
+	fi
+}
+
+load_rc_config $name
+run_rc_command "$1"

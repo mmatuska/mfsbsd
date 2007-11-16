@@ -1,0 +1,26 @@
+# If you don't know the exact interface names and/or order in which they appear, 
+# you can configure interfaces depending on their MAC addresses here.
+#
+# ! If you know exact interface names and have already configured interfaces !
+# ! in rc.conf, leave the initconf_interfaces list empty.                    !
+#
+# !!! DON'T FORGET TO SET defaultrouter IN rc.conf !!!
+
+# inifconf_interfaces should be a list of
+# names of interfaces.
+#initconf_interfaces="ext1 ext2"
+
+# initconf_mac_FOO should be the MAC address
+# of interface FOO
+initconf_mac_ext1="00:00:00:00:00:00"
+initconf_mac_ext2="ff:ff:ff:ff:ff:ff"
+
+# initconf_ip_FOO should be the IP address
+# of interface FOO
+initconf_ip_ext1="192.168.0.1"
+initconf_ip_ext2="192.168.1.1"
+
+# initconf_netmask_FOO should be the
+# netmask of interface FOO
+initconf_netmask_ext1="255.255.255.0"
+initconf_netmask_ext2="255.255.255.0"

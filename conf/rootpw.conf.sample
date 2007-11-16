@@ -1,0 +1,10 @@
+# rootpw is the root password which will be set. 
+#
+# Root login will be enabled in sshd, so this allows you to login and install 
+# FreeBSD remotely.
+#
+# Make sure you only use alphanumeric characters here; other symbols may cause 
+# problems. Note that this is stored in plaintext!  Don't use an important 
+# password for this.
+#
+rootpw='mfsbsd'

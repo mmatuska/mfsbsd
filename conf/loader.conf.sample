@@ -1,0 +1,9 @@
+#
+# This is the /boot/loader.conf of your image
+# Do not change anything here until you know what you are doing
+#
+geom_uzip_load="YES"
+mfs_load="YES"
+mfs_type="mfs_root"
+mfs_name="/mfsroot"
+vfs.root.mountfrom="ufs:/dev/md0"

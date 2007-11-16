@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# PROVIDE: mdinit
+# BEFORE: LOGIN
+# REQUIRE: mdinit tmp var
+# KEYWORD: FreeBSD
+
+. /etc/rc.subr
+
+name="packages"
+start_cmd="packages_start"
+stop_cmd=":"
+
+packages_start()
+{
+	PACKAGES=`/bin/ls -1 /packages/*.tbz 2>/dev/null`
+	if /bin/test -n "$PACKAGES"; then
+		MD=`/sbin/mdconfig -a -t swap -s 64m`
+		/sbin/newfs -U /dev/$MD
+		/sbin/mount /dev/$MD /usr/local
+		cd /packages && /usr/sbin/pkg_add *.tbz > /dev/null 2> /dev/null
+	fi
+}
+
+load_rc_config $name
+run_rc_command "$1"

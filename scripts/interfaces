@@ -1,0 +1,37 @@
+#!/bin/sh
+
+# PROVIDE: interfaces
+# REQUIRE: LOGIN
+# KEYWORD: FreeBSD
+
+. /etc/rc.subr
+
+name="interfaces"
+start_cmd="interfaces_start"
+stop_cmd=":"
+
+interfaces_start()
+{
+	if [ -z "${initconf_interfaces}" ]; then
+	    exit 0
+	fi
+	for interface in ${initconf_interfaces}; do
+		macaddr=`eval echo "\\$initconf_mac_${interface}"`
+		ipaddr=`eval echo "\\$initconf_ip_${interface}"`
+		netmask=`eval echo "\\$initconf_netmask_${interface}"`
+		echo ${ipaddr} ${initconf_hostname} ${initconf_hostname}.>> /etc/hosts
+
+		for real_if in `ifconfig -l`; do
+			if ifconfig ${real_if} | grep -qi ${macaddr}; then
+echo ifconfig_${real_if}=\"inet ${ipaddr} netmask ${netmask}\" >> /etc/rc.conf
+			fi
+		done
+	done
+
+	/etc/rc.d/netif restart
+	/etc/rc.d/routing restart
+	/etc/rc.d/sshd restart
+}
+
+load_rc_config $name
+run_rc_command "$1"
