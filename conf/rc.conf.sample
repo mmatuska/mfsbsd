@@ -1,3 +1,5 @@
+# $Id$
+#
 # This will be the rc.conf file in your image.
 #
 # You may set anything you want here, including network interfaces.

@@ -1,4 +1,5 @@
 #!/bin/sh
+# $Id$
 
 # PROVIDE: rootpw
 # REQUIRE: LOGIN

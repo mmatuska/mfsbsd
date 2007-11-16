@@ -1,3 +1,5 @@
+# $Id$
+#
 # If you don't know the exact interface names and/or order in which they appear, 
 # you can configure interfaces depending on their MAC addresses here.
 #

@@ -1,4 +1,5 @@
 #!/bin/sh
+# $Id$
 
 # PROVIDE: mdinit
 # BEFORE: FILESYSTEMS

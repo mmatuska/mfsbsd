@@ -1,3 +1,5 @@
+# $Id$
+#
 # rootpw is the root password which will be set. 
 #
 # Root login will be enabled in sshd, so this allows you to login and install 
