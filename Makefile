@@ -6,14 +6,25 @@
 #
 # User-defined variables
 #
-BASE?=/cdrom/7.0-BETA2
+BASE?=/cdrom/7.0-RELEASE
 IMAGE?=	disk.img
 ISOIMAGE?= disk.iso
+KERNCONF?= GENERIC
+
+#
+# To make buildworld use 
+# -DBUILDWORLD or BUILDWORLD=1
+#
+# To make buildkernel use
+# -DBUILDKERNEL or BUILDKERNEL=1
+#
+# To use cdrom distribution files instead of building world and kernel use 
+# -DDIST or DIST=1
 
 #
 # Paths
 #
-WRKDIR?=tmp
+SRCDIR?=/usr/src
 CFGDIR=conf
 SCRIPTSDIR=scripts
 PACKAGESDIR=packages
@@ -25,10 +36,12 @@ TOOLSDIR=tools
 MKDIR=/bin/mkdir -p
 CHOWN=/usr/sbin/chown
 CAT=/bin/cat
+PWD=/bin/pwd
 TAR=/usr/bin/tar
 CP=/bin/cp
 MV=/bin/mv
 RM=/bin/rm
+RMDIR=/bin/rmdir
 CHFLAGS=/bin/chflags
 CHMOD=/bin/chmod
 MKUZIP=/usr/bin/mkuzip
@@ -38,11 +51,12 @@ LS=/bin/ls
 UNAME=/usr/bin/uname
 MKISOFS=/usr/local/bin/mkisofs
 #
+CURDIR!=${PWD}
+WRKDIR?=${CURDIR}/tmp
+#
 BSDLABEL=bsdlabel
 #
 STEPS=7
-#
-CURDIR!=pwd
 #
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit rootpw interfaces packages
@@ -53,10 +67,12 @@ all: image
 
 extract: ${WRKDIR}/.extract_done
 ${WRKDIR}/.extract_done:
+	@${MKDIR} ${WRKDIR}/mfs && ${CHOWN} root:wheel ${WRKDIR}/mfs
+.if defined(DIST)
 	@if [ ! -d "${BASE}" ]; then \
-		echo "Please set the environment variable DIST to a path"; \
-		echo "with FreeBSD distribution files(e.g. /cdrom/7.0-RELEASE)"; \
-		echo "Or execute like: make DIST=/cdrom/7.0-RELEASE"; \
+		echo "Please set the environment variable BASE to a path"; \
+		echo "with FreeBSD distribution files (e.g. /cdrom/7.0-RELEASE)"; \
+		echo "Or execute like: make DIST=1 BASE=/cdrom/7.0-RELEASE"; \
 		exit 1; \
 	fi
 	@for DIR in base kernels; do \
@@ -66,19 +82,48 @@ ${WRKDIR}/.extract_done:
 		fi \
 	done
 	@echo -n "Extracting base and kernel ..."
-	@${MKDIR} ${WRKDIR}/mfs && ${CHOWN} root:wheel ${WRKDIR}/mfs
 	@${CAT} ${BASE}/base/base.?? | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs
 	@${CAT} ${BASE}/kernels/generic.?? | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs/boot
 	@${MV} ${WRKDIR}/mfs/boot/GENERIC/* ${WRKDIR}/mfs/boot/kernel
+	@${RMDIR} ${WRKDIR}/mfs/boot/GENERIC
 	@${RM} -rf ${WRKDIR}/mfs/boot/kernel/*.symbols
 	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
-	@${TOUCH} ${WRKDIR}/.extract_done
 	@echo " done"
+.endif
+	@${TOUCH} ${WRKDIR}/.extract_done
 
-prune: extract ${WRKDIR}/.prune_done
+build: extract ${WRKDIR}/.build_done
+${WRKDIR}/.build_done:
+.if !defined(DIST)
+.if defined(BUILDWORLD)
+	@echo -n "Building world ..."
+	@cd ${SRCDIR} && make buildworld
+.endif
+.if defined(BUILDKERNEL)
+	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
+	@cd ${SRCDIR} && make buildkernel KERNCONF=${KERNCONF}
+.endif
+.endif
+	@${TOUCH} ${WRKDIR}/.build_done
+
+install: build ${WRKDIR}/.install_done
+${WRKDIR}/.install_done:
+.if !defined(DIST)
+	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
+	@cd ${SRCDIR} && make installworld DESTDIR="${WRKDIR}/mfs"
+	@cd ${SRCDIR} && make installkernel DESTDIR="${WRKDIR}/mfs"
+	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
+.endif
+	@${TOUCH} ${WRKDIR}/.install_done
+
+prune: install ${WRKDIR}/.prune_done
 ${WRKDIR}/.prune_done:
 	@echo -n "Removing unnecessary files from distribution ..."
-	@${RM} -rf ${WRKDIR}/mfs/rescue ${WRKDIR}/mfs/usr/include
+	@${RM} -rf ${WRKDIR}/mfs/rescue ${WRKDIR}/mfs/usr/include ${WRKDIR}/mfs/usr/games
+	@${RM} -rf ${WRKDIR}/mfs/usr/lib32
+.for DIR in dict doc games info man
+	@${RM} -rf ${WRKDIR}/mfs/usr/share/${DIR}
+.endfor
 	@${RM} -f ${WRKDIR}/mfs/usr/lib/*.a
 	@${RM} -f ${WRKDIR}/mfs/usr/libexec/cc1* ${WRKDIR}/mfs/usr/libexec/f771
 	@for x in c++ g++ CC gcc cc yacc byacc f77 addr2line	\
@@ -89,7 +134,7 @@ ${WRKDIR}/.prune_done:
 	@${TOUCH} ${WRKDIR}/.prune_done
 	@echo " done"
 
-packages: extract prune ${WRKDIR}/.packages_done
+packages: install prune ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
 	@if [ -d "${PACKAGESDIR}" ]; then \
 		echo -n "Copying user packages ..."; \
@@ -98,7 +143,7 @@ ${WRKDIR}/.packages_done:
 		echo " done"; \
 	fi
 
-config: extract ${WRKDIR}/.config_done
+config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
 	@for FILE in loader.conf rc.conf resolv.conf interfaces.conf rootpw.conf; do \
@@ -127,7 +172,7 @@ ${WRKDIR}/.config_done:
 	@${TOUCH} ${WRKDIR}/.config_done
 	@echo " done"
 
-usr.uzip: extract prune ${WRKDIR}/.usr.uzip_done
+usr.uzip: install prune ${WRKDIR}/.usr.uzip_done
 ${WRKDIR}/.usr.uzip_done:
 	@echo -n "Creating usr.uzip ..."
 	@${MKDIR} ${WRKDIR}/mnt
@@ -137,7 +182,7 @@ ${WRKDIR}/.usr.uzip_done:
 	@${TOUCH} ${WRKDIR}/.usr.uzip_done
 	@echo " done"
 
-boot: extract prune ${WRKDIR}/.boot_done
+boot: install prune ${WRKDIR}/.boot_done
 ${WRKDIR}/.boot_done:
 	@echo -n "Configuring boot environment ..."
 	@${MKDIR} ${WRKDIR}/disk && ${CHOWN} root:wheel ${WRKDIR}/disk
@@ -155,7 +200,7 @@ ${WRKDIR}/.boot_done:
 	@${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
-mfsroot: extract prune config boot usr.uzip packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config boot usr.uzip packages ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
@@ -167,7 +212,7 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-image: extract prune config boot usr.uzip mfsroot ${WRKDIR}/.image_done
+image: install prune config boot usr.uzip mfsroot ${WRKDIR}/.image_done
 ${WRKDIR}/.image_done:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
@@ -178,9 +223,9 @@ ${WRKDIR}/.image_done:
 	@${TOUCH} ${WRKDIR}/.image_done
 	@echo " done"
 
-iso: extract prune config boot usr.uzip mfsroot ${WRKDIR}/.iso_done
+iso: install prune config boot usr.uzip mfsroot ${WRKDIR}/.iso_done
 ${WRKDIR}/.iso_done:
-	@if [ -x "${MKISOFS}" ]; then exit 1; fi
+	@if [ ! -x "${MKISOFS}" ]; then exit 1; fi
 	@echo -n "Creating ISO image ..."
 	@${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk
 	@${TOUCH} ${WRKDIR}/.iso_done
