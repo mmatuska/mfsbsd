@@ -1,5 +1,5 @@
 # mfsBSD
-# Copyright (c) 2007 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
 #
 # $Id$
 
@@ -7,19 +7,22 @@
 # User-defined variables
 #
 BASE?=/cdrom/7.0-RELEASE
-IMAGE?=	disk.img
-ISOIMAGE?= disk.iso
+IMAGE?=	mfsboot.img
+ISOIMAGE?= mfsboot.iso
+TARFILE?= mfsboot.tar.gz
 KERNCONF?= GENERIC
 
+# If you want to build your own kernel and make you own world, you need to set
+# -DCUSTOM or CUSTOM=1
 #
 # To make buildworld use 
-# -DBUILDWORLD or BUILDWORLD=1
+# -DCUSTOM -DBUILDWORLD or CUSTOM=1 BUILDWORLD=1
 #
 # To make buildkernel use
-# -DBUILDKERNEL or BUILDKERNEL=1
+# -DCUSTOM -DBUILDKERNEL or CUSTOM=1 BUILDKERNEL=1
 #
-# To use cdrom distribution files instead of building world and kernel use 
-# -DDIST or DIST=1
+# For all of this use
+# -DCUSTOM -DBUILDWORLD -DBUILDKERNEL or CUSTOM=1 BUILDKERNEL=1 BUILDWORLD=1
 
 #
 # Paths
@@ -68,11 +71,11 @@ all: image
 extract: ${WRKDIR}/.extract_done
 ${WRKDIR}/.extract_done:
 	@${MKDIR} ${WRKDIR}/mfs && ${CHOWN} root:wheel ${WRKDIR}/mfs
-.if defined(DIST)
+.if !defined(CUSTOM)
 	@if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
 		echo "with FreeBSD distribution files (e.g. /cdrom/7.0-RELEASE)"; \
-		echo "Or execute like: make DIST=1 BASE=/cdrom/7.0-RELEASE"; \
+		echo "Or execute like: make BASE=/cdrom/7.0-RELEASE"; \
 		exit 1; \
 	fi
 	@for DIR in base kernels; do \
@@ -94,7 +97,7 @@ ${WRKDIR}/.extract_done:
 
 build: extract ${WRKDIR}/.build_done
 ${WRKDIR}/.build_done:
-.if !defined(DIST)
+.if defined(CUSTOM)
 .if defined(BUILDWORLD)
 	@echo -n "Building world ..."
 	@cd ${SRCDIR} && make buildworld
@@ -108,7 +111,7 @@ ${WRKDIR}/.build_done:
 
 install: build ${WRKDIR}/.install_done
 ${WRKDIR}/.install_done:
-.if !defined(DIST)
+.if defined(CUSTOM)
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
 	@cd ${SRCDIR} && make installworld DESTDIR="${WRKDIR}/mfs"
 	@cd ${SRCDIR} && make installkernel DESTDIR="${WRKDIR}/mfs"
@@ -212,23 +215,27 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-image: install prune config boot usr.uzip mfsroot ${WRKDIR}/.image_done
-${WRKDIR}/.image_done:
+image: install prune config boot usr.uzip mfsroot ${IMAGE}
+${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
 	@${CP} ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
 	@${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	@${MV} ${WRKDIR}/disk.img ${IMAGE}
-	@${TOUCH} ${WRKDIR}/.image_done
 	@echo " done"
 
-iso: install prune config boot usr.uzip mfsroot ${WRKDIR}/.iso_done
-${WRKDIR}/.iso_done:
+iso: install prune config boot usr.uzip mfsroot ${ISOIMAGE}
+${ISOIMAGE}:
 	@if [ ! -x "${MKISOFS}" ]; then exit 1; fi
 	@echo -n "Creating ISO image ..."
 	@${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk
-	@${TOUCH} ${WRKDIR}/.iso_done
+	@echo " done"
+
+tar: install prune config boot usr.uzip mfsroot ${TARFILE}
+${TARFILE}:
+	@echo -n "Creating tar.gz file ..."
+	@${TAR} -c -z -f ${TARFILE} -C ${WRKDIR}/disk boot mfsroot.gz
 	@echo " done"
 
 clean:

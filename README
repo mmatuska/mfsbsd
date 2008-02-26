@@ -4,41 +4,24 @@
 # $Id$
 
 DESCRIPTION:
-This is a set of scripts that generates a bootable image (and/or ISO file),
-that creates a working minimal installation of FreeBSD, that gets completely
-loaded into memory.
+This is a set of scripts that generates a bootable image, ISO file or boot 
+files only, that create a working minimal installation of FreeBSD. This
+minimal installation gets completely loaded into memory.
 
 The image may be written directly using dd(1) into any bootable block device,
 e.g. a hard disk or a USB stick e.g. /dev/da0, or a bootable slice only, 
 e.g. /dev/ad0s1
 
-REQUIREMENTS:
+REQUIREMENTS (build):
  - FreeBSD 6 or higher installed, tested on i386 or amd64
  - Base and kernel from a FreeBSD 6 or 7 distribution
    (release or snapshots, e.g mounted CDROM disc1 or ISO file)
  - mkisofs from sysutils/cdrtools (optional) to create ISO images
 
-INSTRUCTIONS:
- 1. Read hints in the sample configuration files in the conf/ directory, copy
-    these files to files without .sample ending and make modifications to suit 
-    your needs
+REQUIREMENTS (run):
+ - a minimum of 512MB system memory
 
- 2. If you want any packages installed, copy the .tbz files that should be 
-    automatically installed into the packages/ directory
-    WARNING: Your image should not exceed 45MB in total, otherwise kernel panic
-             may occur on boot-time.
-
- 3. Run the make command:
-     - to create a bootable image:
-      make BASE=/path/to/distribution 
-
-     - to create a bootable ISO:
-      make iso BASE=/path/to/distribution
-
-     - to cleanup:
-      make clean
-
-     - example: make BASE=/cdrom/7.0-BETA2
+See BUILD and INSTALL files for building and installation instructions.
 
 ---------------------------------------------------------------
 This project bases on the ideas from the depenguinator project:
