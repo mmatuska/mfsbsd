@@ -1,7 +1,9 @@
+# $Id$
+#
 # mfsBSD building instructions
 # Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
 #
-# $Id: README 2 2007-11-16 12:59:24Z mm $
+# Version 1.0-BETA1
 
 BUILDING INSTRUCTIONS:
  1. Configuration

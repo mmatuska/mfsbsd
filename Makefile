@@ -1,7 +1,10 @@
+# $Id$
+#
 # mfsBSD
 # Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
 #
-# $Id$
+# Version 1.0-BETA1
+#
 
 #
 # User-defined variables

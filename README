@@ -1,7 +1,9 @@
+# $Id$
+#
 # mfsBSD README
 # Copyright (c) 2007 Martin Matuska <mm at FreeBSD.org>
 #
-# $Id$
+# Version 1.0-BETA1
 
 DESCRIPTION:
 This is a set of scripts that generates a bootable image, ISO file or boot 
