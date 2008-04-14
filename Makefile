@@ -117,6 +117,7 @@ ${WRKDIR}/.install_done:
 .if defined(CUSTOM)
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
 	@cd ${SRCDIR} && make installworld DESTDIR="${WRKDIR}/mfs"
+	@cd ${SRCDIR} && make distribution DESTDIR="${WRKDIR}/mfs"
 	@cd ${SRCDIR} && make installkernel DESTDIR="${WRKDIR}/mfs"
 	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
 .endif
