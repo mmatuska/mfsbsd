@@ -1,0 +1,18 @@
+# $Id$
+#
+# mfsBSD changelog
+# Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
+#
+14.04.2008
+  - Add missing "make distribution" on CUSTOM install
+
+09.03.2008
+  - Add svn-Id and version strings
+
+26.02.2008
+  - Add .tar.gz creation
+  - Make use of distribution default, use CUSTOM=1 for custom world/kernel
+  - Update documentation
+
+16.01.2008
+  - Add support for building world and kernel
