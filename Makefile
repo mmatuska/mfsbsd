@@ -9,7 +9,7 @@
 #
 # User-defined variables
 #
-BASE?=/cdrom/7.0-RELEASE
+BASE?=/cdrom/7.2-RELEASE
 IMAGE?=	mfsboot.img
 ISOIMAGE?= mfsboot.iso
 TARFILE?= mfsboot.tar.gz
@@ -77,8 +77,8 @@ ${WRKDIR}/.extract_done:
 .if !defined(CUSTOM)
 	@if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
-		echo "with FreeBSD distribution files (e.g. /cdrom/7.0-RELEASE)"; \
-		echo "Or execute like: make BASE=/cdrom/7.0-RELEASE"; \
+		echo "with FreeBSD distribution files (e.g. /cdrom/7.2-RELEASE)"; \
+		echo "Or execute like: make BASE=/cdrom/7.2-RELEASE"; \
 		exit 1; \
 	fi
 	@for DIR in base kernels; do \
