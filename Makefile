@@ -158,8 +158,6 @@ ${WRKDIR}/.config_done:
 			if [ ! -f "${CFGDIR}/$${FILE}.sample" ]; then \
 				echo "Missing ${CFGDIR}/$${FILE}.sample"; \
 				exit 1; \
-			else \
-			${CP} ${CFGDIR}/$${FILE}.sample ${CFGDIR}/$${FILE}; \
 			fi \
 		fi \
 	done
