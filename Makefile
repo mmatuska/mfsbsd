@@ -171,7 +171,7 @@ ${WRKDIR}/.config_done:
 		${CP} ${CFGDIR}/loader.conf.sample ${WRKDIR}/mfs/boot/loader.conf; \
 	fi
 	@if [ -f "${CFGDIR}/rc.conf" ]; then \
-		${CP} ${CFGDIR}/rc.conf ${WRKDIR}/mfs/etc/rc.conf;
+		${CP} ${CFGDIR}/rc.conf ${WRKDIR}/mfs/etc/rc.conf; \
 	else \
 		${CP} ${CFGDIR}/rc.conf.sample ${WRKDIR}/mfs/etc/rc.conf; \
 	fi
@@ -184,7 +184,7 @@ ${WRKDIR}/.config_done:
 	@if [ -f "${CFGDIR}/authorized_keys" ]; then \
 		${MKDIR} ${WRKDIR}/mfs/root/.ssh; \
 		${CHMOD} 700 ${WRKDIR}/mfs/root/.ssh; \
-		${CP} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/authorized_keys \
+		${CP} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/authorized_keys; \
 	fi
 	@for SCRIPT in ${SCRIPTS}; do \
 		${CP} ${SCRIPTSDIR}/$${SCRIPT} ${WRKDIR}/mfs/etc/rc.d/; \
