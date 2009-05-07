@@ -3,6 +3,10 @@
 # mfsBSD changelog
 # Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
 #
+07.05.2009
+  - Enable authorization with ssh keys
+  - Integrate rootpw.conf into rc.conf
+
 14.04.2008
   - Add missing "make distribution" on CUSTOM install
 

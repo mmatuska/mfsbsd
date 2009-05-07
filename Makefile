@@ -3,7 +3,7 @@
 # mfsBSD
 # Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.0-BETA2
+# Version 1.0-BETA3
 #
 
 #
@@ -153,7 +153,7 @@ ${WRKDIR}/.packages_done:
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
-	@for FILE in loader.conf rc.conf resolv.conf interfaces.conf rootpw.conf; do \
+	@for FILE in loader.conf rc.conf resolv.conf interfaces.conf; do \
 		if [ ! -f "${CFGDIR}/$${FILE}" ]; then \
 			if [ ! -f "${CFGDIR}/$${FILE}.sample" ]; then \
 				echo "Missing ${CFGDIR}/$${FILE}.sample"; \
@@ -165,10 +165,27 @@ ${WRKDIR}/.config_done:
 	done
 	@${RM} -f ${WRKDIR}/mfs/etc/motd
 	@${MKDIR} ${WRKDIR}/mfs/stand ${WRKDIR}/mfs/etc/rc.conf.d
-	@${CP} ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/
-	@${CP} ${CFGDIR}/rc.conf ${CFGDIR}/resolv.conf ${WRKDIR}/mfs/etc/
-	@${CP} ${CFGDIR}/interfaces.conf ${WRKDIR}/mfs/etc/rc.conf.d/interfaces
-	@${CP} ${CFGDIR}/rootpw.conf ${WRKDIR}/mfs/etc/rc.conf.d/rootpw
+	@if [ -f "${CFGDIR}/loader.conf" ]; then \
+		@${CP} ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/loader.conf; \
+	else \
+		@${CP} ${CFGDIR}/loader.conf.sample ${WRKDIR}/mfs/boot/loader.conf; \
+	fi
+	@if [ -f "${CFGDIR}/rc.conf" ]; then \
+		@${CP} ${CFGDIR}/rc.conf ${WRKDIR}/mfs/etc/rc.conf;
+	else \
+		@${CP} ${CFGDIR}/rc.conf.sample ${WRKDIR}/mfs/etc/rc.conf; \
+	fi
+	@if [ -f "${CFGDIR}/resolv.conf" ]; then \
+		@${CP} ${CFGDIR}/resolv.conf ${WRKDIR}/mfs/etc/resolv.conf; \
+	fi
+	@if [ -f "${CFGDIR}/interfaces.conf" ]; then \
+		@${CP} ${CFGDIR}/interfaces.conf ${WRKDIR}/mfs/etc/rc.conf.d/interfaces; \
+	fi
+	@if [ -f "${CFGDIR}/authorized_keys" ]; then \
+		@${MKDIR} ${WRKDIR}/mfs/root/.ssh; \
+		@${CHMOD} 700 ${WRKDIR}/mfs/root/.ssh; \
+		@${CP} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/authorized_keys \
+	fi
 	@for SCRIPT in ${SCRIPTS}; do \
 		${CP} ${SCRIPTSDIR}/$${SCRIPT} ${WRKDIR}/mfs/etc/rc.d/; \
 		${CHMOD} 555 ${WRKDIR}/mfs/etc/rc.d/$${SCRIPT}; \
