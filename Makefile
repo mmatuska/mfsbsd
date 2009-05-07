@@ -166,25 +166,25 @@ ${WRKDIR}/.config_done:
 	@${RM} -f ${WRKDIR}/mfs/etc/motd
 	@${MKDIR} ${WRKDIR}/mfs/stand ${WRKDIR}/mfs/etc/rc.conf.d
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
-		@${CP} ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/loader.conf; \
+		${CP} ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/loader.conf; \
 	else \
-		@${CP} ${CFGDIR}/loader.conf.sample ${WRKDIR}/mfs/boot/loader.conf; \
+		${CP} ${CFGDIR}/loader.conf.sample ${WRKDIR}/mfs/boot/loader.conf; \
 	fi
 	@if [ -f "${CFGDIR}/rc.conf" ]; then \
-		@${CP} ${CFGDIR}/rc.conf ${WRKDIR}/mfs/etc/rc.conf;
+		${CP} ${CFGDIR}/rc.conf ${WRKDIR}/mfs/etc/rc.conf;
 	else \
-		@${CP} ${CFGDIR}/rc.conf.sample ${WRKDIR}/mfs/etc/rc.conf; \
+		${CP} ${CFGDIR}/rc.conf.sample ${WRKDIR}/mfs/etc/rc.conf; \
 	fi
 	@if [ -f "${CFGDIR}/resolv.conf" ]; then \
-		@${CP} ${CFGDIR}/resolv.conf ${WRKDIR}/mfs/etc/resolv.conf; \
+		${CP} ${CFGDIR}/resolv.conf ${WRKDIR}/mfs/etc/resolv.conf; \
 	fi
 	@if [ -f "${CFGDIR}/interfaces.conf" ]; then \
-		@${CP} ${CFGDIR}/interfaces.conf ${WRKDIR}/mfs/etc/rc.conf.d/interfaces; \
+		${CP} ${CFGDIR}/interfaces.conf ${WRKDIR}/mfs/etc/rc.conf.d/interfaces; \
 	fi
 	@if [ -f "${CFGDIR}/authorized_keys" ]; then \
-		@${MKDIR} ${WRKDIR}/mfs/root/.ssh; \
-		@${CHMOD} 700 ${WRKDIR}/mfs/root/.ssh; \
-		@${CP} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/authorized_keys \
+		${MKDIR} ${WRKDIR}/mfs/root/.ssh; \
+		${CHMOD} 700 ${WRKDIR}/mfs/root/.ssh; \
+		${CP} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/authorized_keys \
 	fi
 	@for SCRIPT in ${SCRIPTS}; do \
 		${CP} ${SCRIPTSDIR}/$${SCRIPT} ${WRKDIR}/mfs/etc/rc.d/; \

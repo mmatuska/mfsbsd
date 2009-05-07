@@ -11,8 +11,8 @@ hostname="mfsbsd"
 #
 # Set this to your desired root password of the installation
 # As an alternative, you can add keys to the authorized_keys file.
-# If rootpw is unset or empty, you can authorize only with keys.
-#rootpw="mfsbsd"
+# If rootpw is unset or empty, you can authorize with keys only.
+rootpw="mfsbsd"
 #
 # You need a gateway defined for a working network setup
 #defaultrouter="192.168.0.254"
