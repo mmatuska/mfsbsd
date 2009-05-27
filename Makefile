@@ -231,9 +231,9 @@ ${WRKDIR}/.mfsroot_done:
 	@${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	@${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
-		${CP} ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/loader.conf; \
+		${CP} ${CFGDIR}/loader.conf ${WRKDIR}/disk/boot/loader.conf; \
 	else \
-		${CP} ${CFGDIR}/loader.conf.sample ${WRKDIR}/mfs/boot/loader.conf; \
+		${CP} ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
 	fi
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
