@@ -128,14 +128,14 @@ ${WRKDIR}/.prune_done:
 	@echo -n "Removing unnecessary files from distribution ..."
 	@${RM} -rf ${WRKDIR}/mfs/rescue ${WRKDIR}/mfs/usr/include ${WRKDIR}/mfs/usr/games
 	@${RM} -rf ${WRKDIR}/mfs/usr/lib32
-.for DIR in dict doc games info man
+.for DIR in dict doc games info man openssl
 	@${RM} -rf ${WRKDIR}/mfs/usr/share/${DIR}
 .endfor
 	@${RM} -f ${WRKDIR}/mfs/usr/lib/*.a
 	@${RM} -f ${WRKDIR}/mfs/usr/libexec/cc1* ${WRKDIR}/mfs/usr/libexec/f771
 	@for x in c++ g++ CC gcc cc yacc byacc f77 addr2line	\
 		ar as gasp gdb gdbreplay ld nm objcopy objdump	\
-		ranlib readelf size strip; do \
+		ranlib readelf size strip gdbtui kgdb; do \
 		${RM} -f ${WRKDIR}/mfs/usr/bin/$$x; \
 	done
 	@${TOUCH} ${WRKDIR}/.prune_done
