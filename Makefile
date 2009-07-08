@@ -68,6 +68,8 @@ DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit rootpw interfaces packages
 BOOTMODULES=acpi snp geom_uzip zlib
 MFSMODULES=geom_label geom_mirror
+#
+IMGSIZE=48000
 
 all: image
 
@@ -226,7 +228,7 @@ mfsroot: install prune config boot usr.uzip packages ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
-	@${DOFS} "" "" ${WRKDIR}/disk/mfsroot "" ${WRKDIR}/mnt 0 ${WRKDIR}/mfs 8000 auto > /dev/null 2> /dev/null
+	@${DOFS} "" "" ${WRKDIR}/disk/mfsroot "" ${WRKDIR}/mnt ${IMGSIZE} ${WRKDIR}/mfs 8000 auto > /dev/null 2> /dev/null
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/mfs
 	@${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	@${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
