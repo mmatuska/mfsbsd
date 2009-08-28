@@ -14,6 +14,9 @@ IMAGE?=	mfsboot.img
 ISOIMAGE?= mfsboot.iso
 TARFILE?= mfsboot.tar.gz
 KERNCONF?= GENERIC
+MFSROOT_FREE_INODES?=20%
+MFSROOT_FREE_BLOCKS?=20%
+MFSROOT_MAXSIZE?=49283072
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -55,6 +58,7 @@ GZIP=/usr/bin/gzip
 TOUCH=/usr/bin/touch
 LS=/bin/ls
 UNAME=/usr/bin/uname
+MAKEFS=/usr/sbin/makefs
 MKISOFS=/usr/local/bin/mkisofs
 #
 CURDIR!=${PWD}
@@ -64,7 +68,6 @@ BSDLABEL=bsdlabel
 #
 STEPS=7
 #
-DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit rootpw interfaces packages
 BOOTMODULES=acpi snp geom_uzip zlib
 MFSMODULES=geom_label geom_mirror
@@ -200,7 +203,7 @@ usr.uzip: install prune ${WRKDIR}/.usr.uzip_done
 ${WRKDIR}/.usr.uzip_done:
 	@echo -n "Creating usr.uzip ..."
 	@${MKDIR} ${WRKDIR}/mnt
-	@${DOFS} "" "" ${WRKDIR}/usr.img "" ${WRKDIR}/mnt 0 ${WRKDIR}/mfs/usr 8000 auto > /dev/null 2> /dev/null
+	@${MAKEFS} -t ffs ${WRKDIR}/usr.img ${WRKDIR}/mnt
 	@${MKUZIP} -o ${WRKDIR}/mfs/usr.uzip ${WRKDIR}/usr.img > /dev/null
 	@${RM} -rf ${WRKDIR}/mfs/usr ${WRKDIR}/usr.img && ${MKDIR} ${WRKDIR}/mfs/usr
 	@${TOUCH} ${WRKDIR}/.usr.uzip_done
@@ -228,7 +231,7 @@ mfsroot: install prune config boot usr.uzip packages ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
-	@${DOFS} "" "" ${WRKDIR}/disk/mfsroot "" ${WRKDIR}/mnt ${IMGSIZE} ${WRKDIR}/mfs 8000 auto > /dev/null 2> /dev/null
+	@${MAKEFS} -t ffs -M ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${WRKDIR}/mfs
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/mfs
 	@${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	@${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
@@ -245,7 +248,7 @@ ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
 	@${CP} ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
-	@${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
+	@${MAKEFS} -t ffs ${WRKDIR}/disk.img ${WRKDIR}/disk
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	@${MV} ${WRKDIR}/disk.img ${IMAGE}
 	@echo " done"
