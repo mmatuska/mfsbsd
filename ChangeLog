@@ -3,6 +3,9 @@
 # mfsBSD changelog
 # Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
 #
+20.08.2009
+  - Switch from doFS.sh to makefs
+
 09.06.2009
   - Add share/openssl to prune directories
   - Add more gdb files to removal list
