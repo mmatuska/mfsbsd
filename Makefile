@@ -16,7 +16,7 @@ TARFILE?= mfsboot.tar.gz
 KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=20%
 MFSROOT_FREE_BLOCKS?=20%
-MFSROOT_MAXSIZE?=49283072
+MFSROOT_MAXSIZE?=48m
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -231,7 +231,7 @@ mfsroot: install prune config boot usr.uzip packages ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
-	@${MAKEFS} -t ffs -M ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${WRKDIR}/mfs
+	@${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${WRKDIR}/mfs
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/mfs
 	@${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	@${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
