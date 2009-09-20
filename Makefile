@@ -68,6 +68,7 @@ BSDLABEL=bsdlabel
 #
 STEPS=7
 #
+DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit rootpw interfaces packages
 BOOTMODULES=acpi snp geom_uzip zlib
 MFSMODULES=geom_label geom_mirror
@@ -248,7 +249,8 @@ ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
 	@${CP} ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
-	@${MAKEFS} -t ffs ${WRKDIR}/disk.img ${WRKDIR}/disk
+#	@${MAKEFS} -t ffs ${WRKDIR}/disk.img ${WRKDIR}/disk
+	@${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	@${MV} ${WRKDIR}/disk.img ${IMAGE}
 	@echo " done"
