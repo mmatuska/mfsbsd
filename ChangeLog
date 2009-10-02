@@ -3,6 +3,17 @@
 # mfsBSD changelog
 # Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
 #
+02.10.2009
+  - Drop FreeBSD-6 support
+  - Load ZFS and tmpfs by default
+  - Introduce new mfsbsd script for kenv variables
+  - Rewrite interfaces script
+  - Disable consoles (leave only v0 and v1)
+  - Mount tmp using tmpfs
+  - Move rootpw to a variable, encrypt the root password
+  - Pre-generate ssh host keys
+  - Other cleanup and fixes
+
 20.08.2009
   - Switch from doFS.sh to makefs
 

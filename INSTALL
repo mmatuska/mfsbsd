@@ -3,7 +3,7 @@
 # mfsBSD installation (deployment) instructions
 # Copyright (c) 2007 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.0-BETA2
+# Version 1.0-BETA4
 
 BUILD:
 For customized build please see the BUILD file
@@ -15,7 +15,7 @@ You have a linux server without console access and want to install
 FreeBSD on this server.
 
 a) modify your configuration files (do this properly, or no ssh access)
-b) create an image file (e.g. make DIST=1 BASE=/cdrom/7.2-RELEASE)
+b) create an image file (e.g. make BASE=/cdrom/7.2-RELEASE)
 c) write image with dd to the bootable harddrive of the linux server
 d) reboot
 e) ssh to your machine and enjoy :)
@@ -25,7 +25,7 @@ You want a rescue CD-ROM with a minimal FreeBSD installation that doesn't
 need to remain in the tray after booting.
 
 a) modify your configuration files
-b) create an iso image file (e.g. make iso DIST=1 BASE=/cdrom/7.2-RELEASE)
+b) create an iso image file (e.g. make iso BASE=/cdrom/7.2-RELEASE)
 c) burn ISO image onto a writable CD
 d) boot from the CD and enjoy :)
 
@@ -34,7 +34,7 @@ You want a rescue partition on your FreeBSD system so you can re-partition
 all harddrives remotely.
 
 a) modify your configuration files
-b) create an .tar.gz file (e.g. make tar DIST=1 BASE=/cdrom/7.2-RELEASE)
+b) create an .tar.gz file (e.g. make tar BASE=/cdrom/7.2-RELEASE)
 c) create your slice with sysinstall or fdisk (e.g. ad0s1)
 d) auto-label the slice (e.g. bsdlabel -r -w ad0s1 auto)
 e) create a filesystem on the slice (e.g. newfs /dev/ad0s1a)

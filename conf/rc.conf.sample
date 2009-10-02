@@ -9,11 +9,6 @@
 # Set this to any desired hostname
 hostname="mfsbsd"
 #
-# Set this to your desired root password of the installation
-# As an alternative, you can add keys to the authorized_keys file.
-# If rootpw is unset or empty, you can authorize with keys only.
-rootpw="mfsbsd"
-#
 # You need a gateway defined for a working network setup
 #defaultrouter="192.168.0.254"
 #
@@ -22,14 +17,12 @@ rootpw="mfsbsd"
 #ifconfig_rl0="DHCP"
 #
 # Set the size of your memory var and tmp filesystems
-#
 varmfs="YES"
 varsize="64m"
-tmpmfs="YES"
-tmpsize="128m"
 #
 # Change the values below only if you know what you are doing!
 #
+mfsbsd_enable="YES"
 sshd_enable="YES"
 sendmail_enable="NONE"
 cron_enable="NO"

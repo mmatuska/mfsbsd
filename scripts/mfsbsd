@@ -1,0 +1,76 @@
+#!/bin/sh
+# $Id$
+
+# PROVIDE: mfsbsd
+# BEFORE: NETWORKING netif routing hostname
+# REQUIRE: mountcritlocal mdinit
+# KEYWORD: FreeBSD
+
+. /etc/rc.subr
+
+name="mfsbsd"
+start_cmd="mfsbsd_start"
+stop_cmd=":"
+
+mfsbsd_start()
+{
+	_hn=`/bin/kenv -q mfsbsd.hostname`
+	_clif=`/bin/kenv -q mfsbsd.cloned_interfaces`
+	_mif=`/bin/kenv -q mfsbsd.mac_interfaces`
+	_dhcp=`/bin/kenv -q mfsbsd.autodhcp`
+	_if=`/bin/kenv -q mfsbsd.interfaces`
+	_dr=`/bin/kenv -q mfsbsd.defaultrouter`
+	_sr=`/bin/kenv -q mfsbsd.static_routes`
+	_ns=`/bin/kenv -q mfsbsd.nameservers`
+	_rootpw=`/bin/kenv -q mfsbsd.rootpw`
+	if [ -n "$_hn" ]; then
+		echo "hostname=\"$_hn\"" >> /etc/rc.conf.d/hostname
+	fi
+	if [ -n "$_clif" ]; then
+		echo "cloned_interfaces=\"$_clif\"" >> /etc/rc.conf.d/network
+	fi
+	if [ -n "$_mif" ]; then
+		echo "mac_interfaces=\"$_clif\"" >> /etc/rc.conf.d/interfaces
+		for i in $_mif; do
+			_mac=`/bin/kenv mfsbsd.ifconfig_$i_mac`
+			if [ -n $_mac ]; then
+				echo "ifconfig_$i_mac=\"$_mac\"" >> /etc/rc.conf.d/interfaces
+			fi
+		done
+	fi
+	if `checkyesno _dhcp`; then
+		_dif=`/sbin/ifconfig -l | /usr/bin/sed -E 's/lo[0-9]+//g'`
+		for i in $_dif; do
+			echo "ifconfig_$i=\"DHCP\"" >> /etc/rc.conf.d/network
+		done
+	fi
+	for i in $_if $_mif $_clif; do
+		_config=`/bin/kenv mfsbsd.ifconfig_$i`
+		if [ -n $_config ]; then
+			echo "ifconfig_$i=\"$_config\"" >> /etc/rc.conf.d/network
+		fi
+	done
+	if [ -n "$_dr" ]; then
+		echo "defaultrouter=\"$_dr\"" >> /etc/rc.conf.d/routing
+	fi
+	if [ -n "$_sr" ]; then
+		echo "static_routes=\"$_sr\"" >> /etc/rc.conf.d/routing
+		for i in $_sr; do
+			_config=`/bin/kenv mfsbsd.route_$i`
+			if [ -n $_config ]; then
+				echo "route_$i=\"$_config\"" >> /etc/rc.conf.d/routing
+			fi
+		done
+	fi
+	if [ -n "$_rootpw" ]; then
+		echo $_rootpw | /usr/sbin/pw usermod root -h 0
+	fi
+	if [ -n "$_ns" ]; then
+		for n in $_ns; do
+			echo "nameserver $_n" >> /etc/resolv.conf
+		done
+	fi
+}
+
+load_rc_config $name
+run_rc_command "$1"

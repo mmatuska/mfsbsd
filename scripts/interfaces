@@ -2,7 +2,8 @@
 # $Id$
 
 # PROVIDE: interfaces
-# REQUIRE: LOGIN
+# BEFORE: NETWORKING netif
+# REQUIRE: mdinit mfsbsd
 # KEYWORD: FreeBSD
 
 . /etc/rc.subr
@@ -13,25 +14,24 @@ stop_cmd=":"
 
 interfaces_start()
 {
-	if [ -z "${initconf_interfaces}" ]; then
+	if [ -z "${mac_interfaces}" ]; then
 	    exit 0
 	fi
-	for interface in ${initconf_interfaces}; do
-		macaddr=`eval echo "\\$initconf_mac_${interface}"`
-		ipaddr=`eval echo "\\$initconf_ip_${interface}"`
-		netmask=`eval echo "\\$initconf_netmask_${interface}"`
-		echo ${ipaddr} ${initconf_hostname} ${initconf_hostname}.>> /etc/hosts
-
-		for real_if in `ifconfig -l`; do
-			if ifconfig ${real_if} | grep -qi ${macaddr}; then
-echo ifconfig_${real_if}=\"inet ${ipaddr} netmask ${netmask}\" >> /etc/rc.conf
-			fi
-		done
+	for if in ${mac_interfaces}; do
+		_cmac=`eval echo "\\$ifconfig_${if}_mac"`
+		if [ -n "$_cmac" ]; then
+			_dif=`/sbin/ifconfig -l | /usr/bin/sed -E 's/lo[0-9]+//g'`
+			for i in $_dif; do
+				_mac=`/sbin/ifconfig $i | /usr/bin/grep ether | /usr/bin/awk '{ print $2 }'`
+				if [ "$_mac" = "$_cmac" ]; then
+					_cif=`eval echo "\\$ifconfig_${if}"`
+					if [ -n "$_cif" ]; then
+						echo "ifconfig_$i=\"${_cif}\"" >> /etc/rc.conf.d/network
+					fi
+				fi
+			done
+		fi
 	done
-
-	/etc/rc.d/netif restart
-	/etc/rc.d/routing restart
-	/etc/rc.d/sshd restart
 }
 
 load_rc_config $name

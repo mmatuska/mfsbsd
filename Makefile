@@ -3,7 +3,7 @@
 # mfsBSD
 # Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.0-BETA3
+# Version 1.0-BETA4
 #
 
 #
@@ -17,6 +17,7 @@ KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=5%
 MFSROOT_FREE_BLOCKS?=5%
 MFSROOT_MAXSIZE?=45m
+ROOTPW?= mfsbsd
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -57,8 +58,11 @@ MKUZIP=/usr/bin/mkuzip
 GZIP=/usr/bin/gzip
 TOUCH=/usr/bin/touch
 LS=/bin/ls
+PW=/usr/sbin/pw
+SED=/usr/bin/sed
 UNAME=/usr/bin/uname
 MAKEFS=/usr/sbin/makefs
+SSHKEYGEN=/usr/bin/ssh-keygen
 MKISOFS=/usr/local/bin/mkisofs
 #
 CURDIR!=${PWD}
@@ -69,11 +73,10 @@ BSDLABEL=bsdlabel
 STEPS=7
 #
 DOFS=${TOOLSDIR}/doFS.sh
-SCRIPTS=mdinit rootpw interfaces packages
-BOOTMODULES=acpi snp geom_uzip zlib
+SCRIPTS=mdinit mfsbsd interfaces packages
+BOOTMODULES=acpi snp geom_uzip zlib tmpfs opensolaris zfs
 MFSMODULES=geom_label geom_mirror
 #
-IMGSIZE=48000
 
 all: image
 
@@ -194,17 +197,29 @@ ${WRKDIR}/.config_done:
 		${CP} ${SCRIPTSDIR}/$${SCRIPT} ${WRKDIR}/mfs/etc/rc.d/; \
 		${CHMOD} 555 ${WRKDIR}/mfs/etc/rc.d/$${SCRIPT}; \
 	done
+	@${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${WRKDIR}/mfs/etc/ttys
 	@echo "/dev/md0 / ufs rw 0 0" > ${WRKDIR}/mfs/etc/fstab
+	@echo "tmpfs /tmp tmpfs rw 0 0" >> ${WRKDIR}/mfs/etc/fstab
+	@echo ${ROOTPW} | ${PW} -V ${WRKDIR}/mfs/etc usermod root -h 0
 	@echo PermitRootLogin yes >> ${WRKDIR}/mfs/etc/ssh/sshd_config
 	@echo 127.0.0.1 localhost > ${WRKDIR}/mfs/etc/hosts
 	@${TOUCH} ${WRKDIR}/.config_done
+	@echo " done"
+
+genkeys: config ${WRKDIR}/.genkeys_done
+${WRKDIR}/.genkeys_done:
+	@echo -n "Generating SSH host keys ..."
+	@${SSHKEYGEN} -t rsa1 -b 1024 -f ${WRKDIR}/mfs/etc/ssh/ssh_host_key -N '' > /dev/null
+	@${SSHKEYGEN} -t dsa -f ${WRKDIR}/mfs/etc/ssh/ssh_host_dsa_key -N '' > /dev/null
+	@${SSHKEYGEN} -t rsa -f ${WRKDIR}/mfs/etc/ssh/ssh_host_rsa_key -N '' > /dev/null
+	@${TOUCH} ${WRKDIR}/.genkeys_done
 	@echo " done"
 
 usr.uzip: install prune ${WRKDIR}/.usr.uzip_done
 ${WRKDIR}/.usr.uzip_done:
 	@echo -n "Creating usr.uzip ..."
 	@${MKDIR} ${WRKDIR}/mnt
-	@${MAKEFS} -t ffs ${WRKDIR}/usr.img ${WRKDIR}/mnt
+	@${MAKEFS} -t ffs ${WRKDIR}/usr.img ${WRKDIR}/mfs/usr > /dev/null
 	@${MKUZIP} -o ${WRKDIR}/mfs/usr.uzip ${WRKDIR}/usr.img > /dev/null
 	@${RM} -rf ${WRKDIR}/mfs/usr ${WRKDIR}/usr.img && ${MKDIR} ${WRKDIR}/mfs/usr
 	@${TOUCH} ${WRKDIR}/.usr.uzip_done
@@ -228,11 +243,11 @@ ${WRKDIR}/.boot_done:
 	@${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
-mfsroot: install prune config boot usr.uzip packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys boot usr.uzip packages ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
-	@${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${WRKDIR}/mfs
+	@${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${WRKDIR}/mfs > /dev/null
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/mfs
 	@${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	@${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
@@ -244,7 +259,7 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-image: install prune config boot usr.uzip mfsroot ${IMAGE}
+image: install prune config genkeys boot usr.uzip mfsroot ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
@@ -254,20 +269,23 @@ ${IMAGE}:
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	@${MV} ${WRKDIR}/disk.img ${IMAGE}
 	@echo " done"
+	@${LS} -l ${IMAGE}
 
-iso: install prune config boot usr.uzip mfsroot ${ISOIMAGE}
+iso: install prune config genkeys boot usr.uzip mfsroot ${ISOIMAGE}
 ${ISOIMAGE}:
 	@if [ ! -x "${MKISOFS}" ]; then exit 1; fi
 	@echo -n "Creating ISO image ..."
-	@${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk
+	@${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk > /dev/null 2> /dev/null
 	@echo " done"
+	@${LS} -l ${ISOIMAGE}
 
 tar: install prune config boot usr.uzip mfsroot ${TARFILE}
 ${TARFILE}:
 	@echo -n "Creating tar.gz file ..."
 	@${TAR} -c -z -f ${TARFILE} -C ${WRKDIR}/disk boot mfsroot.gz
 	@echo " done"
+	@${LS} -l ${TARFILE}
 
 clean:
 	@if [ -d ${WRKDIR} ]; then ${CHFLAGS} -R noschg ${WRKDIR}; fi
-	@${RM} -rf ${WRKDIR}
+	@cd ${WRKDIR} && ${RM} -rf mfs mnt disk trees .*_done
