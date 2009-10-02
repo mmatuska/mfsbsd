@@ -22,7 +22,6 @@ varsize="64m"
 #
 # Change the values below only if you know what you are doing!
 #
-mfsbsd_enable="YES"
 sshd_enable="YES"
 sendmail_enable="NONE"
 cron_enable="NO"
