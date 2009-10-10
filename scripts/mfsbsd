@@ -38,11 +38,13 @@ mfsbsd_start()
 			fi
 		done
 	fi
-	if `checkyesno _dhcp`; then
-		_dif=`/sbin/ifconfig -l | /usr/bin/sed -E 's/lo[0-9]+//g'`
-		for i in $_dif; do
-			echo "ifconfig_$i=\"DHCP\"" >> /etc/rc.conf.d/network
-		done
+	if [ -n "$_dhcp" ]; then
+		if `checkyesno _dhcp`; then
+			_dif=`/sbin/ifconfig -l | /usr/bin/sed -E 's/lo[0-9]+//g'`
+			for i in $_dif; do
+				echo "ifconfig_$i=\"DHCP\"" >> /etc/rc.conf.d/network
+			done
+		fi
 	fi
 	for i in $_if $_mif $_clif; do
 		_config=`/bin/kenv mfsbsd.ifconfig_$i`
