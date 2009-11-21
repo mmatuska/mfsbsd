@@ -74,7 +74,7 @@ STEPS=7
 #
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi snp geom_uzip zlib tmpfs opensolaris zfs
+BOOTMODULES=acpi snp geom_uzip zlib opensolaris zfs
 MFSMODULES=geom_label geom_mirror
 #
 
@@ -199,7 +199,7 @@ ${WRKDIR}/.config_done:
 	done
 	@${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${WRKDIR}/mfs/etc/ttys
 	@echo "/dev/md0 / ufs rw 0 0" > ${WRKDIR}/mfs/etc/fstab
-	@echo "tmpfs /tmp tmpfs rw 0 0" >> ${WRKDIR}/mfs/etc/fstab
+	@echo "md /tmp mfs rw,-s128m 0 0" > ${WRKDIR}/mfs/etc/fstab
 	@echo ${ROOTPW} | ${PW} -V ${WRKDIR}/mfs/etc usermod root -h 0
 	@echo PermitRootLogin yes >> ${WRKDIR}/mfs/etc/ssh/sshd_config
 	@echo 127.0.0.1 localhost > ${WRKDIR}/mfs/etc/hosts
