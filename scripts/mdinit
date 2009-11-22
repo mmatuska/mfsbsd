@@ -14,8 +14,8 @@ stop_cmd=":"
 
 mdinit_start()
 {
-	/sbin/mdconfig -a -t vnode -u 1 -f usr.uzip
-	/sbin/mount -r /dev/md1.uzip /usr
+	MD=`/sbin/mdconfig -a -t vnode -f usr.uzip`
+	/sbin/mount -r /dev/${MD}.uzip /usr
 }
 
 load_rc_config $name
