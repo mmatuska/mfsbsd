@@ -9,7 +9,7 @@
 #
 # User-defined variables
 #
-BASE?=/cdrom/7.2-RELEASE
+BASE?=/cdrom/8.0-RELEASE
 IMAGE?=	mfsboot.img
 ISOIMAGE?= mfsboot.iso
 TARFILE?= mfsboot.tar.gz
@@ -199,7 +199,7 @@ ${WRKDIR}/.config_done:
 	done
 	@${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${WRKDIR}/mfs/etc/ttys
 	@echo "/dev/md0 / ufs rw 0 0" > ${WRKDIR}/mfs/etc/fstab
-	@echo "md /tmp mfs rw,-s128m 0 0" > ${WRKDIR}/mfs/etc/fstab
+	@echo "md /tmp mfs rw,-s128m 0 0" >> ${WRKDIR}/mfs/etc/fstab
 	@echo ${ROOTPW} | ${PW} -V ${WRKDIR}/mfs/etc usermod root -h 0
 	@echo PermitRootLogin yes >> ${WRKDIR}/mfs/etc/ssh/sshd_config
 	@echo 127.0.0.1 localhost > ${WRKDIR}/mfs/etc/hosts
