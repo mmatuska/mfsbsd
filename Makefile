@@ -191,7 +191,7 @@ ${WRKDIR}/.config_done:
 		${INSTALL} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/ \
 	fi
 	@${MKDIR} ${WRKDIR}/mfs/root/bin
-	@@	
+	@${INSTALL} ${TOOLSDIR}/zfsinstall ${WRKDIR}/mfs/root/bin
 	@for SCRIPT in ${SCRIPTS}; do \
 		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${WRKDIR}/mfs/etc/rc.d/; \
 	done
