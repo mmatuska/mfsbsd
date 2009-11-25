@@ -168,7 +168,7 @@ ${WRKDIR}/.config_done:
 			fi \
 		fi \
 	done
-	@${RM} -f ${WRKDIR}/mfs/etc/motd
+	@${INSTALL} -m 0644 ${TOOLSDIR}/motd ${WRKDIR}/mfs/etc/motd
 	@${MKDIR} ${WRKDIR}/mfs/stand ${WRKDIR}/mfs/etc/rc.conf.d
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/loader.conf; \
