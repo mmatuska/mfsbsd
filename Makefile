@@ -188,7 +188,7 @@ ${WRKDIR}/.config_done:
 	fi
 	@if [ -f "${CFGDIR}/authorized_keys" ]; then \
 		${INSTALL} -m 0700 ${WRKDIR}/mfs/root/.ssh; \
-		${INSTALL} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/ \
+		${INSTALL} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/; \
 	fi
 	@${MKDIR} ${WRKDIR}/mfs/root/bin
 	@${INSTALL} ${TOOLSDIR}/zfsinstall ${WRKDIR}/mfs/root/bin
