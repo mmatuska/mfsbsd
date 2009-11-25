@@ -54,10 +54,10 @@ MV=/bin/mv
 RM=/bin/rm
 RMDIR=/bin/rmdir
 CHFLAGS=/bin/chflags
-CHMOD=/bin/chmod
 MKUZIP=/usr/bin/mkuzip
 GZIP=/usr/bin/gzip
 TOUCH=/usr/bin/touch
+INSTALL=/usr/bin/install
 LS=/bin/ls
 PW=/usr/sbin/pw
 SED=/usr/bin/sed
@@ -171,29 +171,29 @@ ${WRKDIR}/.config_done:
 	@${RM} -f ${WRKDIR}/mfs/etc/motd
 	@${MKDIR} ${WRKDIR}/mfs/stand ${WRKDIR}/mfs/etc/rc.conf.d
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
-		${CP} ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/loader.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/loader.conf; \
 	else \
-		${CP} ${CFGDIR}/loader.conf.sample ${WRKDIR}/mfs/boot/loader.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/mfs/boot/loader.conf; \
 	fi
 	@if [ -f "${CFGDIR}/rc.conf" ]; then \
-		${CP} ${CFGDIR}/rc.conf ${WRKDIR}/mfs/etc/rc.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/rc.conf ${WRKDIR}/mfs/etc/rc.conf; \
 	else \
-		${CP} ${CFGDIR}/rc.conf.sample ${WRKDIR}/mfs/etc/rc.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/rc.conf.sample ${WRKDIR}/mfs/etc/rc.conf; \
 	fi
 	@if [ -f "${CFGDIR}/resolv.conf" ]; then \
-		${CP} ${CFGDIR}/resolv.conf ${WRKDIR}/mfs/etc/resolv.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/resolv.conf ${WRKDIR}/mfs/etc/resolv.conf; \
 	fi
 	@if [ -f "${CFGDIR}/interfaces.conf" ]; then \
-		${CP} ${CFGDIR}/interfaces.conf ${WRKDIR}/mfs/etc/rc.conf.d/interfaces; \
+		${INSTALL} -m 0644 ${CFGDIR}/interfaces.conf ${WRKDIR}/mfs/etc/rc.conf.d/interfaces; \
 	fi
 	@if [ -f "${CFGDIR}/authorized_keys" ]; then \
-		${MKDIR} ${WRKDIR}/mfs/root/.ssh; \
-		${CHMOD} 700 ${WRKDIR}/mfs/root/.ssh; \
-		${CP} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/authorized_keys; \
+		${INSTALL} -m 0700 ${WRKDIR}/mfs/root/.ssh; \
+		${INSTALL} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/ \
 	fi
+	@${MKDIR} ${WRKDIR}/mfs/root/bin
+	@@	
 	@for SCRIPT in ${SCRIPTS}; do \
-		${CP} ${SCRIPTSDIR}/$${SCRIPT} ${WRKDIR}/mfs/etc/rc.d/; \
-		${CHMOD} 555 ${WRKDIR}/mfs/etc/rc.d/$${SCRIPT}; \
+		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${WRKDIR}/mfs/etc/rc.d/; \
 	done
 	@${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${WRKDIR}/mfs/etc/ttys
 	@echo "/dev/md0 / ufs rw 0 0" > ${WRKDIR}/mfs/etc/fstab
@@ -231,11 +231,11 @@ ${WRKDIR}/.boot_done:
 	@${CP} -rp ${WRKDIR}/mfs/boot ${WRKDIR}/disk
 	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko
 	@for FILE in ${BOOTMODULES}; do \
-		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko && ${CP} -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/disk/boot/kernel/$${FILE}.ko >/dev/null 2>/dev/null; \
+		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko && ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null; \
 	done
 	@${MKDIR} -p ${WRKDIR}/disk/boot/modules
 	@for FILE in ${MFSMODULES}; do \
-		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko && ${MV} -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/mfs/boot/modules/ >/dev/null 2>/dev/null; \
+		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko && ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/mfs/boot/modules >/dev/null 2>/dev/null; \
 	done
 	@${RM} -rf ${WRKDIR}/mfs/boot/kernel
 	@${TOUCH} ${WRKDIR}/.boot_done
@@ -250,9 +250,9 @@ ${WRKDIR}/.mfsroot_done:
 	@${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	@${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
-		${CP} ${CFGDIR}/loader.conf ${WRKDIR}/disk/boot/loader.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/disk/boot/loader.conf; \
 	else \
-		${CP} ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
 	fi
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
@@ -261,7 +261,7 @@ image: install prune config genkeys boot usr.uzip mfsroot ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
-	@${CP} ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
+	@${INSTALL} -m 0444 ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
 #	@${MAKEFS} -t ffs ${WRKDIR}/disk.img ${WRKDIR}/disk
 	@${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
