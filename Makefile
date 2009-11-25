@@ -40,6 +40,7 @@ SCRIPTSDIR=scripts
 PACKAGESDIR=packages
 FILESDIR=files
 TOOLSDIR=tools
+PRUNELIST?=${TOOLSDIR}/prunelist
 #
 # Program defaults
 #
@@ -61,6 +62,7 @@ LS=/bin/ls
 PW=/usr/sbin/pw
 SED=/usr/bin/sed
 UNAME=/usr/bin/uname
+BZIP2=/usr/bin/bzip2
 MAKEFS=/usr/sbin/makefs
 SSHKEYGEN=/usr/bin/ssh-keygen
 MKISOFS=/usr/local/bin/mkisofs
@@ -128,25 +130,21 @@ ${WRKDIR}/.install_done:
 	@cd ${SRCDIR} && make installworld DESTDIR="${WRKDIR}/mfs"
 	@cd ${SRCDIR} && make distribution DESTDIR="${WRKDIR}/mfs"
 	@cd ${SRCDIR} && make installkernel DESTDIR="${WRKDIR}/mfs"
+	@${RM} -rf ${WRKDIR}/mfs/boot/kernel/*.symbols
 	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
 .endif
 	@${TOUCH} ${WRKDIR}/.install_done
 
 prune: install ${WRKDIR}/.prune_done
 ${WRKDIR}/.prune_done:
-	@echo -n "Removing unnecessary files from distribution ..."
-	@${RM} -rf ${WRKDIR}/mfs/rescue ${WRKDIR}/mfs/usr/include ${WRKDIR}/mfs/usr/games
-	@${RM} -rf ${WRKDIR}/mfs/usr/lib32
-.for DIR in dict doc games info man openssl
-	@${RM} -rf ${WRKDIR}/mfs/usr/share/${DIR}
-.endfor
-	@${RM} -f ${WRKDIR}/mfs/usr/lib/*.a
-	@${RM} -f ${WRKDIR}/mfs/usr/libexec/cc1* ${WRKDIR}/mfs/usr/libexec/f771
-	@for x in c++ g++ CC gcc cc yacc byacc f77 addr2line	\
-		ar as gasp gdb gdbreplay ld nm objcopy objdump	\
-		ranlib readelf size strip gdbtui kgdb; do \
-		${RM} -f ${WRKDIR}/mfs/usr/bin/$$x; \
-	done
+	@echo -n "Removing selected files from distribution ..."
+	@if [ -f "${PRUNELIST}" ]; then \
+		for FILE in `cat ${PRUNELIST}`; do \
+			if [ -n "$${FILE}" ]; then \
+				${RM} -rf ${WRKDIR}/mfs/$${FILE}; \
+			fi; \
+		done; \
+	fi
 	@${TOUCH} ${WRKDIR}/.prune_done
 	@echo " done"
 
