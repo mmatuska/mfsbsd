@@ -27,8 +27,20 @@ fi
 
 if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
 	echo Error: ZFS pool \"$POOL\" already exists
-	echo Please choose another name or destroy.
+	echo Please choose another pool name or rename/destroy the existing pool.
 	exit 1
+fi
+
+EXPOOLS=`/sbin/zpool import | /usr/bin/grep pool: | /usr/bin/head -1 | /usr/bin/awk '{ print $2 }'`
+
+if [ -n "${EXPOOLS}" ]; then
+	for P in ${EXPOOLS}; do
+		if [ "$P" = "$POOL" ]; then
+			echo Error: An exported ZFS pool \"$POOL\" already exists
+			echo Please choose another pool name or rename/destroy the exported pool.
+			exit 1
+		fi
+	done
 fi
 
 if ! [ -c "${DEV}" ]; then
@@ -91,10 +103,15 @@ if [ -n "${SWAP}" ]; then
 	if [ -z "$SWAPPART" ]; then
 		echo " error determining swap partition"
 	fi
+	
 fi
 if ! /sbin/gpart add -t freebsd-zfs ${GEOM} > /dev/null; then
 	echo " error"
 	exit 1
+fi
+/bin/dd if=/dev/zero of=/dev/${GEOM}p2 bs=512 count=560 > /dev/null 2> /dev/null
+if [ -n "${SWAP}" ]; then
+	/bin/dd if=/dev/zero of=/dev/${GEOM}p3 bs=512 count=560 > /dev/null 2> /dev/null
 fi
 echo " done"
 
