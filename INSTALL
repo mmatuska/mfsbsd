@@ -1,9 +1,9 @@
 # $Id$
 #
 # mfsBSD installation (deployment) instructions
-# Copyright (c) 2007 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2009 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.0-BETA4
+# Version 1.0-RC1
 
 BUILD:
 For customized build please see the BUILD file

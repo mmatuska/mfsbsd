@@ -1,9 +1,9 @@
 # $Id$
 #
 # mfsBSD
-# Copyright (c) 2007-2008 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2009 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.0-BETA4
+# Version 1.0-RC1
 #
 
 #
@@ -168,7 +168,11 @@ ${WRKDIR}/.config_done:
 			fi \
 		fi \
 	done
+.if defined(SE)
+	@${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${WRKDIR}/mfs/etc/motd
+.else
 	@${INSTALL} -m 0644 ${TOOLSDIR}/motd ${WRKDIR}/mfs/etc/motd
+.endif
 	@${MKDIR} ${WRKDIR}/mfs/stand ${WRKDIR}/mfs/etc/rc.conf.d
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/loader.conf; \
@@ -262,7 +266,6 @@ ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
 	@${INSTALL} -m 0444 ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
-#	@${MAKEFS} -t ffs ${WRKDIR}/disk.img ${WRKDIR}/disk
 	@${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	@${MV} ${WRKDIR}/disk.img ${IMAGE}
