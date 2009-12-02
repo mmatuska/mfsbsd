@@ -191,7 +191,7 @@ ${WRKDIR}/.config_done:
 		${INSTALL} -m 0644 ${CFGDIR}/interfaces.conf ${WRKDIR}/mfs/etc/rc.conf.d/interfaces; \
 	fi
 	@if [ -f "${CFGDIR}/authorized_keys" ]; then \
-		${INSTALL} -m 0700 ${WRKDIR}/mfs/root/.ssh; \
+		${INSTALL} -d -m 0700 ${WRKDIR}/mfs/root/.ssh; \
 		${INSTALL} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/; \
 	fi
 	@${MKDIR} ${WRKDIR}/mfs/root/bin
