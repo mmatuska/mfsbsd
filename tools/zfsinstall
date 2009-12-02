@@ -190,6 +190,10 @@ echo "zfs_load=\"YES\"" > ${MNT}/boot/loader.conf
 echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
 echo " done"
 
+echo -n "Writing /etc/src.conf..."
+echo "LOADER_ZFS_SUPPORT=\"YES\"" > ${MNT}/etc/src.conf
+echo " done"
+
 echo -n "Writing /etc/fstab..."
 rm -f ${MNT}/etc/fstab
 if [ -n "$SWAPPART" ]; then
