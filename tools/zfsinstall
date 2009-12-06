@@ -4,20 +4,48 @@
 # mfsBSD ZFS install script
 # Copyright (c) 2009 Martin Matuska <mm at FreeBSD.org>
 #
-while getopts d:t:p:s:m: o; do
+usage() {
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t dist_tbz_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size]"
+}
+
+help() {
+	echo; echo "Install FreeBSD using ZFS from a compressed archive"
+	echo; echo "Required flags:"
+	echo "-d geom_provider  : geom provider(s) to install to (e.g. da0)"
+	echo "-t dist_tbz_file  : archive file containing the FreeBSD distribution"
+	echo; echo "Optional flags:"
+	echo "-r raidz|mirror   : select raid mode if more than one -d provider given"
+	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
+	echo "-z zfs_part_size  : create zfs parition of this size (default: all space left)"
+	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
+	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
+	echo; echo "Examples:"
+	echo "Install on a single drive with 2GB swap:"
+	echo "$0 -d ad4 -s 2G"
+	echo "Install on a mirror without swap, pool name rpool:"
+	echo "$0 -d ad4 -d ad6 -r mirror -p rpool"
+	echo; echo "Notes:"
+	echo "When using swap and raidz/mirror, the swap partition is created on all drives."
+	echo "The /etc/fstab entry will contatin only the first drive's swap partition."
+	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
+}
+
+while getopts d:t:r:p:s:z:m:h o; do
 	case "$o" in
-        	d) DEV="${OPTARG}" ;;
+        	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
         	t) TBZ="${OPTARG}" ;;
         	p) POOL="${OPTARG}" ;;
         	s) SWAP="${OPTARG}" ;;
         	m) MNT="${OPTARG}" ;;
-		[?])    echo "Usage: $0 -d disk_device -t dist_tbz_file [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size]"
-                	exit 1;;
+		r) RAID="${OPTARG}" ;;
+		z) ZPART="${OPTARG}" ;;
+		h) help; exit 1;;
+		[?]) usage; exit 1;;
 esac
 done
 
-if [ -z "$DEV" -o -z "$TBZ" ]; then
-	echo "Usage: $0 -d disk_device -t dist_tbz_file [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size]"
+if [ -z "$DEVS" -o -z "$TBZ" ]; then
+	usage
 	exit 1
 fi
 
@@ -43,21 +71,35 @@ if [ -n "${EXPOOLS}" ]; then
 	done
 fi
 
-if ! [ -c "${DEV}" ]; then
-	echo Error: ${DEV} is not a block device
+COUNT=`echo ${DEVS} | /usr/bin/wc -w | /usr/bin/awk '{ print $1 }'`
+if [ "$COUNT" -lt "3" -a "$RAID" = "raidz" ]; then
+	echo "Error: raidz needs at least three devices (-d switch)"
+	exit 1
+elif [ "$COUNT" = "1" -a "$RAID" = "mirror" ]; then
+	echo "Error: mirror needs at least two devices (-d switch)"
+	exit 1
+elif [ "$COUNT" = "2" -a "$RAID" != "mirror" ]; then
+	echo "Notice: two drives selected, automatically choosing mirror mode"
+	RAID="mirror"
+elif [ "$COUNT" -gt "2" -a "$RAID" != "mirror" -a "$RAID" != "raidz" ]; then
+	echo "Error: please choose raid mode with the -r switch (mirror or raidz)"
 	exit 1
 fi
 
-GEOM=${DEV##/dev/}
-
-if /sbin/gpart show $GEOM > /dev/null 2> /dev/null; then
-	echo "Error: ${DEV} already contains a partition table."
-	echo ""
-	/sbin/gpart show $GEOM
-	echo "You may erase the partition table manually with the following command:"
-	echo "dd if=/dev/zero of=${DEV} bs=512 count=32"
-	exit 1
-fi
+for DEV in ${DEVS}; do
+	if ! [ -c "/dev/${DEV}" ]; then
+		echo "Error: /dev/${DEV} is not a block device"
+		exit 1
+	fi
+	if /sbin/gpart show $DEV > /dev/null 2> /dev/null; then
+		echo "Error: /dev/${DEV} already contains a partition table."
+		echo ""
+		/sbin/gpart show $DEV
+		echo "You may erase the partition table manually with the following command:"
+		echo "dd if=/dev/zero of=/dev/${DEV} bs=512 count=32"
+		exit 1
+	fi
+done
 
 if ! [ -f "${TBZ}" ]; then
 	echo Error: file $TBZ does not exist
@@ -78,67 +120,70 @@ if ! [ -d "${MNT}" ]; then
 	exit 1
 fi
 
-if [ -n "${SWAP}" ]; then
-	SSWAP="-s ${SWAP}"
+if [ -n "${ZPART}" ]; then
+	SZPART="-s ${ZPART}"
 fi
 
 # Create GPT
 
-echo -n "Creating GUID partitions on ${DEV} ..."
-if ! /sbin/gpart create -s GPT ${DEV} > /dev/null; then
-	echo " error"
-	exit 1
-fi
-/bin/sleep 1
-if ! /sbin/gpart add -t freebsd-boot -s 128 ${GEOM} > /dev/null; then
-	echo " error"
-	exit 1
-fi
-if [ -n "${SWAP}" ]; then
-	if ! /sbin/gpart add -t freebsd-swap -s "${SWAP}" ${GEOM} > /dev/null; then
+for DEV in ${DEVS}; do
+	echo -n "Creating GUID partitions on ${DEV} ..."
+	if ! /sbin/gpart create -s GPT /dev/${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
-	SWAPPART=`/sbin/glabel status ${GEOM}p2 | /usr/bin/grep gptid | /usr/bin/awk '{ print $1 }'`
-	if [ -z "$SWAPPART" ]; then
-		echo " error determining swap partition"
+	/bin/sleep 1
+	if ! /sbin/gpart add -t freebsd-boot -s 128 ${DEV} > /dev/null; then
+		echo " error"
+		exit 1
 	fi
-	
-fi
-if ! /sbin/gpart add -t freebsd-zfs ${GEOM} > /dev/null; then
-	echo " error"
-	exit 1
-fi
-/bin/dd if=/dev/zero of=/dev/${GEOM}p2 bs=512 count=560 > /dev/null 2> /dev/null
-if [ -n "${SWAP}" ]; then
-	/bin/dd if=/dev/zero of=/dev/${GEOM}p3 bs=512 count=560 > /dev/null 2> /dev/null
-fi
-echo " done"
+	if [ -n "${SWAP}" ]; then
+		if ! /sbin/gpart add -t freebsd-swap -s "${SWAP}" ${DEV} > /dev/null; then
+			echo " error"
+			exit 1
+		fi
+		SWAPPART=`/sbin/glabel status ${DEV}p2 | /usr/bin/grep gptid | /usr/bin/awk '{ print $1 }'`
+		if [ -z "$SWAPPART" ]; then
+			echo " error determining swap partition"
+		fi
+		if [ -z "$FSWAP" ]; then
+			FSWAP=${SWAPPART}
+		fi
+	fi
+	if ! /sbin/gpart add -t freebsd-zfs ${SZPART} ${DEV} > /dev/null; then
+		echo " error"
+		exit 1
+	fi
+	/bin/dd if=/dev/zero of=/dev/${DEV}p2 bs=512 count=560 > /dev/null 2> /dev/null
+	if [ -n "${SWAP}" ]; then
+		/bin/dd if=/dev/zero of=/dev/${DEV}p3 bs=512 count=560 > /dev/null 2> /dev/null
+	fi
+	echo " done"
 
-echo -n "Configuring ZFS bootcode on ${DEV} ..."
-if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${GEOM} > /dev/null; then
-	echo " error"
-	exit 1
-fi
-echo " done"
-
-/sbin/gpart show ${GEOM}
+	echo -n "Configuring ZFS bootcode on ${DEV} ..."
+		if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${DEV} > /dev/null; then
+		echo " error"
+		exit 1
+	fi
+	echo " done"
+	/sbin/gpart show ${DEV}
+done
 
 # Create zpool and zfs
 
-GEOM=${DEV##/dev/}
+for DEV in ${DEVS}; do
+	PART=`/sbin/gpart show ${DEV} | /usr/bin/grep freebsd-zfs | /usr/bin/awk '{ print $3 }'`
 
-PART=`/sbin/gpart show ${GEOM} | /usr/bin/grep freebsd-zfs | /usr/bin/awk '{ print $3 }'`
+	if [ -z "${PART}" ]; then
+		echo Error: freebsd-zfs partition not found on /dev/$DEV
+		exit 1
+	fi
 
-if [ -z "${PART}" ]; then
-	echo Error: freebsd-zfs partition not found on $DEV
-	exit 1
-fi
+	PARTS="${PARTS} ${DEV}p${PART}"
+done
 
-GEOM=${DEV}p${PART}
-
-echo -n "Creating ZFS pool ${POOL} on ${GEOM} ..."
-if ! /sbin/zpool create -f -m none ${POOL} ${GEOM} > /dev/null 2> /dev/null; then
+echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
+if ! /sbin/zpool create -f -m none ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
@@ -196,8 +241,8 @@ echo " done"
 
 echo -n "Writing /etc/fstab..."
 rm -f ${MNT}/etc/fstab
-if [ -n "$SWAPPART" ]; then
-	echo "/dev/${SWAPPART} none swap sw 0 0" > ${MNT}/etc/fstab
+if [ -n "$FSWAP" ]; then
+	echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
 fi
 for FS in usr var tmp; do
 echo ${POOL}/${FS} /${FS} zfs rw 0 0 >> ${MNT}/etc/fstab
