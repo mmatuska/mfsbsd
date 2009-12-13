@@ -170,7 +170,7 @@ ${WRKDIR}/.config_done:
 	done
 .if defined(SE)
 	@${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${WRKDIR}/mfs/etc/motd
-	@${INSTALL} -d -m 0755 ${WRKSRC}/mfs/cdrom
+	@${INSTALL} -d -m 0755 ${WRKDIR}/mfs/cdrom
 .else
 	@${INSTALL} -m 0644 ${TOOLSDIR}/motd ${WRKDIR}/mfs/etc/motd
 .endif
