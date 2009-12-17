@@ -179,11 +179,14 @@ for DEV in ${DEVS}; do
 		exit 1
 	fi
 
+	GPART=`/sbin/glabel list ${DEV}p${PART} | /usr/bin/grep gptid | /usr/bin/awk -F"gptid/" '{ print "gptid/" $2 }'`
+
+	GPARTS="${GPARTS} ${GPART}"
 	PARTS="${PARTS} ${DEV}p${PART}"
 done
 
 echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
-if ! /sbin/zpool create -f -m none ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
+if ! /sbin/zpool create -f -m none ${POOL} ${RAID} ${GPARTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
@@ -233,10 +236,6 @@ echo " done"
 echo -n "Writing /boot/loader.conf..."
 echo "zfs_load=\"YES\"" > ${MNT}/boot/loader.conf
 echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
-echo " done"
-
-echo -n "Writing /etc/src.conf..."
-echo "LOADER_ZFS_SUPPORT=\"YES\"" > ${MNT}/etc/src.conf
 echo " done"
 
 echo -n "Writing /etc/fstab..."
