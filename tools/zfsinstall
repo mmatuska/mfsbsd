@@ -4,8 +4,12 @@
 # mfsBSD ZFS install script
 # Copyright (c) 2009 Martin Matuska <mm at FreeBSD.org>
 #
+SUPPORTED_POOL_VERSIONS="1 2 3 4 5 6 7 8 9 10 11 12 13 14"
+MAXIMUM_POOL_VERSION=14
+DEFAULT_POOL_VERSION=13
+
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t dist_tbz_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t dist_tbz_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size]"
 }
 
 help() {
@@ -18,6 +22,7 @@ help() {
 	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
 	echo "-z zfs_part_size  : create zfs parition of this size (default: all space left)"
 	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
+	echo "-V pool_version   : specify a version number for ZFS pool (default: 13)"
 	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
 	echo; echo "Examples:"
 	echo "Install on a single drive with 2GB swap:"
@@ -30,7 +35,7 @@ help() {
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:t:r:p:s:z:m:h o; do
+while getopts d:t:r:p:s:z:m:V:h o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
         	t) TBZ="${OPTARG}" ;;
@@ -39,6 +44,7 @@ while getopts d:t:r:p:s:z:m:h o; do
         	m) MNT="${OPTARG}" ;;
 		r) RAID="${OPTARG}" ;;
 		z) ZPART="${OPTARG}" ;;
+		V) VERSION="${OPTARG}" ;;
 		h) help; exit 1;;
 		[?]) usage; exit 1;;
 esac
@@ -51,6 +57,19 @@ fi
 
 if [ -z "$POOL" ]; then
 	POOL=tank
+fi
+
+if [ -z "$VERSION" ]; then
+	VERSION=${DEFAULT_POOL_VERSION}
+else
+	PASS=
+	for V in ${SUPPORTED_POOL_VERSIONS}; do
+		if [ "$V" = "$VERSION" ]; then PASS=1; fi
+	done
+	if [ -z "$PASS" ]; then
+		echo "Error: invalid ZFS pool version (maximum: $MAXIMUM_POOL_VERSION)"
+		exit 1
+	fi
 fi
 
 if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
@@ -186,7 +205,7 @@ for DEV in ${DEVS}; do
 done
 
 echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
-if ! /sbin/zpool create -f -m none ${POOL} ${RAID} ${GPARTS} > /dev/null 2> /dev/null; then
+if ! /sbin/zpool create -f -m none -o version=${VERSION} ${POOL} ${RAID} ${GPARTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
