@@ -1,9 +1,9 @@
 # $Id$
 #
 # mfsBSD building instructions
-# Copyright (c) 2007-2009 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2010 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.0-RC1
+# Version 1.0
 
 BUILDING INSTRUCTIONS:
  1. Configuration

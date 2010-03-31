@@ -1,8 +1,12 @@
 # $Id$
 #
 # mfsBSD changelog
-# Copyright (c) 2007-2009 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2010 Martin Matuska <mm at FreeBSD.org>
 #
+31.03.2010
+  - New options to zfsinstall (-l -c -4)
+  - Add destroygeom script to clear partitions
+
 25.11.2009
   - Introduce prunelist (files to be deleted)
   - Move away from unstable tmpfs back to tmpmfs

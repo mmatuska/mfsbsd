@@ -1,9 +1,9 @@
 # $Id$
 #
 # mfsBSD
-# Copyright (c) 2007-2009 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2010 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.0-RC1
+# Version 1.0
 #
 
 #
@@ -197,6 +197,7 @@ ${WRKDIR}/.config_done:
 	fi
 	@${MKDIR} ${WRKDIR}/mfs/root/bin
 	@${INSTALL} ${TOOLSDIR}/zfsinstall ${WRKDIR}/mfs/root/bin
+	@${INSTALL} ${TOOLSDIR}/destroygeom ${WRKDIR}/mfs/root/bin
 	@for SCRIPT in ${SCRIPTS}; do \
 		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${WRKDIR}/mfs/etc/rc.d/; \
 	done
