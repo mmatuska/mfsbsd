@@ -11,7 +11,8 @@ usage () {
 }
 
 help () {
-	echo; echo "Clear all partitions on a disk"
+	echo; echo "Destroy all partitions on geom provider(s)"
+	echo "Destroy zfs pools"
 	echo; echo "Required flags:"
 	echo "-d geom     : geom provider(s) to clear"
 	echo;echo "Optional flags:"
