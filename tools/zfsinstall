@@ -156,12 +156,6 @@ else
 	ROOTMNT=/
 fi
 
-if [ "${LZJB}" = "1" ]; then
-	COMPRESS="-o compression=lzjb"
-else
-	COMPRESS=
-fi
-
 # Create GPT
 
 for DEV in ${DEVS}; do
@@ -234,8 +228,8 @@ if ! /sbin/zpool create -f -m none ${ALTROOT} -o version=${VERSION} ${POOL} ${RA
 fi
 echo " done"
 
-if [ -n "${FLETCHER}" ]; then
-	echo -n "Setting fletcher4 as default checksum algorithm for ${POOL} ..."
+if [ "${FLETCHER}" = "1" ]; then
+	echo -n "Setting default checksum to fletcher4 for ${POOL} ..."
 	if ! /sbin/zfs set checksum=fletcher4 ${POOL} > /dev/null 2> /dev/null; then
 		echo " error"
 		exit 1
@@ -243,8 +237,17 @@ if [ -n "${FLETCHER}" ]; then
 	echo " done"
 fi
 
+if [ "${LZJB}" = "1" ]; then
+	echo -n "Setting default compression to lzjb for ${POOL} ..."
+	if ! /sbin/zfs set compression=lzjb ${POOL} > /dev/null 2> /dev/null; then
+		echo " error"
+		exit 1
+	fi
+	echo " done"
+fi
+
 echo -n "Creating ${POOL} root partition:"
-if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${COMPRESS} ${POOL}/root > /dev/null 2> /dev/null; then
+if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${POOL}/root > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
@@ -256,7 +259,7 @@ for FS in usr var tmp; do
 	else
 		MNTPT=/${FS}
 	fi
-	if ! /sbin/zfs create -o mountpoint=${MNTPT} ${COMPRESS} ${POOL}/${FS} > /dev/null 2> /dev/null; then
+	if ! /sbin/zfs create -o mountpoint=${MNTPT} ${POOL}/${FS} > /dev/null 2> /dev/null; then
 		echo " error"
 		exit 1
 	fi
