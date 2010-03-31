@@ -272,7 +272,7 @@ echo " done"
 /sbin/zfs list -r ${POOL}
 
 # Mount and populate zfs (if legacy)
-if [ -n "${LEGACY}" ]; then
+if [ "${LEGACY}" = "1" ]; then
 	echo -n "Mounting ${POOL} on ${MNT} ..."
 	/bin/mkdir -p ${MNT}
 	if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then
@@ -304,17 +304,22 @@ echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
 echo " done"
 
 # Write fstab if swap or legacy
-if [ -n "${FSWAP}" -o -n "${LEGACY}" ]; then
+if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
 	echo -n "Writing /etc/fstab..."
 	rm -f ${MNT}/etc/fstab
 	if [ -n "${FSWAP}" ]; then
 		echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
 	fi
-	if [ -n "${LEGACY}" ]; then
+	if [ "${LEGACY}" = "1" ]; then
 		for FS in usr var tmp; do
 			echo ${POOL}/${FS} /${FS} zfs rw 0 0 >> ${MNT}/etc/fstab
 		done
 	fi
+	echo " done"
+fi
+if [ "${LEGACY}" != "1" ]; then
+	echo -n "Writing /etc/rc.conf..."
+	echo 'zfs_enable="YES"' > ${MNT}/etc/rc.conf
 	echo " done"
 fi
 
