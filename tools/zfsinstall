@@ -241,7 +241,7 @@ if [ -n "${FLETCHER}" ]; then
 		exit 1
 	fi
 	echo " done"
-done
+fi
 
 echo -n "Creating ${POOL} root partition:"
 if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${COMPRESS} ${POOL}/root > /dev/null 2> /dev/null; then
@@ -272,7 +272,7 @@ echo " done"
 /sbin/zfs list -r ${POOL}
 
 # Mount and populate zfs (if legacy)
-if [ -z "${LEGACY}" ]; then
+if [ -n "${LEGACY}" ]; then
 	echo -n "Mounting ${POOL} on ${MNT} ..."
 	/bin/mkdir -p ${MNT}
 	if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then

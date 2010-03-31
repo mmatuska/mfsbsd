@@ -23,10 +23,10 @@ help () {
         echo "$0 -p tank -d ada0"
 }
 
-while getopts d:z:h o; do
+while getopts d:p:h o; do
 	case "$o" in
 		d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
-		z) POOLS="$POOLS ${OPTARG}" ;;
+		p) POOLS="$POOLS ${OPTARG}" ;;
 		h) help; exit 1;;
 		[?]) usage; exit 1;;
 	esac
