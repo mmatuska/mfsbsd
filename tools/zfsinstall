@@ -120,8 +120,7 @@ for DEV in ${DEVS}; do
 		echo "Error: /dev/${DEV} already contains a partition table."
 		echo ""
 		/sbin/gpart show $DEV
-		echo "You may erase the partition table manually with the following command:"
-		echo "dd if=/dev/zero of=/dev/${DEV} bs=512 count=32"
+		echo "You may erase the partition table manually with the destroygeom command"
 		exit 1
 	fi
 done
