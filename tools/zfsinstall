@@ -9,7 +9,7 @@ MAXIMUM_POOL_VERSION=14
 DEFAULT_POOL_VERSION=13
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t dist_tbz_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t dist_tbz_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
 }
 
 help() {
@@ -24,6 +24,9 @@ help() {
 	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
 	echo "-V pool_version   : specify a version number for ZFS pool (default: 13)"
 	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
+	echo "-c		: enable lzjb compression for all datasets"
+	echo "-l 		: use legacy mounts (via fstab) instead of ZFS mounts"
+	echo "-4		: use fletcher4 as default checksum algorithm"
 	echo; echo "Examples:"
 	echo "Install on a single drive with 2GB swap:"
 	echo "$0 -d ad4 -s 2G"
@@ -45,6 +48,9 @@ while getopts d:t:r:p:s:z:m:V:h o; do
 		r) RAID="${OPTARG}" ;;
 		z) ZPART="${OPTARG}" ;;
 		V) VERSION="${OPTARG}" ;;
+		c) LZJB=1 ;;
+		l) LEGACY=1 ;;
+		4) FLETCHER=1 ;;
 		h) help; exit 1;;
 		[?]) usage; exit 1;;
 esac
@@ -143,6 +149,20 @@ if [ -n "${ZPART}" ]; then
 	SZPART="-s ${ZPART}"
 fi
 
+if [ "${LEGACY}" = "1" ]; then
+	ALTROOT=
+	ROOTMNT=legacy
+else
+	ALTROOT="-o altroot=${MNT}"
+	ROOTMNT=/
+fi
+
+if [ "${LZJB}" = "1" ]; then
+	COMPRESS="-o compression=lzjb"
+else
+	COMPRESS=
+fi
+
 # Create GPT
 
 for DEV in ${DEVS}; do
@@ -152,6 +172,10 @@ for DEV in ${DEVS}; do
 		exit 1
 	fi
 	/bin/sleep 1
+	if ! echo "a 1" | /sbin/fdisk -f - ${DEV} > /dev/null 2> /dev/null; then
+		echo " error"
+		exit 1
+	fi
 	if ! /sbin/gpart add -t freebsd-boot -s 128 ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
@@ -205,14 +229,35 @@ for DEV in ${DEVS}; do
 done
 
 echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
-if ! /sbin/zpool create -f -m none -o version=${VERSION} ${POOL} ${RAID} ${GPARTS} > /dev/null 2> /dev/null; then
+if ! /sbin/zpool create -f -m none ${ALTROOT} -o version=${VERSION} ${POOL} ${RAID} ${GPARTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
 echo " done"
+
+if [ -n "${FLETCHER}" ]; then
+	echo -n "Setting fletcher4 as default checksum algorithm for ${POOL} ..."
+	if ! /sbin/zfs set checksum=fletcher4 ${POOL} > /dev/null 2> /dev/null; then
+		echo " error"
+		exit 1
+	fi
+	echo " done"
+done
+
+echo -n "Creating ${POOL} root partition:"
+if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${COMPRESS} ${POOL}/root > /dev/null 2> /dev/null; then
+	echo " error"
+	exit 1
+fi
+echo " ... done"
 echo -n "Creating ${POOL} partitions:"
-for FS in root usr var tmp; do
-	if ! /sbin/zfs create -o mountpoint=legacy ${POOL}/${FS} > /dev/null 2> /dev/null; then
+for FS in usr var tmp; do
+	if [ "${LEGACY}" = 1 ]; then
+		MNTPT=legacy
+	else
+		MNTPT=/${FS}
+	fi
+	if ! /sbin/zfs create -o mountpoint=${MNTPT} ${COMPRESS} ${POOL}/${FS} > /dev/null 2> /dev/null; then
 		echo " error"
 		exit 1
 	fi
@@ -227,22 +272,24 @@ fi
 echo " done"
 /sbin/zfs list -r ${POOL}
 
-# Mount and populate zfs
-
-echo -n "Mounting ${POOL} on ${MNT} ..."
-/bin/mkdir -p ${MNT}
-if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then
-	echo " error mounting pool/root"
-	exit 1
-fi
-/bin/mkdir -p ${MNT}/usr ${MNT}/var ${MNT}/tmp
-for FS in usr var tmp; do
-	if ! /sbin/mount -t zfs ${POOL}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
-		echo " error mounting ${POOL}/${FS}"
+# Mount and populate zfs (if legacy)
+if [ -z "${LEGACY}" ]; then
+	echo -n "Mounting ${POOL} on ${MNT} ..."
+	/bin/mkdir -p ${MNT}
+	if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then
+		echo " error mounting pool/root"
 		exit 1
 	fi
-done
+	/bin/mkdir -p ${MNT}/usr ${MNT}/var ${MNT}/tmp
+	for FS in usr var tmp; do
+		if ! /sbin/mount -t zfs ${POOL}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
+			echo " error mounting ${POOL}/${FS}"
+			exit 1
+		fi
+	done
 echo " done"
+fi
+
 echo -n "Extracting FreeBSD distribution ..."
 if ! /usr/bin/tar -C ${MNT} -x -j -f ${TBZ} > /dev/null 2> /dev/null; then
 	echo " error"
@@ -257,40 +304,51 @@ echo "zfs_load=\"YES\"" > ${MNT}/boot/loader.conf
 echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
 echo " done"
 
-echo -n "Writing /etc/fstab..."
-rm -f ${MNT}/etc/fstab
-if [ -n "$FSWAP" ]; then
-	echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
+# Write fstab if swap or legacy
+if [ -n "${FSWAP}" -o -n "${LEGACY}" ]; then
+	echo -n "Writing /etc/fstab..."
+	rm -f ${MNT}/etc/fstab
+	if [ -n "${FSWAP}" ]; then
+		echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
+	fi
+	if [ -n "${LEGACY}" ]; then
+		for FS in usr var tmp; do
+			echo ${POOL}/${FS} /${FS} zfs rw 0 0 >> ${MNT}/etc/fstab
+		done
+	fi
+	echo " done"
 fi
-for FS in usr var tmp; do
-echo ${POOL}/${FS} /${FS} zfs rw 0 0 >> ${MNT}/etc/fstab
-done
-echo " done"
 
 echo -n "Copying /boot/zfs/zpool.cache ..."
-/sbin/umount ${MNT}/tmp ${MNT}/usr ${MNT}/var ${MNT} > /dev/null 2> /dev/null
+if [ -n "${LEGACY}" ]; then
+	/sbin/umount ${MNT}/tmp ${MNT}/usr ${MNT}/var ${MNT} > /dev/null 2> /dev/null
+fi
 if ! /sbin/zpool export ${POOL} > /dev/null 2> /dev/null; then
 	echo " error exporting pool"
 	exit 1
 fi
-if ! /sbin/zpool import ${POOL} > /dev/null 2> /dev/null; then
+if ! /sbin/zpool import ${ALTROOT} ${POOL} > /dev/null 2> /dev/null; then
 	echo " error importing pool"
 	exit 1
 fi
-if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then
-	echo " error mounting ${POOL}/root"
-	exit 1
+if [ -n "${LEGACY}" ]; then
+	if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then
+		echo " error mounting ${POOL}/root"
+		exit 1
+	fi
 fi
 if ! /bin/cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/ > /dev/null 2> /dev/null; then
 	echo " error copying zpool.cache"
 	exit 1
 fi
-for FS in usr var tmp; do
-	if ! /sbin/mount -t zfs ${POOL}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
-	echo " error mounting ${POOL}/${FS}"
-	exit 1
-	fi
-done
+if [ -n "${LEGACY}" ]; then
+	for FS in usr var tmp; do
+		if ! /sbin/mount -t zfs ${POOL}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
+		echo " error mounting ${POOL}/${FS}"
+		exit 1
+		fi
+	done
+fi
 echo " done"
 
 # Mount devfs for post-configuration
