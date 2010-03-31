@@ -6,6 +6,7 @@
 31.03.2010
   - New options to zfsinstall (-l -c -4)
   - Add destroygeom script to clear partitions
+  - Release 1.0
 
 25.11.2009
   - Introduce prunelist (files to be deleted)
