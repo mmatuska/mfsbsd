@@ -9,14 +9,15 @@ MAXIMUM_POOL_VERSION=14
 DEFAULT_POOL_VERSION=13
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t dist_tbz_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t archive_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
 }
 
 help() {
 	echo; echo "Install FreeBSD using ZFS from a compressed archive"
 	echo; echo "Required flags:"
 	echo "-d geom_provider  : geom provider(s) to install to (e.g. da0)"
-	echo "-t dist_tbz_file  : archive file containing the FreeBSD distribution"
+	echo "-t archive_file   : tar archive file containing the FreeBSD distribution"
+	echo "			  supported compression formats are: gzip, bzip2, xz"
 	echo; echo "Optional flags:"
 	echo "-r raidz|mirror   : select raid mode if more than one -d provider given"
 	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
@@ -41,7 +42,7 @@ help() {
 while getopts d:t:r:p:s:z:m:V:hcl4 o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
-        	t) TBZ="${OPTARG}" ;;
+        	t) ARCHIVE="${OPTARG}" ;;
         	p) POOL="${OPTARG}" ;;
         	s) SWAP="${OPTARG}" ;;
         	m) MNT="${OPTARG}" ;;
@@ -56,7 +57,7 @@ while getopts d:t:r:p:s:z:m:V:hcl4 o; do
 esac
 done
 
-if [ -z "$DEVS" -o -z "$TBZ" ]; then
+if [ -z "$DEVS" -o -z "$ARCHIVE" ]; then
 	usage
 	exit 1
 fi
@@ -125,14 +126,27 @@ for DEV in ${DEVS}; do
 	fi
 done
 
-if ! [ -f "${TBZ}" ]; then
-	echo Error: file $TBZ does not exist
+if ! [ -f "${ARCHIVE}" ]; then
+	echo Error: file $ARCHIVE does not exist
 	exit 1
 fi
 
-if [ "`/usr/bin/file -b --mime-type ${TBZ}`" != "application/x-bzip2" ]; then
-	echo Error: file $TBZ is not a bzip2 archive
-	exit 1
+DIRECT_TAR=0
+FTYPE=`/usr/bin/file -b --mime-type ${ARCHIVE}`
+if [ "$FTYPE" = "application/x-tar" ]; then
+	DIRECT_TAR=1
+elif [ "$FTYPE" = "application/x-gzip" ]; then
+	EXTRACT_CMD=/usr/bin/gzip
+elif [ "$FTYPE" = "application/x-bzip2" ]; then
+	EXTRACT_CMD=/usr/bin/bzip2
+elif [ "$FTYPE" = "application/x-xz" ]; then
+	if [ ! -x "`/usr/bin/which xz`" ]; then
+		echo "xz-compressed file selcted and xz is not installed";
+		exit 1
+	fi
+	EXTRACT_CMD=`which xz`
+else
+	echo "Archive must be uncompressed or gzip, bzip2 or xz compressed"
 fi
 
 if [ -z "$MNT" ]; then
@@ -222,7 +236,7 @@ for DEV in ${DEVS}; do
 done
 
 echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
-if ! /sbin/zpool create -f -m none ${ALTROOT} -o version=${VERSION} ${POOL} ${RAID} ${GPARTS} > /dev/null 2> /dev/null; then
+if ! /sbin/zpool create -f -m none ${ALTROOT} -o version=${VERSION} ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
@@ -293,9 +307,16 @@ echo " done"
 fi
 
 echo -n "Extracting FreeBSD distribution ..."
-if ! /usr/bin/tar -C ${MNT} -x -j -f ${TBZ} > /dev/null 2> /dev/null; then
-	echo " error"
-	exit 1
+if [ "${DIRECT_TAR}" = "1" ]; then
+	if ! /usr/bin/tar -C ${MNT} -x -f ${ARCHIVE} > /dev/null 2> /dev/null; then
+		echo " error"
+		exit 1
+	fi
+else
+	if ! ${EXTRACT_CMD} -d -c ${ARCHIVE} | /usr/bin/tar -C ${MNT} -x -f - > /dev/null 2> /dev/null; then
+		echo " error"
+		exit 1
+	fi
 fi
 echo " done"
 
