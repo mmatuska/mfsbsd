@@ -82,6 +82,11 @@ SCRIPTS=mdinit mfsbsd interfaces packages
 BOOTMODULES=acpi snp geom_uzip zlib opensolaris zfs
 MFSMODULES=geom_label geom_mirror
 #
+.if !defined(WITH_RESCUE)
+COMPRESS=	uzip
+.else
+COMPRESS?=	bzip2
+.endif
 
 all: image
 
@@ -246,17 +251,17 @@ ${WRKDIR}/.genkeys_done:
 compress-usr: install prune ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
 	@echo -n "Compressing usr ..."
-.if defined(COMPRESS_LZMA) && defined(WITH_RESCUE)
+. if defined(COMPRESS) && ${COMPRESS} == "lzma"
 	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
 	${XZ} -c > ${WRKDIR}/mfs/.usr.tar.xz && \
 	${RM} -rf ${WRKDIR}/mfs/usr && \
 	${MKDIR} ${WRKDIR}/mfs/usr
-.elif defined(COMPRESS_BZIP2) && defined(WITH_RESCUE)
+. elif defined(COMPRESS) && ${COMPRESS} == "gzip"
 	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
 	${BZIP2} -c > ${WRKDIR}/mfs/.usr.tar.bz2 && \
 	${RM} -rf ${WRKDIR}/mfs/usr && \
 	${MKDIR} ${WRKDIR}/mfs/usr
-.elif defined(COMPRESS_GZIP) && defined(WITH_RESCUE)
+. elif defined(COMPRESS) && ${COMPRESS} == "bzip2"
 	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
 	${GZIP} -c > ${WRKDIR}/mfs/.usr.tar.gz && \
 	${RM} -rf ${WRKDIR}/mfs/usr && \
