@@ -59,10 +59,13 @@ GZIP=/usr/bin/gzip
 TOUCH=/usr/bin/touch
 INSTALL=/usr/bin/install
 LS=/bin/ls
+LN=/bin/ln
+FIND=/usr/bin/find
 PW=/usr/sbin/pw
 SED=/usr/bin/sed
 UNAME=/usr/bin/uname
 BZIP2=/usr/bin/bzip2
+XZ=/usr/bin/xz
 MAKEFS=/usr/sbin/makefs
 SSHKEYGEN=/usr/bin/ssh-keygen
 MKISOFS=/usr/local/bin/mkisofs
@@ -132,6 +135,27 @@ ${WRKDIR}/.install_done:
 	@cd ${SRCDIR} && make installkernel DESTDIR="${WRKDIR}/mfs"
 	@${RM} -rf ${WRKDIR}/mfs/boot/kernel/*.symbols
 	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
+. if defined(WITH_RESCUE)
+	@cd ${WRKDIR}/mfs && \
+	for FILE in `${FIND} rescue -type f`; do \
+	FILE=$${FILE##rescue/}; \
+	if [ -f bin/$$FILE ]; then \
+		${RM} bin/$$FILE && \
+		${LN} rescue/$$FILE bin/$$FILE; \
+	elif [ -f sbin/$$FILE ]; then \
+		${RM} sbin/$$FILE && \
+		${LN} rescue/$$FILE sbin/$$FILE; \
+	elif [ -f usr/bin/$$FILE ]; then \
+		${RM} usr/bin/$$FILE && \
+		${LN} -s ../../rescue/$$FILE usr/bin/$$FILE; \
+	elif [ -f usr/sbin/$$FILE ]; then \
+		${RM} usr/sbin/$$FILE && \
+		${LN} -s ../../rescue/$$FILE usr/sbin/$$FILE; \
+	fi; \
+	done
+. else
+	@cd ${WRKDIR}/mfs && rm -rf rescue
+. endif
 .endif
 	@${TOUCH} ${WRKDIR}/.install_done
 
@@ -219,14 +243,31 @@ ${WRKDIR}/.genkeys_done:
 	@${TOUCH} ${WRKDIR}/.genkeys_done
 	@echo " done"
 
-usr.uzip: install prune ${WRKDIR}/.usr.uzip_done
-${WRKDIR}/.usr.uzip_done:
-	@echo -n "Creating usr.uzip ..."
+compress-usr: install prune ${WRKDIR}/.compress-usr_done
+${WRKDIR}/.compress-usr_done:
+	@echo -n "Compressing usr ..."
+.if defined(COMPRESS_LZMA) && defined(WITH_RESCUE)
+	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
+	${XZ} -c > ${WRKDIR}/mfs/.usr.tar.xz && \
+	${RM} -rf ${WRKDIR}/mfs/usr && \
+	${MKDIR} ${WRKDIR}/mfs/usr
+.elif defined(COMPRESS_BZIP2) && defined(WITH_RESCUE)
+	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
+	${BZIP2} -c > ${WRKDIR}/mfs/.usr.tar.bz2 && \
+	${RM} -rf ${WRKDIR}/mfs/usr && \
+	${MKDIR} ${WRKDIR}/mfs/usr
+.elif defined(COMPRESS_GZIP) && defined(WITH_RESCUE)
+	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
+	${GZIP} -c > ${WRKDIR}/mfs/.usr.tar.gz && \
+	${RM} -rf ${WRKDIR}/mfs/usr && \
+	${MKDIR} ${WRKDIR}/mfs/usr
+.else
 	@${MKDIR} ${WRKDIR}/mnt
-	@${MAKEFS} -t ffs ${WRKDIR}/usr.img ${WRKDIR}/mfs/usr > /dev/null
-	@${MKUZIP} -o ${WRKDIR}/mfs/usr.uzip ${WRKDIR}/usr.img > /dev/null
-	@${RM} -rf ${WRKDIR}/mfs/usr ${WRKDIR}/usr.img && ${MKDIR} ${WRKDIR}/mfs/usr
-	@${TOUCH} ${WRKDIR}/.usr.uzip_done
+	@${MAKEFS} -t ffs ${WRKDIR}/usr.img ${WRKDIR}/mfs/usr > /dev/null && \
+	${MKUZIP} -o ${WRKDIR}/mfs/.usr.uzip ${WRKDIR}/usr.img > /dev/null && \
+	${RM} -rf ${WRKDIR}/mfs/usr ${WRKDIR}/usr.img && ${MKDIR} ${WRKDIR}/mfs/usr
+.endif
+	@${TOUCH} ${WRKDIR}/.compress-usr_done
 	@echo " done"
 
 boot: install prune ${WRKDIR}/.boot_done
@@ -237,17 +278,19 @@ ${WRKDIR}/.boot_done:
 	@${CP} -rp ${WRKDIR}/mfs/boot ${WRKDIR}/disk
 	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko
 	@for FILE in ${BOOTMODULES}; do \
-		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko && ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null; \
+		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko \
+		&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null; \
 	done
 	@${MKDIR} -p ${WRKDIR}/disk/boot/modules
 	@for FILE in ${MFSMODULES}; do \
-		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko && ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/mfs/boot/modules >/dev/null 2>/dev/null; \
+		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko \
+		&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/mfs/boot/modules >/dev/null 2>/dev/null; \
 	done
 	@${RM} -rf ${WRKDIR}/mfs/boot/kernel
 	@${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
-mfsroot: install prune config genkeys boot usr.uzip packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys boot compress-usr packages ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
@@ -263,7 +306,7 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-image: install prune config genkeys boot usr.uzip mfsroot ${IMAGE}
+image: install prune config genkeys boot compress-usr mfsroot ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
@@ -274,7 +317,7 @@ ${IMAGE}:
 	@echo " done"
 	@${LS} -l ${IMAGE}
 
-iso: install prune config genkeys boot usr.uzip mfsroot ${ISOIMAGE}
+iso: install prune config genkeys boot compress-usr mfsroot ${ISOIMAGE}
 ${ISOIMAGE}:
 	@if [ ! -x "${MKISOFS}" ]; then exit 1; fi
 	@echo -n "Creating ISO image ..."
@@ -282,7 +325,7 @@ ${ISOIMAGE}:
 	@echo " done"
 	@${LS} -l ${ISOIMAGE}
 
-tar: install prune config boot usr.uzip mfsroot ${TARFILE}
+tar: install prune config boot compress-usr mfsroot ${TARFILE}
 ${TARFILE}:
 	@echo -n "Creating tar.gz file ..."
 	@${TAR} -c -z -f ${TARFILE} -C ${WRKDIR}/disk boot mfsroot.gz

@@ -14,8 +14,19 @@ stop_cmd=":"
 
 mdinit_start()
 {
-	MD=`/sbin/mdconfig -a -t vnode -f usr.uzip`
-	/sbin/mount -r /dev/${MD}.uzip /usr
+	if [ -f /.usr.tar.xz ]; then
+		/sbin/mdmfs -s 64M md /usr
+		/rescue/xz -d -c /.usr.tar.xz | /rescue/tar -x -C / -f -
+	elif [ -f /.usr.tar.bz2 ]; then
+		/sbin/mdmfs -s 64M md /usr
+		/rescue/bzip2 -d -c /.usr.tar.bz2 | /rescue/tar -x -C / -f -
+	elif [ -f /.usr.tar.gz ]; then
+		/sbin/mdmfs -s 64M md /usr
+		/rescue/gzip -d -c /.usr.tar.gz | /rescue/tar -x -C / -f -
+	else
+		MD=`/sbin/mdconfig -a -t vnode -f /.usr.uzip`
+		/sbin/mount -r /dev/${MD}.uzip /usr
+	fi
 }
 
 load_rc_config $name
