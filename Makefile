@@ -17,7 +17,7 @@ KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=5%
 MFSROOT_FREE_BLOCKS?=5%
 MFSROOT_MAXSIZE?=45m
-ROOTPW?= mfsbsd
+ROOTPW?= mfsroot
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
