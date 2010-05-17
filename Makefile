@@ -140,6 +140,7 @@ ${WRKDIR}/.install_done:
 	@cd ${SRCDIR} && make installkernel DESTDIR="${WRKDIR}/mfs"
 	@${RM} -rf ${WRKDIR}/mfs/boot/kernel/*.symbols
 	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
+.endif
 . if defined(WITH_RESCUE)
 	@cd ${WRKDIR}/mfs && \
 	for FILE in `${FIND} rescue -type f`; do \
@@ -161,7 +162,6 @@ ${WRKDIR}/.install_done:
 . else
 	@cd ${WRKDIR}/mfs && rm -rf rescue
 . endif
-.endif
 	@${TOUCH} ${WRKDIR}/.install_done
 
 prune: install ${WRKDIR}/.prune_done
