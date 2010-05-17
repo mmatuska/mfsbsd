@@ -75,17 +75,16 @@ WRKDIR?=${CURDIR}/tmp
 #
 BSDLABEL=bsdlabel
 #
-STEPS=7
-#
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi snp geom_uzip zlib opensolaris zfs
+BOOTMODULES=acpi snp opensolaris zfs
 MFSMODULES=geom_label geom_mirror
 #
-.if !defined(WITH_RESCUE)
-COMPRESS=	uzip
-.else
+.if !defined(WITHOUT_RESCUE)
 COMPRESS?=	bzip2
+.else
+COMPRESS=	uzip
+BOOTMODULES+=	geom_uzip zlib
 .endif
 
 all: image
@@ -96,8 +95,8 @@ ${WRKDIR}/.extract_done:
 .if !defined(CUSTOM)
 	@if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
-		echo "with FreeBSD distribution files (e.g. /cdrom/7.2-RELEASE)"; \
-		echo "Or execute like: make BASE=/cdrom/7.2-RELEASE"; \
+		echo "with FreeBSD distribution files (e.g. /cdrom/8.1-RELEASE)"; \
+		echo "Or execute like: make BASE=/cdrom/8.1-RELEASE"; \
 		exit 1; \
 	fi
 	@for DIR in base kernels; do \
@@ -141,7 +140,7 @@ ${WRKDIR}/.install_done:
 	@${RM} -rf ${WRKDIR}/mfs/boot/kernel/*.symbols
 	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
 .endif
-. if defined(WITH_RESCUE)
+. if !defined(WITHOUT_RESCUE)
 	@cd ${WRKDIR}/mfs && \
 	for FILE in `${FIND} rescue -type f`; do \
 	FILE=$${FILE##rescue/}; \

@@ -3,6 +3,11 @@
 # mfsBSD changelog
 # Copyright (c) 2007-2010 Martin Matuska <mm at FreeBSD.org>
 #
+17.05.2010
+  - include /rescue by default
+  - relink all /rescue binaries to their targets
+  - support a tar of /usr compressed with gzip, bzip2 or xz
+
 31.03.2010
   - New options to zfsinstall (-l -c -4)
   - Add destroygeom script to clear partitions
