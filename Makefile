@@ -256,12 +256,12 @@ ${WRKDIR}/.compress-usr_done:
 	${XZ} -c > ${WRKDIR}/mfs/.usr.tar.xz && \
 	${RM} -rf ${WRKDIR}/mfs/usr && \
 	${MKDIR} ${WRKDIR}/mfs/usr
-. elif defined(COMPRESS) && ${COMPRESS} == "gzip"
+. elif defined(COMPRESS) && ${COMPRESS} == "bzip2"
 	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
 	${BZIP2} -c > ${WRKDIR}/mfs/.usr.tar.bz2 && \
 	${RM} -rf ${WRKDIR}/mfs/usr && \
 	${MKDIR} ${WRKDIR}/mfs/usr
-. elif defined(COMPRESS) && ${COMPRESS} == "bzip2"
+. elif defined(COMPRESS) && ${COMPRESS} == "gzip"
 	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
 	${GZIP} -c > ${WRKDIR}/mfs/.usr.tar.gz && \
 	${RM} -rf ${WRKDIR}/mfs/usr && \
