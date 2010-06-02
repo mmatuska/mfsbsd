@@ -68,6 +68,7 @@ BZIP2=/usr/bin/bzip2
 XZ=/usr/bin/xz
 MAKEFS=/usr/sbin/makefs
 SSHKEYGEN=/usr/bin/ssh-keygen
+SYSCTL=/sbin/sysctl
 MKISOFS=/usr/local/bin/mkisofs
 #
 CURDIR!=${PWD}
@@ -85,6 +86,27 @@ COMPRESS?=	bzip2
 .else
 COMPRESS=	uzip
 BOOTMODULES+=	geom_uzip zlib
+.endif
+
+.if !defined(TARGET_ARCH)
+TARGET_ARCH!=	${SYSCTL} -n hw.machine_arch
+.endif
+
+.if !defined(RELEASE)
+RELEASE!=${UNAME} -r
+.endif
+
+.if defined(COMPRESS)
+. if ${COMPRESS} == "xz"
+COMPRESS_CMD=${XZ}
+SUFX=".xz"
+. elif ${COMPRESS} == "bzip2"
+COMPRESS_CMD=${BZIP2}
+SUFX=".bz2"
+. else
+COMPRESS_CMD=${GZIP}
+SUFX=".gz"
+. endif
 .endif
 
 all: image
@@ -111,7 +133,6 @@ ${WRKDIR}/.extract_done:
 	@${MV} ${WRKDIR}/mfs/boot/GENERIC/* ${WRKDIR}/mfs/boot/kernel
 	@${RMDIR} ${WRKDIR}/mfs/boot/GENERIC
 	@${RM} -rf ${WRKDIR}/mfs/boot/kernel/*.symbols
-	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
 	@echo " done"
 .endif
 	@${TOUCH} ${WRKDIR}/.extract_done
@@ -121,11 +142,11 @@ ${WRKDIR}/.build_done:
 .if defined(CUSTOM)
 .if defined(BUILDWORLD)
 	@echo -n "Building world ..."
-	@cd ${SRCDIR} && make buildworld
+	@cd ${SRCDIR} && make buildworld TARGET_ARCH=${TARGET_ARCH}
 .endif
 .if defined(BUILDKERNEL)
 	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRCDIR} && make buildkernel KERNCONF=${KERNCONF}
+	@cd ${SRCDIR} && make buildkernel KERNCONF=${KERNCONF} TARGET_ARCH=${TARGET_ARCH}
 .endif
 .endif
 	@${TOUCH} ${WRKDIR}/.build_done
@@ -134,13 +155,24 @@ install: build ${WRKDIR}/.install_done
 ${WRKDIR}/.install_done:
 .if defined(CUSTOM)
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRCDIR} && make installworld DESTDIR="${WRKDIR}/mfs"
-	@cd ${SRCDIR} && make distribution DESTDIR="${WRKDIR}/mfs"
-	@cd ${SRCDIR} && make installkernel DESTDIR="${WRKDIR}/mfs"
+	@cd ${SRCDIR} && make installworld DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
+	@cd ${SRCDIR} && make distribution DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
+	@cd ${SRCDIR} && make installkernel DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
 	@${RM} -rf ${WRKDIR}/mfs/boot/kernel/*.symbols
-	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
 .endif
-. if !defined(WITHOUT_RESCUE)
+.if defined(SE)
+	@echo -n "Creating FreeBSD distribution image ..."
+	@mkdir -p ${WRKDIR}/dist
+	@cd ${WRKDIR}/mfs && ${FIND} . -depth 1 \
+		-exec ${TAR} -r -f ${WRKDIR}/dist/${RELEASE}-${TARGET_ARCH}.tar {} \; 
+	@echo " done"
+. if defined(COMPRESS)
+	@echo "Compressing FreeBSD distribution image ..."
+	@${COMPRESS_CMD} -v ${WRKDIR}/dist/${RELEASE}-${TARGET_ARCH}.tar
+. endif
+.endif
+	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
+.if !defined(WITHOUT_RESCUE)
 	@cd ${WRKDIR}/mfs && \
 	for FILE in `${FIND} rescue -type f`; do \
 	FILE=$${FILE##rescue/}; \
@@ -158,9 +190,9 @@ ${WRKDIR}/.install_done:
 		${LN} -s ../../rescue/$$FILE usr/sbin/$$FILE; \
 	fi; \
 	done
-. else
-	@cd ${WRKDIR}/mfs && rm -rf rescue
-. endif
+.else
+	@cd ${WRKDIR}/mfs && ${RM} -rf rescue
+.endif
 	@${TOUCH} ${WRKDIR}/.install_done
 
 prune: install ${WRKDIR}/.prune_done
@@ -250,19 +282,9 @@ ${WRKDIR}/.genkeys_done:
 compress-usr: install prune ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
 	@echo -n "Compressing usr ..."
-. if defined(COMPRESS) && ${COMPRESS} == "lzma"
+. if defined(COMPRESS)
 	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
-	${XZ} -c > ${WRKDIR}/mfs/.usr.tar.xz && \
-	${RM} -rf ${WRKDIR}/mfs/usr && \
-	${MKDIR} ${WRKDIR}/mfs/usr
-. elif defined(COMPRESS) && ${COMPRESS} == "bzip2"
-	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
-	${BZIP2} -c > ${WRKDIR}/mfs/.usr.tar.bz2 && \
-	${RM} -rf ${WRKDIR}/mfs/usr && \
-	${MKDIR} ${WRKDIR}/mfs/usr
-. elif defined(COMPRESS) && ${COMPRESS} == "gzip"
-	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
-	${GZIP} -c > ${WRKDIR}/mfs/.usr.tar.gz && \
+	${COMPRESS_CMD} -v -c > ${WRKDIR}/mfs/.usr.tar${SUFX} && \
 	${RM} -rf ${WRKDIR}/mfs/usr && \
 	${MKDIR} ${WRKDIR}/mfs/usr
 .else
@@ -310,7 +332,16 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-image: install prune config genkeys boot compress-usr mfsroot ${IMAGE}
+fbsddist: install prune config genkeys boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
+${WRKDIR}/.fbsddist_done:
+.if defined(SE)
+	@echo -n "Copying FreeBSD installation image ..."
+	@${CP} ${WRKDIR}/dist/${RELEASE}-${TARGET_ARCH}.tar${SUFX} ${WRKDIR}/disk/
+	@echo " done"
+.endif
+	@${TOUCH} ${WRKDIR}/.fbsddist_done
+
+image: install prune config genkeys boot compress-usr mfsroot fbsddist ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
@@ -321,7 +352,7 @@ ${IMAGE}:
 	@echo " done"
 	@${LS} -l ${IMAGE}
 
-iso: install prune config genkeys boot compress-usr mfsroot ${ISOIMAGE}
+iso: install prune config genkeys boot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@if [ ! -x "${MKISOFS}" ]; then exit 1; fi
 	@echo -n "Creating ISO image ..."
@@ -329,7 +360,7 @@ ${ISOIMAGE}:
 	@echo " done"
 	@${LS} -l ${ISOIMAGE}
 
-tar: install prune config boot compress-usr mfsroot ${TARFILE}
+tar: install prune config boot compress-usr mfsroot fbsddist ${TARFILE}
 ${TARFILE}:
 	@echo -n "Creating tar.gz file ..."
 	@${TAR} -c -z -f ${TARFILE} -C ${WRKDIR}/disk boot mfsroot.gz
@@ -338,4 +369,4 @@ ${TARFILE}:
 
 clean:
 	@if [ -d ${WRKDIR} ]; then ${CHFLAGS} -R noschg ${WRKDIR}; fi
-	@cd ${WRKDIR} && ${RM} -rf mfs mnt disk trees .*_done
+	@cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done
