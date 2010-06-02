@@ -12,7 +12,7 @@
 BASE?=/cdrom/8.0-RELEASE
 IMAGE?=	mfsboot.img
 ISOIMAGE?= mfsboot.iso
-TARFILE?= mfsboot.tar.gz
+TARFILE?= mfsboot.tar
 KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=5%
 MFSROOT_FREE_BLOCKS?=5%
@@ -362,8 +362,9 @@ ${ISOIMAGE}:
 
 tar: install prune config boot compress-usr mfsroot fbsddist ${TARFILE}
 ${TARFILE}:
-	@echo -n "Creating tar.gz file ..."
-	@${TAR} -c -z -f ${TARFILE} -C ${WRKDIR}/disk boot mfsroot.gz
+	@echo -n "Creating tar file ..."
+	@cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
+		-exec ${TAR} -r -f ${CURDIR}/${TARFILE} {} \;
 	@echo " done"
 	@${LS} -l ${TARFILE}
 
