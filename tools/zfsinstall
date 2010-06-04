@@ -147,6 +147,7 @@ elif [ "$FTYPE" = "application/x-xz" ]; then
 	EXTRACT_CMD=`which xz`
 else
 	echo "Archive must be uncompressed or gzip, bzip2 or xz compressed"
+	exit 1
 fi
 
 if [ -z "$MNT" ]; then
