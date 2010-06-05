@@ -329,9 +329,10 @@ echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
 echo " done"
 
 # Write fstab if swap or legacy
+echo -n "Writing /etc/fstab..."
+rm -f ${MNT}/etc/fstab
+touch ${MNT}/etc/fstab
 if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
-	echo -n "Writing /etc/fstab..."
-	rm -f ${MNT}/etc/fstab
 	if [ -n "${FSWAP}" ]; then
 		echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
 	fi
@@ -340,13 +341,12 @@ if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
 			echo ${POOL}/${FS} /${FS} zfs rw 0 0 >> ${MNT}/etc/fstab
 		done
 	fi
-	echo " done"
 fi
 if [ "${LEGACY}" != "1" ]; then
 	echo -n "Writing /etc/rc.conf..."
 	echo 'zfs_enable="YES"' > ${MNT}/etc/rc.conf
-	echo " done"
 fi
+echo " done"
 
 echo -n "Copying /boot/zfs/zpool.cache ..."
 if [ -n "${LEGACY}" ]; then
