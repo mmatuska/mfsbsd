@@ -33,7 +33,7 @@ mfsbsd_start()
 		echo "mac_interfaces=\"$_clif\"" >> /etc/rc.conf.d/interfaces
 		for i in $_mif; do
 			_mac=`/bin/kenv mfsbsd.ifconfig_$i_mac`
-			if [ -n $_mac ]; then
+			if [ -n "$_mac" ]; then
 				echo "ifconfig_$i_mac=\"$_mac\"" >> /etc/rc.conf.d/interfaces
 			fi
 		done
@@ -48,7 +48,7 @@ mfsbsd_start()
 	fi
 	for i in $_if $_mif $_clif; do
 		_config=`/bin/kenv mfsbsd.ifconfig_$i`
-		if [ -n $_config ]; then
+		if [ -n "$_config" ]; then
 			echo "ifconfig_$i=\"$_config\"" >> /etc/rc.conf.d/network
 		fi
 	done
@@ -59,7 +59,7 @@ mfsbsd_start()
 		echo "static_routes=\"$_sr\"" >> /etc/rc.conf.d/routing
 		for i in $_sr; do
 			_config=`/bin/kenv mfsbsd.route_$i`
-			if [ -n $_config ]; then
+			if [ -n "$_config" ]; then
 				echo "route_$i=\"$_config\"" >> /etc/rc.conf.d/routing
 			fi
 		done
