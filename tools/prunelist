@@ -5,6 +5,8 @@ usr/bin/c89
 usr/bin/c99
 usr/bin/CC
 usr/bin/cc
+usr/bin/clang
+usr/bin/clang++
 usr/bin/cpp
 usr/bin/gcc
 usr/bin/yacc
