@@ -34,7 +34,7 @@ ROOTPW?= mfsroot
 #
 # Paths
 #
-SRCDIR?=/usr/src
+SRC_DIR?=/usr/src
 CFGDIR=conf
 SCRIPTSDIR=scripts
 PACKAGESDIR=packages
@@ -132,7 +132,6 @@ ${WRKDIR}/.extract_done:
 	@${CAT} ${BASE}/kernels/generic.?? | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs/boot
 	@${MV} ${WRKDIR}/mfs/boot/GENERIC/* ${WRKDIR}/mfs/boot/kernel
 	@${RMDIR} ${WRKDIR}/mfs/boot/GENERIC
-	@${RM} -rf ${WRKDIR}/mfs/boot/kernel/*.symbols
 	@echo " done"
 .endif
 	@${TOUCH} ${WRKDIR}/.extract_done
@@ -142,11 +141,11 @@ ${WRKDIR}/.build_done:
 .if defined(CUSTOM)
 .if defined(BUILDWORLD)
 	@echo -n "Building world ..."
-	@cd ${SRCDIR} && make buildworld TARGET_ARCH=${TARGET_ARCH}
+	@cd ${SRC_DIR} && make buildworld TARGET_ARCH=${TARGET_ARCH}
 .endif
 .if defined(BUILDKERNEL)
 	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRCDIR} && make buildkernel KERNCONF=${KERNCONF} TARGET_ARCH=${TARGET_ARCH}
+	@cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET_ARCH=${TARGET_ARCH}
 .endif
 .endif
 	@${TOUCH} ${WRKDIR}/.build_done
@@ -155,10 +154,9 @@ install: build ${WRKDIR}/.install_done
 ${WRKDIR}/.install_done:
 .if defined(CUSTOM)
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRCDIR} && make installworld DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
-	@cd ${SRCDIR} && make distribution DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
-	@cd ${SRCDIR} && make installkernel DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
-	@${RM} -rf ${WRKDIR}/mfs/boot/kernel/*.symbols
+	@cd ${SRC_DIR} && make installworld DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
+	@cd ${SRC_DIR} && make distribution DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
+	@cd ${SRC_DIR} && make installkernel DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
 .endif
 .if defined(SE)
 	@echo -n "Creating FreeBSD distribution image ..."
@@ -220,14 +218,11 @@ ${WRKDIR}/.packages_done:
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
-	@for FILE in loader.conf rc.conf resolv.conf interfaces.conf; do \
-		if [ ! -f "${CFGDIR}/$${FILE}" ]; then \
-			if [ ! -f "${CFGDIR}/$${FILE}.sample" ]; then \
-				echo "Missing ${CFGDIR}/$${FILE}.sample"; \
-				exit 1; \
-			fi \
-		fi \
-	done
+.for FILE in loader.conf rc.conf resolv.conf interfaces.conf
+. if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
+	@echo "Missing ${CFGDIR}/$${FILE}.sample" && exit 1
+. endif
+.endfor
 .if defined(SE)
 	@${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${WRKDIR}/mfs/etc/motd
 	@${INSTALL} -d -m 0755 ${WRKDIR}/mfs/cdrom
@@ -302,16 +297,28 @@ ${WRKDIR}/.boot_done:
 	@${MKDIR} ${WRKDIR}/disk && ${CHOWN} root:wheel ${WRKDIR}/disk
 	@${RM} -f ${WRKDIR}/mfs/boot/kernel/kernel.debug
 	@${CP} -rp ${WRKDIR}/mfs/boot ${WRKDIR}/disk
-	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko
-	@for FILE in ${BOOTMODULES}; do \
-		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko \
-		&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null; \
-	done
+	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
+.if defined(DEBUG)
+	@test -f ${WRKDIR}/mfs/boot/kernel/kernel.symbols \
+	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+.endif
+.for FILE in ${BOOTMODULES}
+	@test -f ${WRKDIR}/mfs/boot/kernel/${FILE}.ko \
+	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+. if defined(DEBUG)
+	@test -f ${WRKDIR}/mfs/boot/kernel/${FILE}.ko \
+	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+. endif
+.endfor
 	@${MKDIR} -p ${WRKDIR}/disk/boot/modules
-	@for FILE in ${MFSMODULES}; do \
-		test -f ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko \
-		&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/$${FILE}.ko ${WRKDIR}/mfs/boot/modules >/dev/null 2>/dev/null; \
-	done
+.for FILE in ${MFSMODULES}
+	@test -f ${WRKDIR}/mfs/boot/kernel/${FILE}.ko \
+	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/${FILE}.ko ${WRKDIR}/mfs/boot/modules >/dev/null 2>/dev/null || exit 0
+. if defined(DEBUG)
+	@test -f ${WRKDIR}/mfs/boot/kernel/${FILE}.ko.symbols \
+	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/${FILE}.ko.symbols ${WRKDIR}/mfs/boot/modules >/dev/null 2>/dev/null || exit 0
+. endif
+.endfor
 	@${RM} -rf ${WRKDIR}/mfs/boot/kernel
 	@${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
