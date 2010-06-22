@@ -297,8 +297,10 @@ ${WRKDIR}/.boot_done:
 	@${MKDIR} ${WRKDIR}/disk && ${CHOWN} root:wheel ${WRKDIR}/disk
 	@${RM} -f ${WRKDIR}/mfs/boot/kernel/kernel.debug
 	@${CP} -rp ${WRKDIR}/mfs/boot ${WRKDIR}/disk
-	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
-.if defined(DEBUG)
+	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko
+.if !defined(DEBUG)
+	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.symbols
+.else
 	@test -f ${WRKDIR}/mfs/boot/kernel/kernel.symbols \
 	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 .endif
@@ -319,7 +321,7 @@ ${WRKDIR}/.boot_done:
 	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/${FILE}.ko.symbols ${WRKDIR}/mfs/boot/modules >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
-	@${RM} -rf ${WRKDIR}/mfs/boot/kernel
+	@${RM} -rf ${WRKDIR}/mfs/boot/kernel ${WRKDIR}/mfs/boot/*.symbols
 	@${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
