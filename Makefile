@@ -109,6 +109,12 @@ SUFX=".gz"
 . endif
 .endif
 
+.if !defined(DEBUG)
+EXCLUDE=--exclude *.symbols
+.else
+EXCLUDE=
+.endif
+
 all: image
 
 extract: ${WRKDIR}/.extract_done
@@ -162,7 +168,7 @@ ${WRKDIR}/.install_done:
 	@echo -n "Creating FreeBSD distribution image ..."
 	@mkdir -p ${WRKDIR}/dist
 	@cd ${WRKDIR}/mfs && ${FIND} . -depth 1 \
-		-exec ${TAR} -r -f ${WRKDIR}/dist/${RELEASE}-${TARGET_ARCH}.tar {} \; 
+		-exec ${TAR} -r ${EXCLUDE} -f ${WRKDIR}/dist/${RELEASE}-${TARGET_ARCH}.tar {} \; 
 	@echo " done"
 . if defined(COMPRESS)
 	@echo "Compressing FreeBSD distribution image ..."
