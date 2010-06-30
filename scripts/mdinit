@@ -1,7 +1,7 @@
 #!/bin/sh
 # $Id$
 
-# PROVIDE: packages
+# PROVIDE: mdinit
 # BEFORE: FILESYSTEMS
 # REQUIRE: mountcritlocal
 # KEYWORD: FreeBSD
