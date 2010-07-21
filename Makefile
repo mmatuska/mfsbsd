@@ -304,7 +304,7 @@ ${WRKDIR}/.boot_done:
 	@${RM} -f ${WRKDIR}/mfs/boot/kernel/kernel.debug
 	@${CP} -rp ${WRKDIR}/mfs/boot ${WRKDIR}/disk
 	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
-.if !defined(DEBUG)
+.if defined(DEBUG)
 	@test -f ${WRKDIR}/mfs/boot/kernel/kernel.symbols \
 	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 .endif
