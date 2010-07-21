@@ -88,8 +88,8 @@ COMPRESS=	uzip
 BOOTMODULES+=	geom_uzip zlib
 .endif
 
-.if !defined(TARGET_ARCH)
-TARGET_ARCH!=	${SYSCTL} -n hw.machine_arch
+.if !defined(TARGET)
+TARGET!=	${SYSCTL} -n hw.machine_arch
 .endif
 
 .if !defined(RELEASE)
@@ -147,11 +147,11 @@ ${WRKDIR}/.build_done:
 .if defined(CUSTOM)
 .if defined(BUILDWORLD)
 	@echo -n "Building world ..."
-	@cd ${SRC_DIR} && make buildworld TARGET_ARCH=${TARGET_ARCH}
+	@cd ${SRC_DIR} && make buildworld TARGET=${TARGET}
 .endif
 .if defined(BUILDKERNEL)
 	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET_ARCH=${TARGET_ARCH}
+	@cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET}
 .endif
 .endif
 	@${TOUCH} ${WRKDIR}/.build_done
@@ -160,19 +160,19 @@ install: build ${WRKDIR}/.install_done
 ${WRKDIR}/.install_done:
 .if defined(CUSTOM)
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRC_DIR} && make installworld DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
-	@cd ${SRC_DIR} && make distribution DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
-	@cd ${SRC_DIR} && make installkernel DESTDIR="${WRKDIR}/mfs" TARGET_ARCH=${TARGET_ARCH}
+	@cd ${SRC_DIR} && make installworld DESTDIR="${WRKDIR}/mfs" TARGET=${TARGET}
+	@cd ${SRC_DIR} && make distribution DESTDIR="${WRKDIR}/mfs" TARGET=${TARGET}
+	@cd ${SRC_DIR} && make installkernel DESTDIR="${WRKDIR}/mfs" TARGET=${TARGET}
 .endif
 .if defined(SE)
 	@echo -n "Creating FreeBSD distribution image ..."
 	@mkdir -p ${WRKDIR}/dist
 	@cd ${WRKDIR}/mfs && ${FIND} . -depth 1 \
-		-exec ${TAR} -r ${EXCLUDE} -f ${WRKDIR}/dist/${RELEASE}-${TARGET_ARCH}.tar {} \; 
+		-exec ${TAR} -r ${EXCLUDE} -f ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar {} \; 
 	@echo " done"
 . if defined(COMPRESS)
 	@echo "Compressing FreeBSD distribution image ..."
-	@${COMPRESS_CMD} -v ${WRKDIR}/dist/${RELEASE}-${TARGET_ARCH}.tar
+	@${COMPRESS_CMD} -v ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar
 . endif
 .endif
 	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
@@ -349,7 +349,7 @@ fbsddist: install prune config genkeys boot compress-usr packages mfsroot ${WRKD
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
-	@${CP} ${WRKDIR}/dist/${RELEASE}-${TARGET_ARCH}.tar${SUFX} ${WRKDIR}/disk/
+	@${CP} ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar${SUFX} ${WRKDIR}/disk/
 	@echo " done"
 .endif
 	@${TOUCH} ${WRKDIR}/.fbsddist_done
