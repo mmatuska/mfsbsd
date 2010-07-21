@@ -268,13 +268,13 @@ if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${POOL}/root > /dev/null 2> /dev/
 fi
 echo " ... done"
 echo -n "Creating ${POOL} partitions:"
-for FS in usr var tmp; do
+for FS in var tmp; do
 	if [ "${LEGACY}" = 1 ]; then
-		MNTPT=legacy
+		MNTPT="-o mountpoint=legacy"
 	else
-		MNTPT=/${FS}
+		MNTPT=
 	fi
-	if ! /sbin/zfs create -o mountpoint=${MNTPT} ${POOL}/${FS} > /dev/null 2> /dev/null; then
+	if ! /sbin/zfs create ${MNTPT} ${POOL}/root/${FS} > /dev/null 2> /dev/null; then
 		echo " error"
 		exit 1
 	fi
@@ -297,10 +297,10 @@ if [ "${LEGACY}" = "1" ]; then
 		echo " error mounting pool/root"
 		exit 1
 	fi
-	/bin/mkdir -p ${MNT}/usr ${MNT}/var ${MNT}/tmp
-	for FS in usr var tmp; do
-		if ! /sbin/mount -t zfs ${POOL}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
-			echo " error mounting ${POOL}/${FS}"
+	/bin/mkdir -p ${MNT}/var ${MNT}/tmp
+	for FS in var tmp; do
+		if ! /sbin/mount -t zfs ${POOL}/root/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
+			echo " error mounting ${POOL}/root/${FS}"
 			exit 1
 		fi
 	done
@@ -337,8 +337,8 @@ if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
 		echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
 	fi
 	if [ "${LEGACY}" = "1" ]; then
-		for FS in usr var tmp; do
-			echo ${POOL}/${FS} /${FS} zfs rw 0 0 >> ${MNT}/etc/fstab
+		for FS in var tmp; do
+			echo ${POOL}/root/${FS} /${FS} zfs rw 0 0 >> ${MNT}/etc/fstab
 		done
 	fi
 fi
