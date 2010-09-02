@@ -7,6 +7,7 @@
 SUPPORTED_POOL_VERSIONS="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15"
 MAXIMUM_POOL_VERSION=15
 DEFAULT_POOL_VERSION=13
+FS_LIST="var tmp"
 
 usage() {
 	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t archive_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
@@ -85,7 +86,7 @@ if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
 	exit 1
 fi
 
-EXPOOLS=`/sbin/zpool import | /usr/bin/grep pool: | /usr/bin/head -1 | /usr/bin/awk '{ print $2 }'`
+EXPOOLS=`/sbin/zpool import | /usr/bin/grep pool: | /usr/bin/awk '{ print $2 }'`
 
 if [ -n "${EXPOOLS}" ]; then
 	for P in ${EXPOOLS}; do
@@ -127,7 +128,7 @@ for DEV in ${DEVS}; do
 done
 
 if ! [ -f "${ARCHIVE}" ]; then
-	echo Error: file $ARCHIVE does not exist
+	echo "Error: file $ARCHIVE does not exist"
 	exit 1
 fi
 
@@ -155,7 +156,7 @@ if [ -z "$MNT" ]; then
 fi
 
 if ! [ -d "${MNT}" ]; then
-	echo Error: $MNT is not a directory
+	echo "Error: $MNT is not a directory"
 	exit 1
 fi
 
@@ -268,7 +269,7 @@ if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${POOL}/root > /dev/null 2> /dev/
 fi
 echo " ... done"
 echo -n "Creating ${POOL} partitions:"
-for FS in var tmp; do
+for FS in ${FS_LIST}; do
 	if [ "${LEGACY}" = 1 ]; then
 		MNTPT="-o mountpoint=legacy"
 	else
@@ -297,8 +298,8 @@ if [ "${LEGACY}" = "1" ]; then
 		echo " error mounting pool/root"
 		exit 1
 	fi
-	/bin/mkdir -p ${MNT}/var ${MNT}/tmp
-	for FS in var tmp; do
+	for FS in ${FS_LIST}; do
+		/bin/mkdir -p ${MNT}/${FS}
 		if ! /sbin/mount -t zfs ${POOL}/root/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
 			echo " error mounting ${POOL}/root/${FS}"
 			exit 1
@@ -337,7 +338,7 @@ if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
 		echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
 	fi
 	if [ "${LEGACY}" = "1" ]; then
-		for FS in var tmp; do
+		for FS in ${FS_LIST}; do
 			echo ${POOL}/root/${FS} /${FS} zfs rw 0 0 >> ${MNT}/etc/fstab
 		done
 	fi
@@ -350,7 +351,10 @@ echo " done"
 
 echo -n "Copying /boot/zfs/zpool.cache ..."
 if [ -n "${LEGACY}" ]; then
-	/sbin/umount ${MNT}/tmp ${MNT}/usr ${MNT}/var ${MNT} > /dev/null 2> /dev/null
+	for FS in ${FS_LIST}; do
+		/sbin/umount ${MNT}/${FS} > /dev/null 2> /dev/null
+	done
+	/sbin/umount ${MNT} > /dev/null 2> /dev/null
 fi
 if ! /sbin/zpool export ${POOL} > /dev/null 2> /dev/null; then
 	echo " error exporting pool"
@@ -371,7 +375,7 @@ if ! /bin/cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/ > /dev/null 2> /dev/null; th
 	exit 1
 fi
 if [ -n "${LEGACY}" ]; then
-	for FS in usr var tmp; do
+	for FS in ${FS_LIST}; do
 		if ! /sbin/mount -t zfs ${POOL}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
 		echo " error mounting ${POOL}/${FS}"
 		exit 1
@@ -393,3 +397,5 @@ echo ""
 echo "You may type \"chroot ${MNT}\" and make any adjustments you need."
 echo "For example, change the root password or edit/create /etc/rc.conf for"
 echo "for system services. "
+echo ""
+echo "WARNING - Don't export ZFS pool \"${POOL}\"!"
