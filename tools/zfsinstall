@@ -168,7 +168,7 @@ if [ "${LEGACY}" = "1" ]; then
 	ALTROOT=
 	ROOTMNT=legacy
 else
-	ALTROOT="-o altroot=${MNT}"
+	ALTROOT="-o altroot=${MNT} -o cachefile=/boot/zfs/zpool.cache"
 	ROOTMNT=/
 fi
 
