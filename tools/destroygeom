@@ -64,7 +64,7 @@ for DEV in ${DEVS}; do
 	GEOMS=`/sbin/gpart show | /usr/bin/tail -r | /usr/bin/grep '=>' | /usr/bin/awk '{print $4}' | /usr/bin/grep "^${DEV}" | /usr/bin/uniq`
 	for GEOM in ${GEOMS}; do
 		echo "Destroying geom ${GEOM}:"
-		PARTS=`/sbin/gpart show ${GEOM} | /usr/bin/grep -v '=>\|- free -' | /usr/bin/awk '{if ($3 ~ /[0-9]+/) print $3}' | /usr/bin/sort -n | /usr/bin/uniq'`
+		PARTS=`/sbin/gpart show ${GEOM} | /usr/bin/grep -v '=>\|- free -' | /usr/bin/awk '{if ($3 ~ /[0-9]+/) print $3}' | /usr/bin/sort -n | /usr/bin/uniq`
 		for PART in ${PARTS}; do
 			echo -n "    Deleting partition ${PART} ..."
 			if ! /sbin/gpart delete -i${PART} ${GEOM} > /dev/null 2> /dev/null; then
