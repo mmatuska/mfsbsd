@@ -4,7 +4,6 @@
 # mfsBSD ZFS install script
 # Copyright (c) 2010 Martin Matuska <mm at FreeBSD.org>
 #
-DEFAULT_POOL_VERSION=13
 FS_LIST="var tmp"
 
 usage() {
@@ -76,10 +75,8 @@ if [ -z "$POOL" ]; then
 fi
 
 if [ -z "$VERSION" ]; then
-	VERSION=${DEFAULT_POOL_VERSION}
-fi
-
-if [ "$VERSION" -gt "$ZFS_VERSION" ]; then
+	VERSION=${ZFS_VERSION}
+elif [ "$VERSION" -gt "$ZFS_VERSION" ]; then
 	echo "Error: invalid ZFS pool version (maximum: $ZFS_VERSION)"
 	exit 1
 fi
