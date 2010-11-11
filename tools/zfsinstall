@@ -4,8 +4,6 @@
 # mfsBSD ZFS install script
 # Copyright (c) 2010 Martin Matuska <mm at FreeBSD.org>
 #
-SUPPORTED_POOL_VERSIONS="1 2 3 4 5 6 7 8 9 10 11 12 13 14 15"
-MAXIMUM_POOL_VERSION=15
 DEFAULT_POOL_VERSION=13
 FS_LIST="var tmp"
 
@@ -58,6 +56,16 @@ while getopts d:t:r:p:s:z:m:V:hcl4 o; do
 esac
 done
 
+ZFS_VERSION=`/sbin/sysctl -n vfs.zfs.version.spa 2>/dev/null`
+
+if [ -z "$ZFS_VERSION" ]; then
+        echo "Error: ZFS module not loaded"
+        exit 1
+elif [ "$ZFS_VERSION" -lt "13" ]; then
+	echo "Error: ZFS module too old, version 13 or higher required"
+	exit 1
+fi
+
 if [ -z "$DEVS" -o -z "$ARCHIVE" ]; then
 	usage
 	exit 1
@@ -69,15 +77,11 @@ fi
 
 if [ -z "$VERSION" ]; then
 	VERSION=${DEFAULT_POOL_VERSION}
-else
-	PASS=
-	for V in ${SUPPORTED_POOL_VERSIONS}; do
-		if [ "$V" = "$VERSION" ]; then PASS=1; fi
-	done
-	if [ -z "$PASS" ]; then
-		echo "Error: invalid ZFS pool version (maximum: $MAXIMUM_POOL_VERSION)"
-		exit 1
-	fi
+fi
+
+if [ "$VERSION" -gt "$ZFS_VERSION" ]; then
+	echo "Error: invalid ZFS pool version (maximum: $ZFS_VERSION)"
+	exit 1
 fi
 
 if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
