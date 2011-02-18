@@ -78,8 +78,8 @@ BSDLABEL=bsdlabel
 #
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi snp opensolaris zfs
-MFSMODULES=geom_label geom_mirror
+BOOTMODULES=acpi
+MFSMODULES=geom_mirror opensolaris zfs ext2fs snp
 #
 .if !defined(WITHOUT_RESCUE)
 COMPRESS?=	bzip2
