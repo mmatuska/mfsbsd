@@ -3,6 +3,11 @@
 # mfsBSD changelog
 # Copyright (c) 2007-2010 Martin Matuska <mm at FreeBSD.org>
 #
+19.02.2011
+  - add ahci to BOOTMODULES
+  - move zfs and opensolaris to MFSMODULES
+  - add ext2fs, smbus and ipmi to MFSMODULES
+
 11.11.2010
   - autodetect installed pool version
 
