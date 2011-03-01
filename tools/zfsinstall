@@ -55,10 +55,14 @@ while getopts d:t:r:p:s:z:m:V:hcl4 o; do
 esac
 done
 
+if ! `/sbin/kldstat -m zfs >/dev/null 2>/dev/null`; then
+	/sbin/kldload zfs >/dev/null 2>/dev/null
+fi
+
 ZFS_VERSION=`/sbin/sysctl -n vfs.zfs.version.spa 2>/dev/null`
 
 if [ -z "$ZFS_VERSION" ]; then
-        echo "Error: ZFS module not loaded"
+        echo "Error: failed to load ZFS module"
         exit 1
 elif [ "$ZFS_VERSION" -lt "13" ]; then
 	echo "Error: ZFS module too old, version 13 or higher required"
