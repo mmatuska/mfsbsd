@@ -224,7 +224,7 @@ ${WRKDIR}/.packages_done:
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
-.for FILE in loader.conf rc.conf resolv.conf interfaces.conf
+.for FILE in loader.conf rc.conf resolv.conf interfaces.conf ttys
 . if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
 	@echo "Missing ${CFGDIR}/$${FILE}.sample" && exit 1
 . endif
@@ -241,11 +241,13 @@ ${WRKDIR}/.config_done:
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/mfs/boot/loader.conf; \
 	fi
-	@if [ -f "${CFGDIR}/rc.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/rc.conf ${WRKDIR}/mfs/etc/rc.conf; \
+.for FILE in rc.conf ttys
+	@if [ -f "${CFGDIR}/${FILE}" ]; then \
+		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${WRKDIR}/mfs/etc/${FILE}; \
 	else \
-		${INSTALL} -m 0644 ${CFGDIR}/rc.conf.sample ${WRKDIR}/mfs/etc/rc.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/${FILE}.sample ${WRKDIR}/mfs/etc/${FILE}; \
 	fi
+.endfor
 	@if [ -f "${CFGDIR}/resolv.conf" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/resolv.conf ${WRKDIR}/mfs/etc/resolv.conf; \
 	fi
