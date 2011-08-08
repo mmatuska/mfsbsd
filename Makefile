@@ -69,7 +69,6 @@ XZ=/usr/bin/xz
 MAKEFS=/usr/sbin/makefs
 SSHKEYGEN=/usr/bin/ssh-keygen
 SYSCTL=/sbin/sysctl
-MKISOFS=/usr/local/bin/mkisofs
 #
 CURDIR!=${PWD}
 WRKDIR?=${CURDIR}/tmp
@@ -369,9 +368,8 @@ ${IMAGE}:
 
 iso: install prune config genkeys boot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
-	@if [ ! -x "${MKISOFS}" ]; then exit 1; fi
 	@echo -n "Creating ISO image ..."
-	@${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk > /dev/null 2> /dev/null
+	@${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
 	@echo " done"
 	@${LS} -l ${ISOIMAGE}
 
