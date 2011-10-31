@@ -16,7 +16,7 @@ TARFILE?= mfsboot.tar
 KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=5%
 MFSROOT_FREE_BLOCKS?=5%
-MFSROOT_MAXSIZE?=45m
+MFSROOT_MAXSIZE?=64m
 ROOTPW?= mfsroot
 
 # If you want to build your own kernel and make you own world, you need to set
@@ -67,6 +67,7 @@ UNAME=/usr/bin/uname
 BZIP2=/usr/bin/bzip2
 XZ=/usr/bin/xz
 MAKEFS=/usr/sbin/makefs
+MKISOFS=/usr/local/bin/mkisofs
 SSHKEYGEN=/usr/bin/ssh-keygen
 SYSCTL=/sbin/sysctl
 #
@@ -81,7 +82,7 @@ BOOTMODULES=acpi ahci
 MFSMODULES=geom_mirror opensolaris zfs ext2fs snp smbus ipmi ntfs
 #
 .if !defined(WITHOUT_RESCUE)
-COMPRESS?=	bzip2
+COMPRESS?=	xz
 .else
 COMPRESS=	uzip
 BOOTMODULES+=	geom_uzip zlib
@@ -114,6 +115,10 @@ EXCLUDE=--exclude *.symbols
 EXCLUDE=
 .endif
 
+.if !defined(NKPT)
+NKPT=120
+.endif
+
 all: image
 
 extract: ${WRKDIR}/.extract_done
@@ -144,14 +149,14 @@ ${WRKDIR}/.extract_done:
 build: extract ${WRKDIR}/.build_done
 ${WRKDIR}/.build_done:
 .if defined(CUSTOM)
-.if defined(BUILDKERNEL)
+. if defined(BUILDKERNEL)
 	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET}
-.endif
-.if defined(BUILDWORLD)
+	@cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET} NKPT=${NKPT}
+. endif
+. if defined(BUILDWORLD)
 	@echo -n "Building world ..."
 	@cd ${SRC_DIR} && make buildworld TARGET=${TARGET}
-.endif
+. endif
 .endif
 	@${TOUCH} ${WRKDIR}/.build_done
 
@@ -369,7 +374,15 @@ ${IMAGE}:
 iso: install prune config genkeys boot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
+.if defined(USE_MKISOFS)
+. if !exists(${MKISOFS})
+	@echo "${MKISOFS} is missing, please install sysutils/cdrtools first"; exit 1
+. else
+	@${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk > /dev/null 2> /dev/null
+. endif
+.else
 	@${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+.endif
 	@echo " done"
 	@${LS} -l ${ISOIMAGE}
 
