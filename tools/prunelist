@@ -7,6 +7,8 @@ usr/bin/CC
 usr/bin/cc
 usr/bin/clang
 usr/bin/clang++
+usr/bin/clang-cpp
+usr/bin/clang-tblgen
 usr/bin/cpp
 usr/bin/gcc
 usr/bin/yacc
