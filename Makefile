@@ -115,10 +115,6 @@ EXCLUDE=--exclude *.symbols
 EXCLUDE=
 .endif
 
-.if !defined(NKPT)
-NKPT=120
-.endif
-
 all: image
 
 extract: ${WRKDIR}/.extract_done
@@ -151,7 +147,7 @@ ${WRKDIR}/.build_done:
 .if defined(CUSTOM)
 . if defined(BUILDKERNEL)
 	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET} NKPT=${NKPT}
+	@cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET}
 . endif
 . if defined(BUILDWORLD)
 	@echo -n "Building world ..."
