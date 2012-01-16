@@ -3,7 +3,7 @@
 # mfsBSD building instructions
 # Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.11
+# Version 1.1.1
 
 BUILDING INSTRUCTIONS:
  1. Configuration
