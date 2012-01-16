@@ -1,8 +1,15 @@
 # $Id$
 #
 # mfsBSD changelog
-# Copyright (c) 2007-2011 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
 #
+16.1.2012
+  - add clang-cpp and clang-tblgen to prunelist
+  - release 1.11
+
+31.8.2011
+  - use makefs instead of mkisofs
+
 02.03.2011
   - release 1.1
 

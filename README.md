@@ -1,7 +1,7 @@
 mfsBSD
 =========
 
-Copyright (c) 2007-2011 Martin Matuska <mm at FreeBSD.org>
+Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
 
 ## Description
 
