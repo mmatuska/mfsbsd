@@ -39,6 +39,7 @@ CFGDIR=conf
 SCRIPTSDIR=scripts
 PACKAGESDIR=packages
 FILESDIR=files
+MODULESDIR=modules
 TOOLSDIR=tools
 PRUNELIST?=${TOOLSDIR}/prunelist
 #
@@ -233,6 +234,25 @@ ${WRKDIR}/.packages_done:
 		echo " done"; \
 	fi
 
+files: install prune ${WRKDIR}/.files_done
+${WRKDIR}/.files_done:
+	@if [ -d "${FILESDIR}" ]; then \
+		echo -n "Copying user files ..."; \
+		${CP} -rf ${FILESDIR} ${WRKDIR}/mfs/files; \
+		${TOUCH} ${WRKDIR}/.files_done; \
+		echo " done"; \
+	fi
+
+modules: install prune ${WRKDIR}/.modules_done
+${WRKDIR}/.modules_done:
+	@if [ -d "${MODULESDIR}" ]; then \
+		echo -n "Copying user modules ..."; \
+		${CP} -rf ${MODULESDIR} ${WRKDIR}/mfs/boot/modules/; \
+		${CP} -rf ${MODULESDIR} ${WRKDIR}/disk/boot/modules/; \
+		${TOUCH} ${WRKDIR}/.modules_done; \
+		echo " done"; \
+	fi
+
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
@@ -343,7 +363,7 @@ ${WRKDIR}/.boot_done:
 	@${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
-mfsroot: install prune config genkeys boot compress-usr packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys boot modules compress-usr packages files ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
@@ -359,7 +379,7 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-fbsddist: install prune config genkeys boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
+fbsddist: install prune config genkeys boot modules compress-usr packages files mfsroot ${WRKDIR}/.fbsddist_done
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
