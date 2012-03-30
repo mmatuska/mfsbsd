@@ -123,10 +123,21 @@ ${WRKDIR}/.extract_done:
 .if !defined(CUSTOM)
 	@if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
-		echo "with FreeBSD distribution files (e.g. /cdrom/8.1-RELEASE)"; \
-		echo "Or execute like: make BASE=/cdrom/8.1-RELEASE"; \
+		echo "with FreeBSD distribution files (e.g. /cdrom/8.1-RELEASE or /cdrom/usr/freebsd-dist)"; \
+		echo "Or execute like: make BASE=/cdrom/8.1-RELEASE or make BASE=/cdrom/usr/freebsd-dist"; \
 		exit 1; \
 	fi
+. if defined(FREEBSD9)
+       @for DIST in base.txz kernel.txz; do \
+               if [ ! -f "${BASE}/$$DIST" ]; then \
+                       echo "Cannot find dist file \"${BASE}/$$DIST\""; \
+                       exit 1; \
+               fi \
+       done
+       @echo -n "Extracting base and kernel ..."
+       @${XZ} --decompress --stdout ${BASE}/base.txz | ${TAR} -xUf - -C ${WRKDIR}/mfs
+       @${XZ} --decompress --stdout ${BASE}/kernel.txz | ${TAR} -xUf - -C ${WRKDIR}/mfs
+. else
 	@for DIR in base kernels; do \
 		if [ ! -d "${BASE}/$$DIR" ]; then \
 			echo "Cannot find directory \"${BASE}/$$DIR\""; \
@@ -138,6 +149,7 @@ ${WRKDIR}/.extract_done:
 	@${CAT} ${BASE}/kernels/generic.?? | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs/boot
 	@${MV} ${WRKDIR}/mfs/boot/GENERIC/* ${WRKDIR}/mfs/boot/kernel
 	@${RMDIR} ${WRKDIR}/mfs/boot/GENERIC
+. endif
 	@echo " done"
 .endif
 	@${TOUCH} ${WRKDIR}/.extract_done

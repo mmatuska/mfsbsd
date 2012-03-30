@@ -15,7 +15,7 @@ e.g. /dev/ad0s1
 
 ## Build-time requirements
  - FreeBSD 7 or higher installed, tested on i386 or amd64
- - Base and kernel from a FreeBSD 7 or 8 distribution
+ - Base and kernel from a FreeBSD 7, 8 or 9 distribution
    (release or snapshots, e.g mounted CDROM disc1 or ISO file)
 
 ## Runtime requirements
