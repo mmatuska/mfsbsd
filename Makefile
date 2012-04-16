@@ -9,7 +9,7 @@
 #
 # User-defined variables
 #
-BASE?=/cdrom/8.0-RELEASE
+BASE?=/cdrom/usr/freebsd-dist
 IMAGE?=	mfsboot.img
 ISOIMAGE?= mfsboot.iso
 TARFILE?= mfsboot.tar
@@ -115,6 +115,16 @@ EXCLUDE=--exclude *.symbols
 EXCLUDE=
 .endif
 
+# Check if we are installing FreeBSD 9 or higher
+.if exists(${BASE}/base.txz) && exists(${BASE}/kernel.txz)
+FREEBSD9?=yes
+BASEFILE?=${BASE}/base.txz
+KERNELFILE?=${BASE}/kernel.txz
+.else
+BASEFILE?=${BASE}/base/base.??
+KERNLFILE?=${BASE}/kernels/generic.??
+.endif
+
 all: image
 
 extract: ${WRKDIR}/.extract_done
@@ -123,21 +133,29 @@ ${WRKDIR}/.extract_done:
 .if !defined(CUSTOM)
 	@if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
-		echo "with FreeBSD distribution files (e.g. /cdrom/8.1-RELEASE)"; \
-		echo "Or execute like: make BASE=/cdrom/8.1-RELEASE"; \
+		echo "with FreeBSD distribution files (e.g. /cdrom/8.3-RELEASE)"; \
+		echo "Examples:"; \
+		echo "make BASE=/cdrom/8.3-RELEASE"; \
+		echo "make BASE=/cdrom/usr/freebsd-dist"; \
 		exit 1; \
 	fi
+.if !defined(FREEBSD9)
 	@for DIR in base kernels; do \
 		if [ ! -d "${BASE}/$$DIR" ]; then \
 			echo "Cannot find directory \"${BASE}/$$DIR\""; \
 			exit 1; \
 		fi \
 	done
+.endif
 	@echo -n "Extracting base and kernel ..."
-	@${CAT} ${BASE}/base/base.?? | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs
-	@${CAT} ${BASE}/kernels/generic.?? | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs/boot
+	@${CAT} ${BASEFILE} | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs
+.if !defined(FREEBSD9)
+	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs/boot
 	@${MV} ${WRKDIR}/mfs/boot/GENERIC/* ${WRKDIR}/mfs/boot/kernel
 	@${RMDIR} ${WRKDIR}/mfs/boot/GENERIC
+.else
+	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs
+.endif
 	@echo " done"
 .endif
 	@${TOUCH} ${WRKDIR}/.extract_done

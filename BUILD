@@ -36,13 +36,13 @@ BUILDING INSTRUCTIONS:
     ISO image or a simple .tar.gz file
 
     a) disc image
-      examples: make BASE=/cdrom/7.0-RELEASE
+      examples: make BASE=/cdrom/8.3-RELEASE
                 make CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
 
     b) bootable ISO file:
-      examples: make iso BASE=/cdrom/7.0-RELEASE
+      examples: make iso BASE=/cdrom/8.3-RELEASE
                 make iso CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
 
     c) .tar.gz file:
-      examples: make tar BASE=/cdrom/7.0-RELEASE
+      examples: make tar BASE=/cdrom/8.3-RELEASE
                 make tar CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
