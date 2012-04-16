@@ -14,8 +14,8 @@ IMAGE?=	mfsboot.img
 ISOIMAGE?= mfsboot.iso
 TARFILE?= mfsboot.tar
 KERNCONF?= GENERIC
-MFSROOT_FREE_INODES?=5%
-MFSROOT_FREE_BLOCKS?=5%
+MFSROOT_FREE_INODES?=10%
+MFSROOT_FREE_BLOCKS?=10%
 MFSROOT_MAXSIZE?=64m
 ROOTPW?= mfsroot
 
@@ -54,7 +54,6 @@ MV=/bin/mv
 RM=/bin/rm
 RMDIR=/bin/rmdir
 CHFLAGS=/bin/chflags
-MKUZIP=/usr/bin/mkuzip
 GZIP=/usr/bin/gzip
 TOUCH=/usr/bin/touch
 INSTALL=/usr/bin/install
@@ -78,15 +77,10 @@ BSDLABEL=bsdlabel
 #
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi ahci
+BOOTMODULES=acpi ahci tmpfs
 MFSMODULES=geom_mirror opensolaris zfs ext2fs snp smbus ipmi ntfs
 #
-.if !defined(WITHOUT_RESCUE)
 COMPRESS?=	xz
-.else
-COMPRESS=	uzip
-BOOTMODULES+=	geom_uzip zlib
-.endif
 
 .if !defined(TARGET)
 TARGET!=	${SYSCTL} -n hw.machine_arch
@@ -125,11 +119,50 @@ BASEFILE?=${BASE}/base/base.??
 KERNLFILE?=${BASE}/kernels/generic.??
 .endif
 
+.if defined(MAKEJOBS)
+_MAKEJOBS=	-j${MAKEJOBS}
+.endif
+
+_ROOTDIR=	${WRKDIR}/mfs
+_BOOTDIR=	${_ROOTDIR}/boot
+.if defined(ROOTHACK)
+_DESTDIR=	${_ROOTDIR}/rw
+WITHOUT_RESCUE=1
+MFSROOT_FREE_INODES=1%
+MFSROOT_FREE_BLOCKS=1%
+.else
+_DESTDIR=	${_ROOTDIR}
+.endif
+
+.if !defined(SE)
+# Envirnoment for custom build
+BUILDENV?= env \
+	NO_FSCHG=1 \
+	WITHOUT_CLANG=1 \
+	WITHOUT_DICT=1 \
+	WITHOUT_GAMES=1 \
+	WITHOUT_LIB32=1
+
+. if defined(WITHOUT_RESCUE)
+BUILDENV+=	WITHOUT_RESCUE=1
+. endif
+
+# Environment for custom install
+INSTALLENV?= ${BUILDENV} \
+	WITHOUT_TOOLCHAIN=1
+.endif
+
 all: image
 
-extract: ${WRKDIR}/.extract_done
+destdir: ${_DESTDIR} ${_BOOTDIR}
+${_DESTDIR}:
+	@${MKDIR} ${_DESTDIR} && ${CHOWN} root:wheel ${_DESTDIR}
+
+${_BOOTDIR}:
+	@${MKDIR} ${_BOOTDIR}/kernel ${_BOOTDIR}/modules && ${CHOWN} -R root:wheel ${_BOOTDIR}
+
+extract: destdir ${WRKDIR}/.extract_done
 ${WRKDIR}/.extract_done:
-	@${MKDIR} ${WRKDIR}/mfs && ${CHOWN} root:wheel ${WRKDIR}/mfs
 .if !defined(CUSTOM)
 	@if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
@@ -148,13 +181,13 @@ ${WRKDIR}/.extract_done:
 	done
 .endif
 	@echo -n "Extracting base and kernel ..."
-	@${CAT} ${BASEFILE} | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs
+	@${CAT} ${BASEFILE} | ${TAR} --unlink -xpzf - -C ${_DESTDIR}
 .if !defined(FREEBSD9)
-	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs/boot
-	@${MV} ${WRKDIR}/mfs/boot/GENERIC/* ${WRKDIR}/mfs/boot/kernel
-	@${RMDIR} ${WRKDIR}/mfs/boot/GENERIC
+	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_BOOTDIR}
+	@${MV} ${_BOOTDIR}/GENERIC/* ${_BOOTDIR}/kernel
+	@${RMDIR} ${_BOOTDIR}/GENERIC
 .else
-	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs
+	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_ROOTDIR}
 .endif
 	@echo " done"
 .endif
@@ -169,23 +202,24 @@ ${WRKDIR}/.build_done:
 . endif
 . if defined(BUILDWORLD)
 	@echo -n "Building world ..."
-	@cd ${SRC_DIR} && make buildworld TARGET=${TARGET}
+	@cd ${SRC_DIR} && \
+	${BUILDENV} make ${_MAKEJOBS} buildworld TARGET=${TARGET}
 . endif
 .endif
 	@${TOUCH} ${WRKDIR}/.build_done
 
-install: build ${WRKDIR}/.install_done
+install: destdir build ${WRKDIR}/.install_done
 ${WRKDIR}/.install_done:
 .if defined(CUSTOM)
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRC_DIR} && make installworld DESTDIR="${WRKDIR}/mfs" TARGET=${TARGET}
-	@cd ${SRC_DIR} && make distribution DESTDIR="${WRKDIR}/mfs" TARGET=${TARGET}
-	@cd ${SRC_DIR} && make installkernel DESTDIR="${WRKDIR}/mfs" TARGET=${TARGET}
+	@cd ${SRC_DIR} && \
+	${INSTALLENV} make installworld distribution DESTDIR="${_DESTDIR}" TARGET=${TARGET} && \
+	${INSTALLENV} make installkernel DESTDIR="${_ROOTDIR}" TARGET=${TARGET}
 .endif
 .if defined(SE)
 	@echo -n "Creating FreeBSD distribution image ..."
-	@mkdir -p ${WRKDIR}/dist
-	@cd ${WRKDIR}/mfs && ${FIND} . -depth 1 \
+	@${MKDIR} ${WRKDIR}/dist
+	@cd ${_DESTDIR} && ${FIND} . -depth 1 \
 		-exec ${TAR} -r ${EXCLUDE} -f ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar {} \; 
 	@echo " done"
 . if defined(COMPRESS)
@@ -193,9 +227,9 @@ ${WRKDIR}/.install_done:
 	@${COMPRESS_CMD} -v ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar
 . endif
 .endif
-	@${CHFLAGS} -R noschg ${WRKDIR}/mfs > /dev/null 2> /dev/null || exit 0
+	@${CHFLAGS} -R noschg ${_DESTDIR} > /dev/null 2> /dev/null || exit 0
 .if !defined(WITHOUT_RESCUE)
-	@cd ${WRKDIR}/mfs && \
+	@cd ${_DESTDIR} && \
 	for FILE in `${FIND} rescue -type f`; do \
 	FILE=$${FILE##rescue/}; \
 	if [ -f bin/$$FILE ]; then \
@@ -213,7 +247,7 @@ ${WRKDIR}/.install_done:
 	fi; \
 	done
 .else
-	@cd ${WRKDIR}/mfs && ${RM} -rf rescue
+	@cd ${_DESTDIR} && ${RM} -rf rescue
 .endif
 	@${TOUCH} ${WRKDIR}/.install_done
 
@@ -223,7 +257,7 @@ ${WRKDIR}/.prune_done:
 	@if [ -f "${PRUNELIST}" ]; then \
 		for FILE in `cat ${PRUNELIST}`; do \
 			if [ -n "$${FILE}" ]; then \
-				${RM} -rf ${WRKDIR}/mfs/$${FILE}; \
+				${RM} -rf ${_DESTDIR}/$${FILE}; \
 			fi; \
 		done; \
 	fi
@@ -234,10 +268,18 @@ packages: install prune ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
 	@if [ -d "${PACKAGESDIR}" ]; then \
 		echo -n "Copying user packages ..."; \
-		${CP} -rf ${PACKAGESDIR} ${WRKDIR}/mfs/packages; \
-		${TOUCH} ${WRKDIR}/.packages_done; \
+		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}/packages; \
 		echo " done"; \
 	fi
+	@if [ -d "${_DESTDIR}/packages" ]; then \
+		echo -n "Installing user packages ..."; \
+		cd ${_DESTDIR}/packages && for FILE in *; do \
+			env PKG_PATH=/packages pkg_add -fi -C ${_DESTDIR} /packages/$${FILE} > /dev/null; \
+		done; \
+		rm -rf ${_DESTDIR}/packages; \
+		echo " done"; \
+	fi
+	@${TOUCH} ${WRKDIR}/.packages_done
 
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
@@ -248,113 +290,140 @@ ${WRKDIR}/.config_done:
 . endif
 .endfor
 .if defined(SE)
-	@${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${WRKDIR}/mfs/etc/motd
-	@${INSTALL} -d -m 0755 ${WRKDIR}/mfs/cdrom
+	@${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${_DESTDIR}/etc/motd
+	@${INSTALL} -d -m 0755 ${_DESTDIR}/cdrom
 .else
-	@${INSTALL} -m 0644 ${TOOLSDIR}/motd ${WRKDIR}/mfs/etc/motd
+	@${INSTALL} -m 0644 ${TOOLSDIR}/motd ${_DESTDIR}/etc/motd
 .endif
-	@${MKDIR} ${WRKDIR}/mfs/stand ${WRKDIR}/mfs/etc/rc.conf.d
+	@${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/mfs/boot/loader.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${_BOOTDIR}/loader.conf; \
 	else \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/mfs/boot/loader.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${_BOOTDIR}/loader.conf; \
 	fi
 .for FILE in rc.conf ttys
 	@if [ -f "${CFGDIR}/${FILE}" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${WRKDIR}/mfs/etc/${FILE}; \
+		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_DESTDIR}/etc/${FILE}; \
 	else \
-		${INSTALL} -m 0644 ${CFGDIR}/${FILE}.sample ${WRKDIR}/mfs/etc/${FILE}; \
+		${INSTALL} -m 0644 ${CFGDIR}/${FILE}.sample ${_DESTDIR}/etc/${FILE}; \
 	fi
 .endfor
+.if defined(ROOTHACK)
+	@echo 'root_rw_mount="NO"' >> ${_DESTDIR}/etc/rc.conf
+.endif
 	@if [ -f "${CFGDIR}/resolv.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/resolv.conf ${WRKDIR}/mfs/etc/resolv.conf; \
+		${INSTALL} -m 0644 ${CFGDIR}/resolv.conf ${_DESTDIR}/etc/resolv.conf; \
 	fi
 	@if [ -f "${CFGDIR}/interfaces.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/interfaces.conf ${WRKDIR}/mfs/etc/rc.conf.d/interfaces; \
+		${INSTALL} -m 0644 ${CFGDIR}/interfaces.conf ${_DESTDIR}/etc/rc.conf.d/interfaces; \
 	fi
 	@if [ -f "${CFGDIR}/authorized_keys" ]; then \
-		${INSTALL} -d -m 0700 ${WRKDIR}/mfs/root/.ssh; \
-		${INSTALL} ${CFGDIR}/authorized_keys ${WRKDIR}/mfs/root/.ssh/; \
+		${INSTALL} -d -m 0700 ${_DESTDIR}/root/.ssh; \
+		${INSTALL} ${CFGDIR}/authorized_keys ${_DESTDIR}/root/.ssh/; \
 	fi
-	@${MKDIR} ${WRKDIR}/mfs/root/bin
-	@${INSTALL} ${TOOLSDIR}/zfsinstall ${WRKDIR}/mfs/root/bin
-	@${INSTALL} ${TOOLSDIR}/destroygeom ${WRKDIR}/mfs/root/bin
+	@${MKDIR} ${_DESTDIR}/root/bin
+	@${INSTALL} ${TOOLSDIR}/zfsinstall ${_DESTDIR}/root/bin
+	@${INSTALL} ${TOOLSDIR}/destroygeom ${_DESTDIR}/root/bin
 	@for SCRIPT in ${SCRIPTS}; do \
-		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${WRKDIR}/mfs/etc/rc.d/; \
+		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${_DESTDIR}/etc/rc.d/; \
 	done
-	@${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${WRKDIR}/mfs/etc/ttys
-	@echo "/dev/md0 / ufs rw 0 0" > ${WRKDIR}/mfs/etc/fstab
-	@echo "md /tmp mfs rw,-s128m 0 0" >> ${WRKDIR}/mfs/etc/fstab
-	@echo ${ROOTPW} | ${PW} -V ${WRKDIR}/mfs/etc usermod root -h 0
-	@echo PermitRootLogin yes >> ${WRKDIR}/mfs/etc/ssh/sshd_config
-	@echo 127.0.0.1 localhost > ${WRKDIR}/mfs/etc/hosts
+	@${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${_DESTDIR}/etc/ttys
+.if !defined(ROOTHACK)
+	@echo "/dev/md0 / ufs rw 0 0" > ${_DESTDIR}/etc/fstab
+	@echo "tmpfs /tmp tmpfs rw,mode=1777 0 0" >> ${_DESTDIR}/etc/fstab
+.else
+	@${TOUCH} ${_DESTDIR}/etc/fstab
+.endif
+	@echo ${ROOTPW} | ${PW} -V ${_DESTDIR}/etc usermod root -h 0
+	@echo PermitRootLogin yes >> ${_DESTDIR}/etc/ssh/sshd_config
+	@echo 127.0.0.1 localhost > ${_DESTDIR}/etc/hosts
 	@${TOUCH} ${WRKDIR}/.config_done
 	@echo " done"
 
 genkeys: config ${WRKDIR}/.genkeys_done
 ${WRKDIR}/.genkeys_done:
 	@echo -n "Generating SSH host keys ..."
-	@${SSHKEYGEN} -t rsa1 -b 1024 -f ${WRKDIR}/mfs/etc/ssh/ssh_host_key -N '' > /dev/null
-	@${SSHKEYGEN} -t dsa -f ${WRKDIR}/mfs/etc/ssh/ssh_host_dsa_key -N '' > /dev/null
-	@${SSHKEYGEN} -t rsa -f ${WRKDIR}/mfs/etc/ssh/ssh_host_rsa_key -N '' > /dev/null
+	@${SSHKEYGEN} -t rsa1 -b 1024 -f ${_DESTDIR}/etc/ssh/ssh_host_key -N '' > /dev/null
+	@${SSHKEYGEN} -t dsa -f ${_DESTDIR}/etc/ssh/ssh_host_dsa_key -N '' > /dev/null
+	@${SSHKEYGEN} -t rsa -f ${_DESTDIR}/etc/ssh/ssh_host_rsa_key -N '' > /dev/null
 	@${TOUCH} ${WRKDIR}/.genkeys_done
 	@echo " done"
 
-compress-usr: install prune ${WRKDIR}/.compress-usr_done
+compress-usr: install prune config genkeys boot packages ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
+.if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
-. if defined(COMPRESS)
-	@${TAR} -c -C ${WRKDIR}/mfs -f - usr | \
-	${COMPRESS_CMD} -v -c > ${WRKDIR}/mfs/.usr.tar${SUFX} && \
-	${RM} -rf ${WRKDIR}/mfs/usr && \
-	${MKDIR} ${WRKDIR}/mfs/usr
+	@${TAR} -c -C ${_DESTDIR} -f - usr | \
+	${COMPRESS_CMD} -v -c > ${_DESTDIR}/.usr.tar${SUFX} && \
+	${RM} -rf ${_DESTDIR}/usr && \
+	${MKDIR} ${_DESTDIR}/usr
 .else
-	@${MKDIR} ${WRKDIR}/mnt
-	@${MAKEFS} -t ffs ${WRKDIR}/usr.img ${WRKDIR}/mfs/usr > /dev/null && \
-	${MKUZIP} -o ${WRKDIR}/mfs/.usr.uzip ${WRKDIR}/usr.img > /dev/null && \
-	${RM} -rf ${WRKDIR}/mfs/usr ${WRKDIR}/usr.img && ${MKDIR} ${WRKDIR}/mfs/usr
+	@echo -n "Compressing root ..."
+	@${TAR} -c -C ${_ROOTDIR} -f - rw | \
+	${COMPRESS_CMD} -v -c > ${_ROOTDIR}/root.txz
+	${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
 .endif
 	@${TOUCH} ${WRKDIR}/.compress-usr_done
+	@echo " done"
+
+roothack: ${WRKDIR}/roothack/roothack
+${WRKDIR}/roothack/roothack:
+	@${MKDIR} -p ${WRKDIR}/roothack
+	@cd ${TOOLSDIR}/roothack && env MAKEOBJDIR=${WRKDIR}/roothack make
+
+install-roothack: compress-usr roothack ${WRKDIR}/.install-roothack_done
+${WRKDIR}/.install-roothack_done:
+	@echo -n "Installing roothack ..."
+	@${MKDIR} -p ${_ROOTDIR}/dev ${_ROOTDIR}/sbin
+	@${INSTALL} -m 555 ${WRKDIR}/roothack/roothack ${_ROOTDIR}/sbin/init
+	@${TOUCH} ${WRKDIR}/.install-roothack_done
 	@echo " done"
 
 boot: install prune ${WRKDIR}/.boot_done
 ${WRKDIR}/.boot_done:
 	@echo -n "Configuring boot environment ..."
-	@${MKDIR} ${WRKDIR}/disk && ${CHOWN} root:wheel ${WRKDIR}/disk
-	@${RM} -f ${WRKDIR}/mfs/boot/kernel/kernel.debug
-	@${CP} -rp ${WRKDIR}/mfs/boot ${WRKDIR}/disk
+	@${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
+	@${RM} -f ${_BOOTDIR}/kernel/kernel.debug
+	@${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
+.for FILE in defaults loader loader.help *.rc *.4th
+	@${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
+.endfor
 	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
-	@test -f ${WRKDIR}/mfs/boot/kernel/kernel.symbols \
-	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+	@test -f ${_BOOTDIR}/kernel/kernel.symbols \
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 .endif
 .for FILE in ${BOOTMODULES}
-	@test -f ${WRKDIR}/mfs/boot/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+	@test -f ${_BOOTDIR}/kernel/${FILE}.ko \
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
-	@test -f ${WRKDIR}/mfs/boot/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+	@test -f ${_BOOTDIR}/kernel/${FILE}.ko \
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
-	@${MKDIR} -p ${WRKDIR}/disk/boot/modules
+	@${MKDIR} -p ${_DESTDIR}/boot/modules
 .for FILE in ${MFSMODULES}
-	@test -f ${WRKDIR}/mfs/boot/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/${FILE}.ko ${WRKDIR}/mfs/boot/modules >/dev/null 2>/dev/null || exit 0
+	@test -f ${_BOOTDIR}/kernel/${FILE}.ko \
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
-	@test -f ${WRKDIR}/mfs/boot/kernel/${FILE}.ko.symbols \
-	&& ${INSTALL} -m 0555 ${WRKDIR}/mfs/boot/kernel/${FILE}.ko.symbols ${WRKDIR}/mfs/boot/modules >/dev/null 2>/dev/null || exit 0
+	@test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_TESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
-	@${RM} -rf ${WRKDIR}/mfs/boot/kernel ${WRKDIR}/mfs/boot/*.symbols
+	@${RM} -rf ${_BOOTDIR}/kernel ${_BOOTDIR}/*.symbols
 	@${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
+.if defined(ROOTHACK)
+mfsroot: install prune config genkeys boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
+.else
 mfsroot: install prune config genkeys boot compress-usr packages ${WRKDIR}/.mfsroot_done
+.endif
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
-	@${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${WRKDIR}/mfs > /dev/null
-	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/mfs
+	@${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
+	@${RM} -rf ${WRKDIR}/mnt ${_DESTDIR}
 	@${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	@${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
@@ -408,6 +477,9 @@ ${TARFILE}:
 	@echo " done"
 	@${LS} -l ${TARFILE}
 
-clean:
+clean-roothack:
+	@${RM} -rf ${WRKDIR}/roothack
+
+clean: clean-roothack
 	@if [ -d ${WRKDIR} ]; then ${CHFLAGS} -R noschg ${WRKDIR}; fi
 	@cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done

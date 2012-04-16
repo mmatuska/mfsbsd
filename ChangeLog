@@ -5,6 +5,12 @@
 #
 16.4.2012
   - add support for installing from FreeBSD 9.0-RELEASE media
+  - add roothack.c by Ed Schouten <ed@FreeBSD.org>
+  - option ROOTHACK creates one big tmpfs root
+  - switch to tmpfs for /usr and /tmp
+  - do not do varmfs, enlarge root free space to 10%
+  - drop geom_uzip support
+  - disable beastie by default
 
 16.1.2012
   - add clang-cpp and clang-tblgen to prunelist
