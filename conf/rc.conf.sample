@@ -16,10 +16,6 @@ hostname="mfsbsd"
 #ifconfig_em0="inet 192.168.0.1 netmask 255.255.255.0"
 #ifconfig_rl0="DHCP"
 #
-# Set the size of your memory var and tmp filesystems
-varmfs="YES"
-varsize="64m"
-#
 # Change the values below only if you know what you are doing!
 #
 sshd_enable="YES"
