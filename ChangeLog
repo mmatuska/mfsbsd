@@ -3,6 +3,9 @@
 # mfsBSD changelog
 # Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
 #
+30.3.2012
+  - added FreeBSD9 support
+
 16.1.2012
   - add clang-cpp and clang-tblgen to prunelist
   - release 1.1.1

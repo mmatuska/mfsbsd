@@ -39,6 +39,7 @@ CFGDIR=conf
 SCRIPTSDIR=scripts
 PACKAGESDIR=packages
 FILESDIR=files
+MODULESDIR=modules
 TOOLSDIR=tools
 PRUNELIST?=${TOOLSDIR}/prunelist
 #
@@ -123,10 +124,21 @@ ${WRKDIR}/.extract_done:
 .if !defined(CUSTOM)
 	@if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
-		echo "with FreeBSD distribution files (e.g. /cdrom/8.1-RELEASE)"; \
-		echo "Or execute like: make BASE=/cdrom/8.1-RELEASE"; \
+		echo "with FreeBSD distribution files (e.g. /cdrom/8.1-RELEASE or /cdrom/usr/freebsd-dist)"; \
+		echo "Or execute like: make BASE=/cdrom/8.1-RELEASE or make BASE=/cdrom/usr/freebsd-dist"; \
 		exit 1; \
 	fi
+. if defined(FREEBSD9)
+       @for DIST in base.txz kernel.txz; do \
+               if [ ! -f "${BASE}/$$DIST" ]; then \
+                       echo "Cannot find dist file \"${BASE}/$$DIST\""; \
+                       exit 1; \
+               fi \
+       done
+       @echo -n "Extracting base and kernel ..."
+       @${XZ} --decompress --stdout ${BASE}/base.txz | ${TAR} -xUf - -C ${WRKDIR}/mfs
+       @${XZ} --decompress --stdout ${BASE}/kernel.txz | ${TAR} -xUf - -C ${WRKDIR}/mfs
+. else
 	@for DIR in base kernels; do \
 		if [ ! -d "${BASE}/$$DIR" ]; then \
 			echo "Cannot find directory \"${BASE}/$$DIR\""; \
@@ -138,6 +150,7 @@ ${WRKDIR}/.extract_done:
 	@${CAT} ${BASE}/kernels/generic.?? | ${TAR} --unlink -xpzf - -C ${WRKDIR}/mfs/boot
 	@${MV} ${WRKDIR}/mfs/boot/GENERIC/* ${WRKDIR}/mfs/boot/kernel
 	@${RMDIR} ${WRKDIR}/mfs/boot/GENERIC
+. endif
 	@echo " done"
 .endif
 	@${TOUCH} ${WRKDIR}/.extract_done
@@ -218,6 +231,25 @@ ${WRKDIR}/.packages_done:
 		echo -n "Copying user packages ..."; \
 		${CP} -rf ${PACKAGESDIR} ${WRKDIR}/mfs/packages; \
 		${TOUCH} ${WRKDIR}/.packages_done; \
+		echo " done"; \
+	fi
+
+files: install prune ${WRKDIR}/.files_done
+${WRKDIR}/.files_done:
+	@if [ -d "${FILESDIR}" ]; then \
+		echo -n "Copying user files ..."; \
+		${CP} -rf ${FILESDIR} ${WRKDIR}/mfs/files; \
+		${TOUCH} ${WRKDIR}/.files_done; \
+		echo " done"; \
+	fi
+
+modules: install prune ${WRKDIR}/.modules_done
+${WRKDIR}/.modules_done:
+	@if [ -d "${MODULESDIR}" ]; then \
+		echo -n "Copying user modules ..."; \
+		${CP} -rf ${MODULESDIR} ${WRKDIR}/mfs/boot/modules/; \
+		${CP} -rf ${MODULESDIR} ${WRKDIR}/disk/boot/modules/; \
+		${TOUCH} ${WRKDIR}/.modules_done; \
 		echo " done"; \
 	fi
 
@@ -331,7 +363,7 @@ ${WRKDIR}/.boot_done:
 	@${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
-mfsroot: install prune config genkeys boot compress-usr packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys boot modules compress-usr packages files ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
@@ -347,7 +379,7 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-fbsddist: install prune config genkeys boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
+fbsddist: install prune config genkeys boot modules compress-usr packages files mfsroot ${WRKDIR}/.fbsddist_done
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
