@@ -79,8 +79,10 @@ MFSMODULES=geom_mirror opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs
 #
 COMPRESS?=	xz
 
-.if !defined(TARGET)
+.if !defined(ARCH)
 TARGET!=	${SYSCTL} -n hw.machine_arch
+.else
+TARGET=		${ARCH}
 .endif
 
 .if !defined(RELEASE)
