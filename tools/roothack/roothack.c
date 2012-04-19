@@ -26,6 +26,7 @@
 
 #include <sys/param.h>
 #include <sys/linker.h>
+#include <sys/module.h>
 #include <sys/mount.h>
 #include <sys/uio.h>
 
@@ -145,6 +146,9 @@ main(int argc __unused, char *argv[])
 	/* Prevent foot shooting. */
 	if (getpid() != 1)
 		return (1);
+
+	if (modfind("tmpfs") == -1 && kldload("tmpfs") == -1)
+		die("error loading tmpfs");
 
 	/* Extract FreeBSD installation in a tmpfs. */
 	domount(tmpfs, sizeof(tmpfs) / sizeof(char *));
