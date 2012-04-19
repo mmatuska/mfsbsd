@@ -74,8 +74,8 @@ BSDLABEL=bsdlabel
 #
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi ahci tmpfs
-MFSMODULES=geom_mirror opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs
+BOOTMODULES=acpi ahci
+MFSMODULES=geom_mirror opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs
 #
 COMPRESS?=	xz
 
@@ -427,9 +427,15 @@ ${WRKDIR}/.boot_done:
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
 	@test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_TESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
+.if defined(ROOTHACK)
+	@echo -n "Installing tmpfs module for roothack ..."
+	@${MKDIR} -p ${_ROOTDIR}/boot/modules
+	@${INSTALL} -m 0666 ${_BOOTDIR}/kernel/tmpfs.ko ${_ROOTDIR}/boot/modules
+	@echo " done"
+.endif
 	@${RM} -rf ${_BOOTDIR}/kernel ${_BOOTDIR}/*.symbols
 	@${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
