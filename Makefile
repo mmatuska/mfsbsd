@@ -10,9 +10,6 @@
 # User-defined variables
 #
 BASE?=/cdrom/usr/freebsd-dist
-IMAGE?=	mfsboot.img
-ISOIMAGE?= mfsboot.iso
-TARFILE?= mfsboot.tar
 KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=10%
 MFSROOT_FREE_BLOCKS?=10%
@@ -89,6 +86,16 @@ TARGET!=	${SYSCTL} -n hw.machine_arch
 .if !defined(RELEASE)
 RELEASE!=${UNAME} -r
 .endif
+
+.if !defined(SE)
+IMAGE_PREFIX?=	mfsbsd
+.else
+IMAGE_PREFIX?=	mfsbsd-se
+.endif
+
+IMAGE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.img
+ISOIMAGE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.iso
+TARFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
 
 .if defined(COMPRESS)
 . if ${COMPRESS} == "xz"
@@ -228,6 +235,7 @@ ${WRKDIR}/.install_done:
 .if defined(SE)
 	@echo -n "Creating FreeBSD distribution image ..."
 	@${MKDIR} ${WRKDIR}/dist
+	@${CP} -rp ${_BOOTDIR}/kernel ${_DESTDIR}/boot
 	@cd ${_DESTDIR} && ${FIND} . -depth 1 \
 		-exec ${TAR} -r ${EXCLUDE} -f ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar {} \; 
 	@echo " done"
@@ -235,6 +243,7 @@ ${WRKDIR}/.install_done:
 	@echo "Compressing FreeBSD distribution image ..."
 	@${COMPRESS_CMD} -v ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar
 . endif
+	@${RM} -rf ${_DESTDIR}/boot/kernel
 .endif
 	@${CHFLAGS} -R noschg ${_DESTDIR} > /dev/null 2> /dev/null || exit 0
 .if !defined(WITHOUT_RESCUE)
@@ -396,7 +405,7 @@ ${WRKDIR}/.boot_done:
 	@${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
 	@${RM} -f ${_BOOTDIR}/kernel/kernel.debug
 	@${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
-.for FILE in defaults loader loader.help *.rc *.4th
+.for FILE in boot defaults loader loader.help *.rc *.4th
 	@${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
 	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
