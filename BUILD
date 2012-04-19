@@ -3,7 +3,7 @@
 # mfsBSD building instructions
 # Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.1.1
+# Version 2.0
 
 BUILDING INSTRUCTIONS:
  1. Configuration
@@ -35,14 +35,25 @@ BUILDING INSTRUCTIONS:
     You may create three types of output: disc image for use by dd(1), 
     ISO image or a simple .tar.gz file
 
+    Examples:
+
     a) disc image
-      examples: make BASE=/cdrom/8.3-RELEASE
-                make CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
+	make BASE=/cdrom/usr/freebsd-dist
+	make BASE=/cdrom/8.3-RELEASE
+        make CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
 
     b) bootable ISO file:
-      examples: make iso BASE=/cdrom/8.3-RELEASE
-                make iso CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
+	make iso BASE=/cdrom/usr/freebsd-dist
+	make iso BASE=/cdrom/8.3-RELEASE
+	make iso CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
 
     c) .tar.gz file:
-      examples: make tar BASE=/cdrom/8.3-RELEASE
-                make tar CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
+	make tar BASE=/cdrom/usr/freebsd-dist
+	make tar BASE=/cdrom/8.3-RELEASE
+	make tar CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
+
+    d) roothack edition:
+	make iso CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1 ROOTHACK=1
+
+    e) special edition (with FreeBSD distribution):
+	make iso BASE=/cdrom/8.3-RELEASE RELEASE=8.3-RELEASE ARCH=amd64

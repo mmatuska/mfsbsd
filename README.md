@@ -25,7 +25,7 @@ e.g. /dev/ad0s1
 
 See BUILD and INSTALL files for building and installation instructions.
 
+Homepage: http://mfsbsd.vx.sk
+
 This project bases on the ideas from the depenguinator project:
 http://www.daemonology.net/depenguinator/
-
-Homepage: http://mfsbsd.vx.sk

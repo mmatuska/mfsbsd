@@ -3,6 +3,11 @@
 # mfsBSD changelog
 # Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
 #
+19.4.2012
+  - auto-name created images by default
+  - add support for custom roothack file
+  - release 2.0
+
 16.4.2012
   - add support for installing from FreeBSD 9.0-RELEASE media
   - add roothack.c by Ed Schouten <ed@FreeBSD.org>

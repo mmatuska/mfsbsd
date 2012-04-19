@@ -3,7 +3,7 @@
 # mfsBSD installation (deployment) instructions
 # Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 1.1.1
+# Version 2.0
 
 BUILD:
 For customized build please see the BUILD file
@@ -25,7 +25,7 @@ You want a rescue CD-ROM with a minimal FreeBSD installation that doesn't
 need to remain in the tray after booting.
 
 a) modify your configuration files
-b) create an iso image file (e.g. make iso BASE=/cdrom/7.2-RELEASE)
+b) create an iso image file (e.g. make iso BASE=/cdrom/8.3-RELEASE)
 c) burn ISO image onto a writable CD
 d) boot from the CD and enjoy :)
 
@@ -34,14 +34,10 @@ You want a rescue partition on your FreeBSD system so you can re-partition
 all harddrives remotely.
 
 a) modify your configuration files
-b) create an .tar.gz file (e.g. make tar BASE=/cdrom/7.2-RELEASE)
+b) create an .tar.gz file (e.g. make tar BASE=/cdrom/8.3-RELEASE)
 c) create your slice with sysinstall or fdisk (e.g. ad0s1)
 d) auto-label the slice (e.g. bsdlabel -r -w ad0s1 auto)
 e) create a filesystem on the slice (e.g. newfs /dev/ad0s1a)
 f) mount the slice and extract your .tar.gz file on it
 g) configure a bootmanager (e.g. boot0cfg -B -s 1 /dev/ad0)
 h) boot from your rescue system and enjoy :)
-
----------------------------------------------------------------
-This project bases on the ideas from the depenguinator project:
-http://www.daemonology.net/depenguinator/
