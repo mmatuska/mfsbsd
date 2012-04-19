@@ -116,7 +116,7 @@ BASEFILE?=${BASE}/base.txz
 KERNELFILE?=${BASE}/kernel.txz
 .else
 BASEFILE?=${BASE}/base/base.??
-KERNLFILE?=${BASE}/kernels/generic.??
+KERNELFILE?=${BASE}/kernels/generic.??
 .endif
 
 .if defined(MAKEJOBS)
