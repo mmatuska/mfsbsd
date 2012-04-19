@@ -37,7 +37,7 @@ ROOTPW?= mfsroot
 SRC_DIR?=/usr/src
 CFGDIR=conf
 SCRIPTSDIR=scripts
-PACKAGESDIR=packages
+PACKAGESDIR?=packages
 FILESDIR=files
 TOOLSDIR=tools
 PRUNELIST?=${TOOLSDIR}/prunelist
@@ -78,7 +78,7 @@ BSDLABEL=bsdlabel
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
 BOOTMODULES=acpi ahci tmpfs
-MFSMODULES=geom_mirror opensolaris zfs ext2fs snp smbus ipmi ntfs
+MFSMODULES=geom_mirror opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs
 #
 COMPRESS?=	xz
 
@@ -107,6 +107,15 @@ SUFX=".gz"
 EXCLUDE=--exclude *.symbols
 .else
 EXCLUDE=
+.endif
+
+# Roothack stuff
+.if defined(ROOTHACK_FILE) && exists(${ROOTHACK_FILE})
+ROOTHACK=1
+ROOTHACK_PREBUILT=1
+_ROOTHACK_FILE=${ROOTHACK_FILE}
+.else
+_ROOTHACK_FILE=${WRKDIR}/roothack/roothack
 .endif
 
 # Check if we are installing FreeBSD 9 or higher
@@ -368,14 +377,16 @@ ${WRKDIR}/.compress-usr_done:
 
 roothack: ${WRKDIR}/roothack/roothack
 ${WRKDIR}/roothack/roothack:
+.if !defined(ROOTHACK_PREBUILT)
 	@${MKDIR} -p ${WRKDIR}/roothack
 	@cd ${TOOLSDIR}/roothack && env MAKEOBJDIR=${WRKDIR}/roothack make
+.endif
 
 install-roothack: compress-usr roothack ${WRKDIR}/.install-roothack_done
 ${WRKDIR}/.install-roothack_done:
 	@echo -n "Installing roothack ..."
 	@${MKDIR} -p ${_ROOTDIR}/dev ${_ROOTDIR}/sbin
-	@${INSTALL} -m 555 ${WRKDIR}/roothack/roothack ${_ROOTDIR}/sbin/init
+	@${INSTALL} -m 555 ${_ROOTHACK_FILE} ${_ROOTDIR}/sbin/init
 	@${TOUCH} ${WRKDIR}/.install-roothack_done
 	@echo " done"
 
