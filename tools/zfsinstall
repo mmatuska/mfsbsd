@@ -85,6 +85,12 @@ elif [ "$VERSION" -gt "$ZFS_VERSION" ]; then
 	exit 1
 fi
 
+if [ "$VERSION" = "5000" ]; then
+	VERSION=
+else
+	VERSION="-o version=${VERSION}"
+fi
+
 if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
 	echo Error: ZFS pool \"$POOL\" already exists
 	echo Please choose another pool name or rename/destroy the existing pool.
@@ -243,7 +249,7 @@ for DEV in ${DEVS}; do
 done
 
 echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
-if ! /sbin/zpool create -f -m none ${ALTROOT} -o version=${VERSION} ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
+if ! /sbin/zpool create -f -m none ${ALTROOT} ${VERSION} ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
