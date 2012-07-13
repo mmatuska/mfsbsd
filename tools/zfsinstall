@@ -356,7 +356,7 @@ if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
 fi
 if [ "${LEGACY}" != "1" ]; then
 	echo -n "Writing /etc/rc.conf..."
-	echo 'zfs_enable="YES"' > ${MNT}/etc/rc.conf
+	echo 'zfs_enable="YES"' >> ${MNT}/etc/rc.conf
 fi
 echo " done"
 
