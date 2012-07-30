@@ -237,9 +237,9 @@ ${WRKDIR}/.install_done:
 .if defined(SE)
 	@echo -n "Creating FreeBSD distribution image ..."
 	@${MKDIR} ${WRKDIR}/dist
-.if defined(ROOTHACK)
+. if defined(ROOTHACK)
 	@${CP} -rp ${_BOOTDIR}/kernel ${_DESTDIR}/boot
-.endif
+. endif
 	@cd ${_DESTDIR} && ${FIND} . -depth 1 \
 		-exec ${TAR} -r ${EXCLUDE} -f ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar {} \; 
 	@echo " done"
@@ -247,7 +247,9 @@ ${WRKDIR}/.install_done:
 	@echo "Compressing FreeBSD distribution image ..."
 	@${COMPRESS_CMD} -v ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar
 . endif
+. if defined(ROOTHACK)
 	@${RM} -rf ${_DESTDIR}/boot/kernel
+. endif
 .endif
 	@${CHFLAGS} -R noschg ${_DESTDIR} > /dev/null 2> /dev/null || exit 0
 .if !defined(WITHOUT_RESCUE)
