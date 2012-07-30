@@ -237,7 +237,9 @@ ${WRKDIR}/.install_done:
 .if defined(SE)
 	@echo -n "Creating FreeBSD distribution image ..."
 	@${MKDIR} ${WRKDIR}/dist
+.if defined(ROOTHACK)
 	@${CP} -rp ${_BOOTDIR}/kernel ${_DESTDIR}/boot
+.endif
 	@cd ${_DESTDIR} && ${FIND} . -depth 1 \
 		-exec ${TAR} -r ${EXCLUDE} -f ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar {} \; 
 	@echo " done"
