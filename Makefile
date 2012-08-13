@@ -153,7 +153,7 @@ _DESTDIR=	${_ROOTDIR}
 .endif
 
 .if !defined(SE)
-# Envirnoment for custom build
+# Environment for custom build
 BUILDENV?= env \
 	NO_FSCHG=1 \
 	WITHOUT_CLANG=1 \

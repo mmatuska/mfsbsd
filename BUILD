@@ -15,7 +15,7 @@ BUILDING INSTRUCTIONS:
     If you want any packages installed, copy the .tbz files that should be 
     automatically installed into the packages/ directory
     WARNING: Your image should not exceed 45MB in total, otherwise kernel panic
-             may occur on boot-time. To aloow greater images, you have to
+             may occur on boot-time. To allow bigger images, you have to
              recompile your kernel with increased NKPT (e.g. NKPT=120)
 
  3. Distribution or custom world and kernel
