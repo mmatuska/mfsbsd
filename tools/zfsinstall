@@ -153,7 +153,7 @@ elif [ "$FTYPE" = "application/x-bzip2" ]; then
 	EXTRACT_CMD=/usr/bin/bzip2
 elif [ "$FTYPE" = "application/x-xz" ]; then
 	if [ ! -x "`/usr/bin/which xz`" ]; then
-		echo "xz-compressed file selcted and xz is not installed";
+		echo "xz-compressed file selected and xz is not installed";
 		exit 1
 	fi
 	EXTRACT_CMD=`which xz`
