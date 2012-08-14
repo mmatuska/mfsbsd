@@ -214,14 +214,14 @@ ${WRKDIR}/.extract_done:
 build: extract ${WRKDIR}/.build_done
 ${WRKDIR}/.build_done:
 .if defined(CUSTOM)
-. if defined(BUILDKERNEL)
-	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
-	@cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET}
-. endif
 . if defined(BUILDWORLD)
 	@echo -n "Building world ..."
 	@cd ${SRC_DIR} && \
 	${BUILDENV} make ${_MAKEJOBS} buildworld TARGET=${TARGET}
+. endif
+. if defined(BUILDKERNEL)
+	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
+	@cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET}
 . endif
 .endif
 	@${TOUCH} ${WRKDIR}/.build_done
