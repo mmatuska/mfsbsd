@@ -5,6 +5,6 @@ This is a stripped-down version of FreeBSD without:
 - include files, static library files, development tools
 - bind binaries (host, dig, named, etc.)
 
-Feel free to email me with any bug requests or feature suggestions.
+Feel free to email me with any bug reports or feature suggestions.
 Martin Matuska <mm@FreeBSD.org>
 http://mfsbsd.vx.sk/
