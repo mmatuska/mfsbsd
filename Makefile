@@ -310,7 +310,7 @@ ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
 .for FILE in loader.conf rc.conf resolv.conf interfaces.conf ttys
 . if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
-	@echo "Missing ${CFGDIR}/$${FILE}.sample" && exit 1
+	@echo "Missing ${CFGDIR}/${FILE}.sample" && exit 1
 . endif
 .endfor
 .if defined(SE)
