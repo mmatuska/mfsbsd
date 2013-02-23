@@ -27,6 +27,21 @@ ROOTPW?= mfsroot
 #
 # For all of this use
 # -DCUSTOM -DBUILDWORLD -DBUILDKERNEL or CUSTOM=1 BUILDKERNEL=1 BUILDWORLD=1
+#
+
+#
+# To build with virtio driver duringbootstrap,
+#
+#    make with USE_VIRTIO=1 BUILDKERNEL=1 KERNCONF=MFSBSD
+#
+# Prior to run make command, do following two steps:
+# 1. create MFSBSD kernel config with "options NKPT=150".
+#    see conf/MFSBSD.conf-sample for instruction to prepare kernel configuration file.
+#    with BUILDKERNEL=1 KERNCONF=MFSBSD, kernel will be built
+# 2. Download virtio kernel modules from: http://people.freebsd.org/~kuriyama/virtio/
+#    and extract the contents into 'modules' directory.
+#    (This makefile expect virtio.ko and other files in modules/boot/modules directory)
+#
 
 #
 # Paths
@@ -75,7 +90,12 @@ BSDLABEL=bsdlabel
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
 BOOTMODULES=acpi ahci
-MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs
+.if defined(USE_VIRTIO)
+EXTRA_BOOTMODULES=virtio virtio_pci virtio_blk virtio_balloon if_vtnet
+.else
+EXTRA_BOOTMODULES=
+.endif
+MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs if_em
 #
 COMPRESS?=	xz
 
@@ -348,6 +368,10 @@ ${WRKDIR}/.config_done:
 	@${MKDIR} ${_DESTDIR}/root/bin
 	@${INSTALL} ${TOOLSDIR}/zfsinstall ${_DESTDIR}/root/bin
 	@${INSTALL} ${TOOLSDIR}/destroygeom ${_DESTDIR}/root/bin
+	@for FILE in ${EXTRA_BOOTMODULES}; do \
+		${CP} ${CURDIR}/modules/boot/modules/$${FILE}.ko ${WRKDIR}/mfs/boot/modules/ || exit 0; \
+	done
+
 	@for SCRIPT in ${SCRIPTS}; do \
 		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${_DESTDIR}/etc/rc.d/; \
 	done
@@ -425,6 +449,14 @@ ${WRKDIR}/.boot_done:
 . if defined(DEBUG)
 	@test -f ${_BOOTDIR}/kernel/${FILE}.ko \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+. endif
+.endfor
+.for FILE in ${EXTRA_BOOTMODULES}
+	@test -f ${CURDIR}/modules/boot/modules/${FILE}.ko \
+	&& ${INSTALL} -m 0555 ${CURDIR}/modules/boot/modules/${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+. if defined(DEBUG)
+	@test -f ${_BOOTDIR}/modules/boot/modules/${FILE}.ko.symbols \
+	&& ${INSTALL} -m 0555 ${CURDIR}/modules/boot/modules/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
 	@${MKDIR} -p ${_DESTDIR}/boot/modules
