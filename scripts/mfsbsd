@@ -69,7 +69,7 @@ mfsbsd_start()
 		echo $_rootpw | /usr/sbin/pw usermod root -h 0
 		/bin/kenv -u mfsbsd.rootpw
 	elif [ -n "$_rootpwhash" ]; then
-		echo $_rootpwhash | /usr/sbin/pw usermod root -H 0
+		echo $_rootpwhash | /usr/bin/sed -e 's,%,$,g' | /usr/sbin/pw usermod root -H 0
 		/bin/kenv -u mfsbsd.rootpwhash
         fi
 	if [ -n "$_ns" ]; then
