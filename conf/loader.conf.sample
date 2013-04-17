@@ -10,6 +10,9 @@
 # Define a new root password
 #mfsbsd.rootpw="foobar"
 #
+# Alternatively define a root password hash like in master.passwd
+#mfsbsd.rootpwhash=""
+#
 # Add additional nameservers here
 #mfsbsd.nameservers="192.168.1.1 192.168.1.2"
 #

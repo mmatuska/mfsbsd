@@ -3,6 +3,9 @@
 # mfsBSD changelog
 # Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
 #
+17.4.2013
+  - allow setting root password hash in loader.conf
+
 19.4.2012
   - auto-name created images by default
   - add support for custom roothack file
