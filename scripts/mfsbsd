@@ -23,6 +23,7 @@ mfsbsd_start()
 	_sr=`/bin/kenv -q mfsbsd.static_routes`
 	_ns=`/bin/kenv -q mfsbsd.nameservers`
 	_rootpw=`/bin/kenv -q mfsbsd.rootpw`
+	_rootpwhash=`/bin/kenv -q mfsbsd.rootpwhash`
 	if [ -n "$_hn" ]; then
 		echo "hostname=\"$_hn\"" >> /etc/rc.conf.d/hostname
 	fi
@@ -66,7 +67,11 @@ mfsbsd_start()
 	fi
 	if [ -n "$_rootpw" ]; then
 		echo $_rootpw | /usr/sbin/pw usermod root -h 0
-	fi
+		/bin/kenv -u mfsbsd.rootpw
+	elif [ -n "$_rootpwhash" ]; then
+		echo $_rootpwhash | /usr/sbin/pw usermod root -H 0
+		/bin/kenv -u mfsbsd.rootpwhash
+        fi
 	if [ -n "$_ns" ]; then
 		for n in $_ns; do
 			echo "nameserver $_n" >> /etc/resolv.conf
