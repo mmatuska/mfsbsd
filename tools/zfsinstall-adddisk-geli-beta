@@ -32,7 +32,7 @@ DISK=${1}
 if [ -z ${DISK} ]; then
   echo    "usage:    ${0##*/} device"
   echo -n "devices:  "
-  ~/bin/bsd-list-hdd.sh 2>/dev/null | tr "\n" " "
+  ls -1 /dev/ | egrep ".{0,1}da[0-9]" | egrep -v "[0-9]p[0-9]" 2>/dev/null | tr "\n" " "
   echo
   exit 1
 else
