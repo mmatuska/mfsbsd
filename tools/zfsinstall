@@ -24,6 +24,7 @@ help() {
 	echo "-V pool_version   : specify a version number for ZFS pool (default: 13)"
 	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
 	echo "-c		: enable lzjb compression for all datasets"
+	echo "-E                : enable GELI support incl. encrypted/mirrored swap"
 	echo "-l 		: use legacy mounts (via fstab) instead of ZFS mounts"
 	echo "-4		: use fletcher4 as default checksum algorithm"
 	echo; echo "Examples:"
@@ -37,7 +38,7 @@ help() {
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:t:r:p:s:z:m:V:hcl4 o; do
+while getopts d:t:r:p:s:z:m:V:hcEl4 o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
         	t) ARCHIVE="${OPTARG}" ;;
@@ -47,6 +48,7 @@ while getopts d:t:r:p:s:z:m:V:hcl4 o; do
 		r) RAID="${OPTARG}" ;;
 		z) ZPART="${OPTARG}" ;;
 		V) VERSION="${OPTARG}" ;;
+		E) GELI=1 ;;
 		c) LZJB=1 ;;
 		l) LEGACY=1 ;;
 		4) FLETCHER=1 ;;
@@ -196,12 +198,12 @@ for DEV in ${DEVS}; do
 		echo " error"
 		exit 1
 	fi
-	if ! /sbin/gpart add -t freebsd-boot -s 128 ${DEV} > /dev/null; then
+	if ! /sbin/gpart add -t freebsd-boot -s 128 -a 4k ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
 	if [ -n "${SWAP}" ]; then
-		if ! /sbin/gpart add -t freebsd-swap -s "${SWAP}" ${DEV} > /dev/null; then
+		if ! /sbin/gpart add -t freebsd-swap -a 4k -s "${SWAP}" ${DEV} > /dev/null; then
 			echo " error"
 			exit 1
 		fi
@@ -211,9 +213,13 @@ for DEV in ${DEVS}; do
 		fi
 		if [ -z "$FSWAP" ]; then
 			FSWAP=${SWAPPART}
+		else
+			if [ "${GELI}" = 1 ]; then
+				FSWAP="${FSWAP} ${SWAPPART}"
+			fi
 		fi
 	fi
-	if ! /sbin/gpart add -t freebsd-zfs ${SZPART} ${DEV} > /dev/null; then
+	if ! /sbin/gpart add -t freebsd-zfs -a 4k ${SZPART} ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
@@ -231,6 +237,11 @@ for DEV in ${DEVS}; do
 	echo " done"
 	/sbin/gpart show ${DEV}
 done
+
+# Create mirrored swap in GELI case, FSWAP is the list of swap part.
+if [ "${GELI}" = 1 ]; then
+	/sbin/gmirror label -b round-robin swap ${FSWAP}
+fi
 
 # Create zpool and zfs
 
@@ -337,6 +348,14 @@ echo " done"
 
 echo -n "Writing /boot/loader.conf..."
 echo "zfs_load=\"YES\"" > ${MNT}/boot/loader.conf
+if [ "${GELI}" = "1" ]; then
+	echo "geom_mirror_load=\"YES\"" > ${MNT}/boot/loader.conf
+	echo "geom_label_load=\"YES\"" > ${MNT}/boot/loader.conf
+	echo "geom_eli_load=\"YES\"" > ${MNT}/boot/loader.conf
+	echo "geom_uzip_load=\"YES\"" > ${MNT}/boot/loader.conf
+fi
+echo "vm.kmem_size=\"32G\"" > ${MNT}/boot/loader.conf
+echo "vfs.zfs.txg.timeout=\"5\"" > ${MNT}/boot/loader.conf
 echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
 echo " done"
 
@@ -345,8 +364,14 @@ echo -n "Writing /etc/fstab..."
 rm -f ${MNT}/etc/fstab
 touch ${MNT}/etc/fstab
 if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
-	if [ -n "${FSWAP}" ]; then
-		echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
+	if [ "${GELI}" = 1 ]; then
+		if [ -n "${FSWAP}" ]; then
+			echo "/dev/mirror/swap.eli none swap sw 0 0" > ${MNT}/etc/fstab
+		fi
+	else
+		if [ -n "${FSWAP}" ]; then
+			echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
+		fi
 	fi
 	if [ "${LEGACY}" = "1" ]; then
 		for FS in ${FS_LIST}; do
@@ -357,6 +382,7 @@ fi
 if [ "${LEGACY}" != "1" ]; then
 	echo -n "Writing /etc/rc.conf..."
 	echo 'zfs_enable="YES"' >> ${MNT}/etc/rc.conf
+	echo 'ssd_enable="YES"' >> ${MNT}/etc/rc.conf
 fi
 echo " done"
 
