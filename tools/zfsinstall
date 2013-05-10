@@ -344,6 +344,8 @@ if [ "${GELI}" == "1" ]; then
 	echo "geom_eli_load=\"YES\"" > ${MNT}/boot/loader.conf
 	echo "geom_uzip_load=\"YES\"" > ${MNT}/boot/loader.conf
 fi
+echo "vm.kmem_size=\"32G\"" > ${MNT}/boot/loader.conf
+echo "vfs.zfs.txg.timeout=\"5\"" > ${MNT}/boot/loader.conf
 echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
 echo " done"
 
