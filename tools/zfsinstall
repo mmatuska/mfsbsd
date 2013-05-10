@@ -338,6 +338,12 @@ echo " done"
 
 echo -n "Writing /boot/loader.conf..."
 echo "zfs_load=\"YES\"" > ${MNT}/boot/loader.conf
+if [ "${GELI}" == "1" ]; then
+	echo "geom_mirror_load=\"YES\"" > ${MNT}/boot/loader.conf
+	echo "geom_label_load=\"YES\"" > ${MNT}/boot/loader.conf
+	echo "geom_eli_load=\"YES\"" > ${MNT}/boot/loader.conf
+	echo "geom_uzip_load=\"YES\"" > ${MNT}/boot/loader.conf
+fi
 echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
 echo " done"
 
