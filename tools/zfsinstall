@@ -37,7 +37,7 @@ help() {
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:t:r:p:s:z:m:V:hcl4 o; do
+while getopts d:t:r:p:s:z:m:V:hcEl4 o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
         	t) ARCHIVE="${OPTARG}" ;;
@@ -47,6 +47,7 @@ while getopts d:t:r:p:s:z:m:V:hcl4 o; do
 		r) RAID="${OPTARG}" ;;
 		z) ZPART="${OPTARG}" ;;
 		V) VERSION="${OPTARG}" ;;
+		E) GELI=1 ;;
 		c) LZJB=1 ;;
 		l) LEGACY=1 ;;
 		4) FLETCHER=1 ;;
