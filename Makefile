@@ -75,7 +75,7 @@ DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
 BOOTMODULES=acpi ahci
 MFSMODULES=geom_mirror geom_nop opensolaris zfs geom_eli crypto zlib \
-  geom_label ext2fs snp smbus ipmi ntfs nullfs tmpfs
+  geom_label ext2fs snp smbus ipmi ntfs nullfs tmpfs aesni
 #
 COMPRESS?=	xz
 
