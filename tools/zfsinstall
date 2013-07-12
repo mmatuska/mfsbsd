@@ -3,11 +3,16 @@
 #
 # mfsBSD ZFS install script
 # Copyright (c) 2011 Martin Matuska <mm at FreeBSD.org>
+# Modified by @johnko https://github.com/johnko with help from 
+# @keltia https://github.com/keltia
 #
 FS_LIST="var tmp"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t archive_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider \
+...] -t archive_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] \
+[-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-E] \
+[-c] [-l] [-4]"
 }
 
 help() {
