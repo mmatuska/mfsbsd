@@ -300,6 +300,7 @@ done
 
 # Create mirrored swap in GELI case, FSWAP is the list of swap part.
 if [ "${GELI}" = 1 ]; then
+	/sbin/gmirror load > /dev/null 2> /dev/null
 	/sbin/gmirror label -b round-robin swap ${FSWAP}
 fi
 
@@ -361,6 +362,7 @@ EOF
 done
 
 if [ "${USEBOOT}" = 1 ]; then
+	/sbin/gmirror load > /dev/null 2> /dev/null
 	/sbin/gmirror label -b load boot ${BPARTS}
 fi
 
