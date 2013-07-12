@@ -23,6 +23,7 @@ help() {
 	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
 	echo "-V pool_version   : specify a version number for ZFS pool (default: 13)"
 	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
+	echo "-E		: enable GELI support incl. encrypted/mirrored swap"
 	echo "-c		: enable lzjb compression for all datasets"
 	echo "-l 		: use legacy mounts (via fstab) instead of ZFS mounts"
 	echo "-4		: use fletcher4 as default checksum algorithm"
@@ -212,6 +213,10 @@ for DEV in ${DEVS}; do
 		fi
 		if [ -z "$FSWAP" ]; then
 			FSWAP=${SWAPPART}
+		else
+			if [ "${GELI}" = 1 ]; then
+				FSWAP="${FSWAP} ${SWAPPART}"
+			fi
 		fi
 	fi
 	if ! /sbin/gpart add -t freebsd-zfs -a 4k ${SZPART} ${DEV} > /dev/null; then
@@ -232,6 +237,11 @@ for DEV in ${DEVS}; do
 	echo " done"
 	/sbin/gpart show ${DEV}
 done
+
+# Create mirrored swap in GELI case, FSWAP is the list of swap part.
+if [ "${GELI}" = 1 ]; then
+	/sbin/gmirror label -b round-robin swap ${FSWAP}
+fi
 
 # Create zpool and zfs
 
@@ -352,8 +362,14 @@ echo -n "Writing /etc/fstab..."
 rm -f ${MNT}/etc/fstab
 touch ${MNT}/etc/fstab
 if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
-	if [ -n "${FSWAP}" ]; then
-		echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
+	if [ "${GELI}" = 1 ]; then
+		if [ -n "${FSWAP}" ]; then
+			echo "/dev/mirror/swap.eli none swap sw 0 0" > ${MNT}/etc/fstab
+		fi
+	else
+		if [ -n "${FSWAP}" ]; then
+			echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
+		fi
 	fi
 	if [ "${LEGACY}" = "1" ]; then
 		for FS in ${FS_LIST}; do
