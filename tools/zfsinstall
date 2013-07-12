@@ -547,9 +547,11 @@ if [ -n "${LEGACY}" ]; then
 	done
 	/sbin/umount ${MNT} > /dev/null 2> /dev/null
 fi
-if ! umount ${MNT}/bootdir > /dev/null 2>&1 ; then
-  echo " error unmounting /bootdir"
-  exit 1
+if [ "${USEBOOT}" = "1" ]; then
+  if ! umount ${MNT}/bootdir > /dev/null 2>&1 ; then
+    echo " error unmounting /bootdir"
+    exit 1
+  fi
 fi
 if ! /sbin/zpool export ${POOL} > /dev/null 2> /dev/null; then
 	echo " error exporting pool"
@@ -565,9 +567,11 @@ if [ -n "${LEGACY}" ]; then
 		exit 1
 	fi
 fi
-if ! mount /dev/mirror/boot ${MNT}/bootdir > /dev/null 2>&1 ; then
-  echo " error remounting /bootdir"
-  exit 1
+if [ "${USEBOOT}" = "1" ]; then
+  if ! mount /dev/mirror/boot ${MNT}/bootdir > /dev/null 2>&1 ; then
+    echo " error remounting /bootdir"
+    exit 1
+  fi
 fi
 if ! /bin/cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/ > /dev/null 2> /dev/null; then
 	echo " error copying zpool.cache"
