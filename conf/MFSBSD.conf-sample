@@ -1,0 +1,38 @@
+Patch to increase NKPT parameter using kernel configuration file.
+
+To create amd64 based configuration file MFSBSD, do following:
+
+# cd /usr/src/sys/amd64/conf
+# cp GENERIC MFSBSD
+# patch < THIS_FILE
+
+Change 'amd64' to desired architecture if necessary.
+
+
+*** GENERIC	Tue Dec  4 12:14:17 2012
+--- MFSBSD	Sat Feb  2 19:45:56 2013
+***************
+*** 19,28 ****
+  # $FreeBSD: release/9.1.0/sys/amd64/conf/GENERIC 238090 2012-07-04 00:54:16Z delphij $
+  
+  cpu		HAMMER
+! ident		GENERIC
+  
+  makeoptions	DEBUG=-g		# Build kernel with gdb(1) debug symbols
+  
+  options 	SCHED_ULE		# ULE scheduler
+  options 	PREEMPTION		# Enable kernel thread preemption
+  options 	INET			# InterNETworking
+--- 19,30 ----
+  # $FreeBSD: release/9.1.0/sys/amd64/conf/GENERIC 238090 2012-07-04 00:54:16Z delphij $
+  
+  cpu		HAMMER
+! ident		MFSBSD
+  
+  makeoptions	DEBUG=-g		# Build kernel with gdb(1) debug symbols
+  
++ options		NKPT=150		# Increase Number of page tables to
++ 
+  options 	SCHED_ULE		# ULE scheduler
+  options 	PREEMPTION		# Enable kernel thread preemption
+  options 	INET			# InterNETworking
