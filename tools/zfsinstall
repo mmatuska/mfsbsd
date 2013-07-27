@@ -35,7 +35,7 @@ help() {
 	echo "-f fs_name        : specify a name for the ZFS filesystem (default: rfs)"
 	echo "-V pool_version   : specify a version number for ZFS pool (default: 13)"
 	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
-	echo "-b boot_size      : create a unencrypted boot partition (default: 200M)"
+	echo "-b boot_size      : create a unencrypted boot partition (default: 500M)"
 	echo "-E  : enable GELI support incl. encrypted/mirrored swap"
 	echo "-g  : enable NOP support to emulate 4k alignment"
 	echo "-c  : enable lzjb compression for all datasets"
@@ -48,7 +48,7 @@ help() {
 	echo "$0 -d ad4 -d ad6 -r mirror -p rpool"
 	echo "Install GELI encrypted / with unencrypted /boot using \
   key and password at boot time:"
-	echo "$0 -d ad4 -b 200M -E"
+	echo "$0 -d ad4 -b 500M -E"
 	echo "Install GELI encrypted / that can't boot (maybe useful if using \
   custom mfsbsd to boot, unlock, chroot, and continue rc):"
 	echo "$0 -d ad4 -E"
@@ -114,7 +114,7 @@ fi
 
 if [ -z "$BSIZE" ]; then
 	if [ "${USEBOOT}" = "1" ]; then
-		BSIZE=200M
+		BSIZE=500M
 	else
 		BSIZE=1M
 	fi
