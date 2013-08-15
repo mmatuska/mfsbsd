@@ -37,6 +37,10 @@ mfsbsd_start()
 			if [ -n "$_mac" ]; then
 				echo "ifconfig_${i}_mac=\"$_mac\"" >> /etc/rc.conf.d/interfaces
 			fi
+			_config=`/bin/kenv mfsbsd.ifconfig_$i`
+			if [ -n "$_config" ]; then
+				echo "ifconfig_$i=\"$_config\"" >> /etc/rc.conf.d/interfaces
+			fi
 		done
 	fi
 	if [ -n "$_dhcp" ]; then
