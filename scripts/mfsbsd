@@ -78,7 +78,7 @@ mfsbsd_start()
         fi
 	if [ -n "$_ns" ]; then
 		for n in $_ns; do
-			echo "nameserver $_n" >> /etc/resolv.conf
+			echo "nameserver $n" >> /etc/resolv.conf
 		done
 	fi
 }
