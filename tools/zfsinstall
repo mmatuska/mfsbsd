@@ -304,7 +304,7 @@ for DEV in ${DEVS}; do
 	fi
 done
 
-# Create mirrored swap in GELI case, FSWAP is the list of swap part.
+# Create mirrored swap, FSWAP is the list of swap part.
 if [ -n "${FSWAP}" ]; then
 	/sbin/gmirror load > /dev/null 2> /dev/null
 	/sbin/gmirror label -b round-robin swap ${FSWAP}
