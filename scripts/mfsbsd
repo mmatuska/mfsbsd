@@ -31,11 +31,15 @@ mfsbsd_start()
 		echo "cloned_interfaces=\"$_clif\"" >> /etc/rc.conf.d/network
 	fi
 	if [ -n "$_mif" ]; then
-		echo "mac_interfaces=\"$_clif\"" >> /etc/rc.conf.d/interfaces
+		echo "mac_interfaces=\"$_mif\"" >> /etc/rc.conf.d/interfaces
 		for i in $_mif; do
-			_mac=`/bin/kenv mfsbsd.ifconfig_$i_mac`
+			_mac=`/bin/kenv mfsbsd.ifconfig_${i}_mac`
 			if [ -n "$_mac" ]; then
-				echo "ifconfig_$i_mac=\"$_mac\"" >> /etc/rc.conf.d/interfaces
+				echo "ifconfig_${i}_mac=\"$_mac\"" >> /etc/rc.conf.d/interfaces
+			fi
+			_config=`/bin/kenv mfsbsd.ifconfig_$i`
+			if [ -n "$_config" ]; then
+				echo "ifconfig_$i=\"$_config\"" >> /etc/rc.conf.d/interfaces
 			fi
 		done
 	fi
@@ -74,7 +78,7 @@ mfsbsd_start()
         fi
 	if [ -n "$_ns" ]; then
 		for n in $_ns; do
-			echo "nameserver $_n" >> /etc/resolv.conf
+			echo "nameserver $n" >> /etc/resolv.conf
 		done
 	fi
 }
