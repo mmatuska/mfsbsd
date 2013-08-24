@@ -329,8 +329,7 @@ for DEV in ${DEVS}; do
 		##### Generate an alphanumeric key
 		umask 077
 		TMPKEY="/boot/keys/`hostname -s`.${POOL}.${DISKLABEL}.${PART}"
-		/bin/cat /dev/urandom | /usr/bin/strings -1 | /usr/bin/egrep -o "[[:alnum:]]" \
-| /usr/bin/tr -d '\n' | /usr/bin/head -c64 > ${TMPKEY}
+		/bin/dd if=/dev/random of=${TMPKEY} bs=128k count=1
 		umask $RESTOREMASK
 		KEYFILES="${KEYFILES} ${TMPKEY}"
 	fi
