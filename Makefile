@@ -73,7 +73,7 @@ BSDLABEL=bsdlabel
 #
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi ahci
+BOOTMODULES=acpi ahci aesni
 MFSMODULES=geom_mirror geom_nop opensolaris zfs geom_eli crypto zlib \
   geom_label ext2fs snp smbus ipmi ntfs nullfs tmpfs aesni
 #
