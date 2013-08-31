@@ -346,6 +346,7 @@ for DEV in ${DEVS}; do
 		/sbin/gnop create -S 4096 ${GPART}
 		GPARTS="${GPARTS} ${GPART}.nop"
 	fi
+	PARTS="${PARTS} ${DEV}p${PART}"
 	if [ "${GELI}" = "1" ]; then
 		if [ "${USEBOOT}" = "1" ]; then
 			##### PASSWORD AT CONSOLE
@@ -357,15 +358,14 @@ for DEV in ${DEVS}; do
 			/sbin/geli attach  -p -k ${TMPKEY} /dev/${DEV}p${PART}
 		fi
 		EPARTS="${EPARTS}${DEV}p${PART}.eli "
-	fi
-	PARTS="${PARTS} ${DEV}p${PART}"
-	umask 077
-	/bin/cat >> /boot/loader.keys <<EOF
+		umask 077
+		/bin/cat >> /boot/loader.keys <<EOF
 geli_${DEV}p${PART}_keyfile0_load="YES"
 geli_${DEV}p${PART}_keyfile0_type="${DEV}p${PART}:geli_keyfile0"
 geli_${DEV}p${PART}_keyfile0_name="${TMPKEY}"
 EOF
-	umask $RESTOREMASK
+		umask $RESTOREMASK
+	fi
 done
 
 if [ "${USEBOOT}" = 1 ]; then
@@ -505,11 +505,11 @@ echo -n "Writing /boot/loader.conf..."
 zfs_load="YES"
 aesni_load="YES"
 ahci_load="YES"
+geom_mirror_load="YES"
+geom_label_load="YES"
 EOF
 if [ "${GELI}" = "1" ]; then
 	/bin/cat >>${MNT}/boot/loader.conf <<EOF
-geom_mirror_load="YES"
-geom_label_load="YES"
 geom_eli_load="YES"
 EOF
 	umask 077
