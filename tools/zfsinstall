@@ -297,9 +297,7 @@ for DEV in ${DEVS}; do
 		if [ -z "$FSWAP" ]; then
 			FSWAP=${SWAPPART}
 		else
-			if [ "${GELI}" = 1 ]; then
-				FSWAP="${FSWAP} ${SWAPPART}"
-			fi
+			FSWAP="${FSWAP} ${SWAPPART}"
 		fi
 	fi
 done
@@ -548,7 +546,7 @@ if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
 		fi
 	else
 		if [ -n "${FSWAP}" ]; then
-			echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
+			echo "/dev/mirror/swap none swap sw 0 0" > ${MNT}/etc/fstab
 		fi
 	fi
 	if [ "${LEGACY}" = "1" ]; then
