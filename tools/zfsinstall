@@ -660,3 +660,8 @@ echo "! YOU MUST BACKUP YOUR HEADERS FROM /var/backups/"
 echo "!!!!!!!!!!"
 fi
 
+if [ "${GELI}" = "1" ]; then
+  cat >> ${MNT}/etc/rc.conf <<EOF
+geli_swap_flags="-e AES-XTS -l 256 -s 4096 -d"
+EOF
+fi
