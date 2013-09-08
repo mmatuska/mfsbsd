@@ -272,16 +272,9 @@ for DEV in ${DEVS}; do
 	fi
 	echo " done"
 	echo -n "Configuring ZFS bootcode on ${DEV} ..."
-	if [ "${USEBOOT}" = "1" ]; then
-		if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${DEV} > /dev/null; then
-			echo " error"
-			exit 1
-		fi
-	else
-		if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${DEV} > /dev/null; then
-			echo " error"
-			exit 1
-		fi
+	if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${DEV} > /dev/null; then
+		echo " error"
+		exit 1
 	fi
 	echo " done"
 	/sbin/gpart show ${DEV}
