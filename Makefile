@@ -56,6 +56,7 @@ INSTALL=/usr/bin/install
 LS=/bin/ls
 LN=/bin/ln
 FIND=/usr/bin/find
+GREP=/usr/bin/egrep
 PW=/usr/sbin/pw
 SED=/usr/bin/sed
 UNAME=/usr/bin/uname
