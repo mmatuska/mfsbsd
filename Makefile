@@ -226,8 +226,8 @@ ${WRKDIR}/.install_done:
 . if defined(ROOTHACK)
 	@${CP} -rp ${_BOOTDIR}/kernel ${_DESTDIR}/boot
 . endif
-	@${TAR} -J ${EXCLUDE} --exclude "boot/kernel/*" -f ${_DISTDIR}/base.txz -C ${_DESTDIR} .
-	@${TAR} -J ${EXCLUDE} -f ${_DISTDIR}/kernel.txz boot/kernel
+	@${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} --exclude "boot/kernel/*" -f ${_DISTDIR}/base.txz .
+	@${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} -f ${_DISTDIR}/kernel.txz boot/kernel
 	@echo " done"
 . if defined(ROOTHACK)
 	@${RM} -rf ${_DESTDIR}/boot/kernel
@@ -366,8 +366,7 @@ compress-usr: install prune config genkeys boot packages ${WRKDIR}/.compress-usr
 ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
-	@${TAR} -c -C ${_DESTDIR} -f - usr | \
-	${XZ} -v -c > ${_DESTDIR}/.usr.tar${SUFX} && \
+	@${TAR} -c -J -C ${_DESTDIR} -f ${_DESTDIR}/.usr.tar.xz usr 
 	${RM} -rf ${_DESTDIR}/usr && \
 	${MKDIR} ${_DESTDIR}/usr
 .else
@@ -459,7 +458,7 @@ fbsddist: install prune config genkeys boot compress-usr packages mfsroot ${WRKD
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
-	@${CP} ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar${SUFX} ${WRKDIR}/disk/
+	@${CP} -rf ${_DISTDIR} ${WRKDIR}/disk/
 	@echo " done"
 .endif
 	@${TOUCH} ${WRKDIR}/.fbsddist_done
