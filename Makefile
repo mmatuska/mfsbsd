@@ -1,7 +1,7 @@
 # $Id$
 #
 # mfsBSD
-# Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2013 Martin Matuska <mm at FreeBSD.org>
 #
 # Version 2.0
 #
@@ -76,7 +76,6 @@ SCRIPTS=mdinit mfsbsd interfaces packages
 BOOTMODULES=acpi ahci
 MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs
 #
-COMPRESS?=	xz
 
 .if !defined(ARCH)
 TARGET!=	${SYSCTL} -n hw.machine_arch
@@ -97,19 +96,7 @@ IMAGE_PREFIX?=	mfsbsd-se
 IMAGE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.img
 ISOIMAGE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.iso
 TARFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
-
-.if defined(COMPRESS)
-. if ${COMPRESS} == "xz"
-COMPRESS_CMD=${XZ}
-SUFX=".xz"
-. elif ${COMPRESS} == "bzip2"
-COMPRESS_CMD=${BZIP2}
-SUFX=".bz2"
-. else
-COMPRESS_CMD=${GZIP}
-SUFX=".gz"
-. endif
-.endif
+_DISTDIR= ${WRKDIR}/dist/${RELEASE}-${TARGET}
 
 .if !defined(DEBUG)
 EXCLUDE=--exclude *.symbols
@@ -183,9 +170,9 @@ ${WRKDIR}/.extract_done:
 .if !defined(CUSTOM)
 	@if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
-		echo "with FreeBSD distribution files (e.g. /cdrom/8.3-RELEASE)"; \
+		echo "with FreeBSD distribution files (e.g. /cdrom/9.2-RELEASE)"; \
 		echo "Examples:"; \
-		echo "make BASE=/cdrom/8.3-RELEASE"; \
+		echo "make BASE=/cdrom/9.2-RELEASE"; \
 		echo "make BASE=/cdrom/usr/freebsd-dist"; \
 		exit 1; \
 	fi
@@ -234,18 +221,14 @@ ${WRKDIR}/.install_done:
 	${INSTALLENV} make installkernel DESTDIR="${_ROOTDIR}" TARGET=${TARGET}
 .endif
 .if defined(SE)
-	@echo -n "Creating FreeBSD distribution image ..."
-	@${MKDIR} ${WRKDIR}/dist
+	@echo -n "Creating base.txz and kernel.txz ..."
+	@${MKDIR} ${_DISTDIR}
 . if defined(ROOTHACK)
 	@${CP} -rp ${_BOOTDIR}/kernel ${_DESTDIR}/boot
 . endif
-	@cd ${_DESTDIR} && ${FIND} . -depth 1 \
-		-exec ${TAR} -r ${EXCLUDE} -f ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar {} \; 
+	@${TAR} -J ${EXCLUDE} --exclude "boot/kernel/*" -f ${_DISTDIR}/base.txz -C ${_DESTDIR} .
+	@${TAR} -J ${EXCLUDE} -f ${_DISTDIR}/kernel.txz boot/kernel
 	@echo " done"
-. if defined(COMPRESS)
-	@echo "Compressing FreeBSD distribution image ..."
-	@${COMPRESS_CMD} -v ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar
-. endif
 . if defined(ROOTHACK)
 	@${RM} -rf ${_DESTDIR}/boot/kernel
 . endif
@@ -384,13 +367,13 @@ ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
 	@${TAR} -c -C ${_DESTDIR} -f - usr | \
-	${COMPRESS_CMD} -v -c > ${_DESTDIR}/.usr.tar${SUFX} && \
+	${XZ} -v -c > ${_DESTDIR}/.usr.tar${SUFX} && \
 	${RM} -rf ${_DESTDIR}/usr && \
 	${MKDIR} ${_DESTDIR}/usr
 .else
 	@echo -n "Compressing root ..."
 	@${TAR} -c -C ${_ROOTDIR} -f - rw | \
-	${COMPRESS_CMD} -v -c > ${_ROOTDIR}/root.txz
+	${XZ} -v -c > ${_ROOTDIR}/root.txz
 	${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
 .endif
 	@${TOUCH} ${WRKDIR}/.compress-usr_done

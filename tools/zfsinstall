@@ -2,20 +2,19 @@
 # $Id$
 #
 # mfsBSD ZFS install script
-# Copyright (c) 2011 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2011-2013 Martin Matuska <mm at FreeBSD.org>
 #
 FS_LIST="var tmp"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -t archive_file [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u distribution_url [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
 }
 
 help() {
 	echo; echo "Install FreeBSD using ZFS from a compressed archive"
 	echo; echo "Required flags:"
 	echo "-d geom_provider  : geom provider(s) to install to (e.g. da0)"
-	echo "-t archive_file   : tar archive file containing the FreeBSD distribution"
-	echo "			  supported compression formats are: gzip, bzip2, xz"
+	echo "-u freebsd_url    : URL or directory with base.txz and kernel.txz"
 	echo; echo "Optional flags:"
 	echo "-r raidz|mirror   : select raid mode if more than one -d provider given"
 	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
@@ -23,27 +22,32 @@ help() {
 	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
 	echo "-V pool_version   : specify a version number for ZFS pool (default: 13)"
 	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
-	echo "-c		: enable lzjb compression for all datasets"
-	echo "-l 		: use legacy mounts (via fstab) instead of ZFS mounts"
-	echo "-4		: use fletcher4 as default checksum algorithm"
+	echo "-c                : enable lzjb compression for all datasets"
+	echo "-l                : use legacy mounts (via fstab) instead of ZFS mounts"
+	echo "-4                : use fletcher4 as default checksum algorithm"
+	echo; echo "Deprecated flags:"
+	echo "-t archive_file   : tar archive file containing the FreeBSD distribution"
+	echo "                    may be used as a replacement of the -u flag"
+	echo "                    supported compression formats are: gzip, bzip2, xz"
 	echo; echo "Examples:"
 	echo "Install on a single drive with 2GB swap:"
-	echo "$0 -d ad4 -s 2G"
+	echo "$0 -u file:///somepath/ -d ad4 -s 2G"
 	echo "Install on a mirror without swap, pool name rpool:"
-	echo "$0 -d ad4 -d ad6 -r mirror -p rpool"
+	echo "$0 -u file:///somepath/ -d ad4 -d ad6 -r mirror -p rpool"
 	echo; echo "Notes:"
 	echo "When using swap and raidz/mirror, the swap partition is created on all drives."
 	echo "The /etc/fstab entry will contatin only the first drive's swap partition."
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:t:r:p:s:z:m:V:hcl4 o; do
+while getopts d:u:t:r:p:s:z:m:V:hcl4 o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
-        	t) ARCHIVE="${OPTARG}" ;;
-        	p) POOL="${OPTARG}" ;;
-        	s) SWAP="${OPTARG}" ;;
-        	m) MNT="${OPTARG}" ;;
+		u) URL="${OPTARG}" ;;
+		t) ARCHIVE="${OPTARG}" ;;
+		p) POOL="${OPTARG}" ;;
+		s) SWAP="${OPTARG}" ;;
+		m) MNT="${OPTARG}" ;;
 		r) RAID="${OPTARG}" ;;
 		z) ZPART="${OPTARG}" ;;
 		V) VERSION="${OPTARG}" ;;
@@ -69,7 +73,7 @@ elif [ "$ZFS_VERSION" -lt "13" ]; then
 	exit 1
 fi
 
-if [ -z "$DEVS" -o -z "$ARCHIVE" ]; then
+if [ -z "$DEVS" -o -z "$URL" -a -z "$ARCHIVE" ]; then
 	usage
 	exit 1
 fi
@@ -138,28 +142,25 @@ for DEV in ${DEVS}; do
 	fi
 done
 
-if ! [ -f "${ARCHIVE}" ]; then
-	echo "Error: file $ARCHIVE does not exist"
-	exit 1
-fi
-
-DIRECT_TAR=0
-FTYPE=`/usr/bin/file -b --mime-type ${ARCHIVE}`
-if [ "$FTYPE" = "application/x-tar" ]; then
-	DIRECT_TAR=1
-elif [ "$FTYPE" = "application/x-gzip" ]; then
-	EXTRACT_CMD=/usr/bin/gzip
-elif [ "$FTYPE" = "application/x-bzip2" ]; then
-	EXTRACT_CMD=/usr/bin/bzip2
-elif [ "$FTYPE" = "application/x-xz" ]; then
-	if [ ! -x "`/usr/bin/which xz`" ]; then
-		echo "xz-compressed file selected and xz is not installed";
+if [ -z "${URL}" ]; then
+	if ! [ -f "${ARCHIVE}" ]; then
+		echo "Error: file $ARCHIVE does not exist"
 		exit 1
+	else
+		EXTRACT_FILES=${ARCHIVE}
 	fi
-	EXTRACT_CMD=`which xz`
 else
-	echo "Archive must be uncompressed or gzip, bzip2 or xz compressed"
-	exit 1
+	if [ -d "${URL}" ]; then
+		for file in base.txz kernel.txz; do
+			if ! [ -f "${URL}/${file}" ]; then
+				echo "File not found: ${URL}/${file}"
+				exit 1
+			fi
+		done
+		EXTRACT_FILES="${URL}/base.txz ${URL}/kernel.txz"
+	else
+		EXTRACT_FILES="/tmp/base.txz /tmp/kernel.txz"
+	fi
 fi
 
 if [ -z "$MNT" ]; then
@@ -181,6 +182,18 @@ if [ "${LEGACY}" = "1" ]; then
 else
 	ALTROOT="-o altroot=${MNT} -o cachefile=/boot/zfs/zpool.cache"
 	ROOTMNT=/
+fi
+
+# Fetch base.txz and kernel.txz
+
+if [ -n "${URL}" -a ! -d "${URL}" ]; then
+	if ! /usr/bin/fetch -o /tmp/base.txz "${URL}/base.txz"; then
+		echo "Error fetching ${URL}/base.txz"
+		exit 1
+	elif ! /usr/bin/fetch -o /tmp/kernel.txz "${URL}/kernel.txz"; then
+		echo "Error fetching ${URL}/kernel.txz"
+		exit 1
+	fi
 fi
 
 # Create GPT
@@ -320,17 +333,12 @@ echo " done"
 fi
 
 echo -n "Extracting FreeBSD distribution ..."
-if [ "${DIRECT_TAR}" = "1" ]; then
-	if ! /usr/bin/tar -C ${MNT} -x -f ${ARCHIVE} > /dev/null 2> /dev/null; then
+for file in ${EXTRACT_FILES}; do
+	if ! /usr/bin/tar -C ${MNT} -x -f ${file} > /dev/null 2> /dev/null; then
 		echo " error"
 		exit 1
 	fi
-else
-	if ! ${EXTRACT_CMD} -d -c ${ARCHIVE} | /usr/bin/tar -C ${MNT} -x -f - > /dev/null 2> /dev/null; then
-		echo " error"
-		exit 1
-	fi
-fi
+done
 echo " done"
 
 # Adjust configuration files
