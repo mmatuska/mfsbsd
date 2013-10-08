@@ -1,9 +1,9 @@
 # $Id$
 #
 # mfsBSD building instructions
-# Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2013 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 2.0
+# Version 2.1
 
 BUILDING INSTRUCTIONS:
  1. Configuration
@@ -39,21 +39,21 @@ BUILDING INSTRUCTIONS:
 
     a) disc image
 	make BASE=/cdrom/usr/freebsd-dist
-	make BASE=/cdrom/8.3-RELEASE
+	make BASE=/cdrom/9.2-RELEASE
         make CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
 
     b) bootable ISO file:
 	make iso BASE=/cdrom/usr/freebsd-dist
-	make iso BASE=/cdrom/8.3-RELEASE
+	make iso BASE=/cdrom/9.2-RELEASE
 	make iso CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
 
     c) .tar.gz file:
 	make tar BASE=/cdrom/usr/freebsd-dist
-	make tar BASE=/cdrom/8.3-RELEASE
+	make tar BASE=/cdrom/9.2-RELEASE
 	make tar CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
 
     d) roothack edition:
 	make iso CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1 ROOTHACK=1
 
     e) special edition (with FreeBSD distribution):
-	make iso BASE=/cdrom/8.3-RELEASE RELEASE=8.3-RELEASE ARCH=amd64
+	make iso BASE=/cdrom/9.2-RELEASE RELEASE=9.2-RELEASE ARCH=amd64

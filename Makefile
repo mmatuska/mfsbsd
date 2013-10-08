@@ -3,7 +3,7 @@
 # mfsBSD
 # Copyright (c) 2007-2013 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 2.0
+# Version 2.1
 #
 
 #
