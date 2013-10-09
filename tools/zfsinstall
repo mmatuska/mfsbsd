@@ -14,7 +14,7 @@ help() {
 	echo; echo "Install FreeBSD using ZFS from a compressed archive"
 	echo; echo "Required flags:"
 	echo "-d geom_provider  : geom provider(s) to install to (e.g. da0)"
-	echo "-u freebsd_url    : URL or directory with base.txz and kernel.txz"
+	echo "-u dist_url       : URL or directory with base.txz and kernel.txz"
 	echo; echo "Optional flags:"
 	echo "-r raidz|mirror   : select raid mode if more than one -d provider given"
 	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
@@ -31,9 +31,9 @@ help() {
 	echo "                    supported compression formats are: gzip, bzip2, xz"
 	echo; echo "Examples:"
 	echo "Install on a single drive with 2GB swap:"
-	echo "$0 -u /path/to/release -d ad4 -s 2G"
+	echo "$0 -u /path/to/release -d da0 -s 2G"
 	echo "Install on a mirror without swap, pool name rpool:"
-	echo "$0 -u /path/to/release -d ad4 -d ad6 -r mirror -p rpool"
+	echo "$0 -u /path/to/release -d da0 -d da1 -r mirror -p rpool"
 	echo; echo "Notes:"
 	echo "When using swap and raidz/mirror, the swap partition is created on all drives."
 	echo "The /etc/fstab entry will contatin only the first drive's swap partition."
@@ -403,18 +403,14 @@ if [ -n "${LEGACY}" ]; then
 fi
 echo " done"
 
-# Mount devfs for post-configuration
-
-if ! /sbin/mount -t devfs devfs ${MNT}/dev; then
-	echo "Error mounting devfs on ${MNT}/dev"
-fi
-
 echo ""
 echo "Installation complete."
 echo "The system will boot from ZFS with clean install on next reboot"
 echo ""
-echo "You may type \"chroot ${MNT}\" and make any adjustments you need."
-echo "For example, change the root password or edit/create /etc/rc.conf for"
-echo "for system services. "
+echo "You may make adjustments to the installed system using chroot:" 
+echo "chroot ${MNT}"
+echo ""
+echo "Some adjustments may require a mounted devfs:"
+echo "mount -t devfs devfs ${MNT}/dev"
 echo ""
 echo "WARNING - Don't export ZFS pool \"${POOL}\"!"
