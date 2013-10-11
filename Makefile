@@ -37,6 +37,7 @@ PACKAGESDIR?=packages
 FILESDIR=files
 TOOLSDIR=tools
 PRUNELIST?=${TOOLSDIR}/prunelist
+PKG_STATIC?=${TOOLSDIR}/pkg-static
 #
 # Program defaults
 #
@@ -65,6 +66,7 @@ MAKEFS=/usr/sbin/makefs
 MKISOFS=/usr/local/bin/mkisofs
 SSHKEYGEN=/usr/bin/ssh-keygen
 SYSCTL=/sbin/sysctl
+PKG=/usr/local/sbin/pkg
 #
 CURDIR!=${PWD}
 WRKDIR?=${CURDIR}/tmp
@@ -274,13 +276,16 @@ packages: install prune ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
 	@if [ -d "${PACKAGESDIR}" ]; then \
 		echo -n "Copying user packages ..."; \
-		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}/packages; \
+		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}; \
 		echo " done"; \
 	fi
 	@if [ -d "${_DESTDIR}/packages" ]; then \
 		echo -n "Installing user packages ..."; \
+		mkdir -p ${_DESTDIR}/usr/local/sbin; \
+		${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/; \
+		${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg; \
 		cd ${_DESTDIR}/packages && for FILE in *; do \
-			env PKG_PATH=/packages pkg_add -fi -C ${_DESTDIR} /packages/$${FILE} > /dev/null; \
+			${PKG} -c ${_DESTDIR} add /packages/$${FILE}; \
 		done; \
 		${RM} -rf ${_DESTDIR}/packages; \
 		echo " done"; \
