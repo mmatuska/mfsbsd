@@ -282,7 +282,7 @@ ${WRKDIR}/.packages_done:
 		cd ${_DESTDIR}/packages && for FILE in *; do \
 			env PKG_PATH=/packages pkg_add -fi -C ${_DESTDIR} /packages/$${FILE} > /dev/null; \
 		done; \
-		rm -rf ${_DESTDIR}/packages; \
+		${RM} -rf ${_DESTDIR}/packages; \
 		echo " done"; \
 	fi
 	@${TOUCH} ${WRKDIR}/.packages_done
@@ -367,13 +367,12 @@ ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
 	@${TAR} -c -J -C ${_DESTDIR} -f ${_DESTDIR}/.usr.tar.xz usr 
-	${RM} -rf ${_DESTDIR}/usr && \
-	${MKDIR} ${_DESTDIR}/usr
+	@${RM} -rf ${_DESTDIR}/usr && ${MKDIR} ${_DESTDIR}/usr 
 .else
 	@echo -n "Compressing root ..."
 	@${TAR} -c -C ${_ROOTDIR} -f - rw | \
-	${XZ} -v -c > ${_ROOTDIR}/root.txz
-	${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
+	@${XZ} -v -c > ${_ROOTDIR}/root.txz
+	@${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
 .endif
 	@${TOUCH} ${WRKDIR}/.compress-usr_done
 	@echo " done"
