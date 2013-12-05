@@ -188,8 +188,8 @@ ${WRKDIR}/.extract_done:
 	@${CAT} ${BASEFILE} | ${TAR} --unlink -xpzf - -C ${_DESTDIR}
 .if !defined(FREEBSD9)
 	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_BOOTDIR}
-	@${MV} ${_BOOTDIR}/GENERIC/* ${_BOOTDIR}/kernel
-	@${RMDIR} ${_BOOTDIR}/GENERIC
+	@${MV} ${_BOOTDIR}/${KERNCONF}/* ${_BOOTDIR}/kernel
+	@${RMDIR} ${_BOOTDIR}/${KERNCONF}
 .else
 	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_ROOTDIR}
 .endif
@@ -218,7 +218,7 @@ ${WRKDIR}/.install_done:
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
 	@cd ${SRC_DIR} && \
 	${INSTALLENV} make installworld distribution DESTDIR="${_DESTDIR}" TARGET=${TARGET} && \
-	${INSTALLENV} make installkernel DESTDIR="${_ROOTDIR}" TARGET=${TARGET}
+	${INSTALLENV} make installkernel KERNCONF=${KERNCONF} DESTDIR="${_ROOTDIR}" TARGET=${TARGET}
 .endif
 .if defined(SE)
 	@echo -n "Creating base.txz and kernel.txz ..."
