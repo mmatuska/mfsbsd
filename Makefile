@@ -399,7 +399,7 @@ ${WRKDIR}/.compress-usr_done:
 .else
 	@echo -n "Compressing root ..."
 	@${TAR} -c -C ${_ROOTDIR} -f - rw | \
-	@${XZ} -v -c > ${_ROOTDIR}/root.txz
+	${XZ} -v -c > ${_ROOTDIR}/root.txz
 	@${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
 .endif
 	@${TOUCH} ${WRKDIR}/.compress-usr_done
