@@ -26,6 +26,9 @@ MFSROOT_MAXSIZE?=64m
 #
 # For all of this use
 # -DCUSTOM -DBUILDWORLD -DBUILDKERNEL or CUSTOM=1 BUILDKERNEL=1 BUILDWORLD=1
+#
+# To use pkgng, specify
+# -DPKGNG or PKGNG=1
 
 #
 # Paths
@@ -274,6 +277,17 @@ ${WRKDIR}/.prune_done:
 
 packages: install prune ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
+.if defined(PKGNG)
+	@echo -n "Installing pkgng ..."
+.  if !exists(${PKG_STATIC})
+	@echo "pkg-static not found at: ${PKG_STATIC}"
+	@exit 1
+.  endif
+	@mkdir -p ${_DESTDIR}/usr/local/sbin
+	@${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
+	@${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
+	@echo " done"
+.endif
 	@if [ -d "${PACKAGESDIR}" ]; then \
 		echo -n "Copying user packages ..."; \
 		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}; \
@@ -281,12 +295,21 @@ ${WRKDIR}/.packages_done:
 	fi
 	@if [ -d "${_DESTDIR}/packages" ]; then \
 		echo -n "Installing user packages ..."; \
-		mkdir -p ${_DESTDIR}/usr/local/sbin; \
-		${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/; \
-		${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg; \
+	fi
+.if defined(PKGNG)
+	@if [ -d "${_DESTDIR}/packages" ]; then \
 		cd ${_DESTDIR}/packages && for FILE in *; do \
 			${PKG} -c ${_DESTDIR} add /packages/$${FILE}; \
 		done; \
+	fi
+.else
+	@if [ -d "${_DESTDIR}/packages" ]; then \
+		cd ${_DESTDIR}/packages && for FILE in *; do \
+			env PKG_PATH=/packages pkg_add -fi -C ${_DESTDIR} /packages/$${FILE} > /dev/null; \
+		done; \
+	fi
+.endif
+	@if [ -d "${_DESTDIR}/packages" ]; then \
 		${RM} -rf ${_DESTDIR}/packages; \
 		echo " done"; \
 	fi
