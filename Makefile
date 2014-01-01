@@ -226,13 +226,22 @@ ${WRKDIR}/.install_done:
 	${INSTALLENV} make installkernel DESTDIR="${_ROOTDIR}" TARGET=${TARGET}
 .endif
 .if defined(SE)
+. if !defined(CUSTOM) && exists(${BASE}/base.txz) && exists(${BASE}/kernel.txz)
+	@echo -n "Copying base.txz and kernel.txz ..."
+. else
 	@echo -n "Creating base.txz and kernel.txz ..."
+. endif
 	@${MKDIR} ${_DISTDIR}
 . if defined(ROOTHACK)
 	@${CP} -rp ${_BOOTDIR}/kernel ${_DESTDIR}/boot
 . endif
+. if !defined(CUSTOM) && exists(${BASE}/base.txz) && exists(${BASE}/kernel.txz)
+	@${CP} ${BASE}/base.txz ${_DISTDIR}/base.txz
+	@${CP} ${BASE}/kernel.txz ${_DISTDIR}/kernel.txz
+. else
 	@${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} --exclude "boot/kernel/*" -f ${_DISTDIR}/base.txz .
 	@${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} -f ${_DISTDIR}/kernel.txz boot/kernel
+. endif
 	@echo " done"
 . if defined(ROOTHACK)
 	@${RM} -rf ${_DESTDIR}/boot/kernel
