@@ -327,7 +327,7 @@ ${WRKDIR}/.packages_done:
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
-.for FILE in loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
+.for FILE in boot.config loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
 . if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
 	@echo "Missing ${CFGDIR}/${FILE}.sample" && exit 1
 . endif
@@ -339,6 +339,11 @@ ${WRKDIR}/.config_done:
 	@${INSTALL} -m 0644 ${TOOLSDIR}/motd ${_DESTDIR}/etc/motd
 .endif
 	@${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
+	@if [ -f "${CFGDIR}/boot.config" ]; then \
+		${INSTALL} -m 0644 ${CFGDIR}/boot.config ${_ROOTDIR}/boot.config; \
+	else \
+		${INSTALL} -m 0644 ${CFGDIR}/boot.config.sample ${_ROOTDIR}/boot.config; \
+	fi
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${_BOOTDIR}/loader.conf; \
 	else \
