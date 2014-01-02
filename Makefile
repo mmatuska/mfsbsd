@@ -49,6 +49,7 @@ CHOWN=/usr/sbin/chown
 CAT=/bin/cat
 PWD=/bin/pwd
 TAR=/usr/bin/tar
+GTAR=/usr/local/bin/gtar
 CP=/bin/cp
 MV=/bin/mv
 RM=/bin/rm
@@ -101,6 +102,7 @@ IMAGE_PREFIX?=	mfsbsd-se
 IMAGE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.img
 ISOIMAGE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.iso
 TARFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
+GCEFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar.gz
 _DISTDIR= ${WRKDIR}/dist/${RELEASE}-${TARGET}
 
 .if !defined(DEBUG)
@@ -529,6 +531,17 @@ ${IMAGE}:
 	@${MV} ${WRKDIR}/disk.img ${IMAGE}
 	@echo " done"
 	@${LS} -l ${IMAGE}
+
+gce: install prune config genkeys filesdir boot compress-usr mfsroot fbsddist ${IMAGE} ${GCEFILE}
+${GCEFILE}:
+	@echo -n "Creating GCE-compatible tarball..."
+.if !exists(${GTAR})
+	@echo "${GTAR} is missing, please install archivers/gtar first"; exit 1
+.else
+	@${GTAR} -C ${CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
+	@echo " GCE tarball built"
+	@${LS} -l ${GCEFILE}
+.endif
 
 iso: install prune config genkeys filesdir boot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:

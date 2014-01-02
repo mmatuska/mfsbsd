@@ -61,3 +61,8 @@ BUILDING INSTRUCTIONS:
 
     e) special edition (with FreeBSD distribution):
 	make iso BASE=/cdrom/9.2-RELEASE RELEASE=9.2-RELEASE ARCH=amd64
+
+    f) GCE-compatible .tar.gz file:
+	make gce BASE=/cdrom/usr/freebsd-dist
+	make gce BASE=/cdrom/9.2-RELEASE
+	make gce CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1
