@@ -391,7 +391,13 @@ ${WRKDIR}/.config_done:
 	@echo ${ROOTPW} | ${PW} -V ${_DESTDIR}/etc usermod root -h 0
 .endif
 	@echo PermitRootLogin yes >> ${_DESTDIR}/etc/ssh/sshd_config
-	@echo 127.0.0.1 localhost > ${_DESTDIR}/etc/hosts
+.if exists(${CFGDIR}/hosts)
+	@${INSTALL} -m 0644 ${CFGDIR}/hosts ${_DESTDIR}/etc/hosts
+.elif exists(${CFGDIR}/hosts.sample)
+	@${INSTALL} -m 0644 ${CFGDIR}/hosts.sample ${_DESTDIR}/etc/hosts
+..else
+	@echo "Missing ${CFGDIR}/hosts.sample" && exit 1
+.endif
 	@${TOUCH} ${WRKDIR}/.config_done
 	@echo " done"
 
