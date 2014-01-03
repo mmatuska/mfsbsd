@@ -410,7 +410,16 @@ ${WRKDIR}/.genkeys_done:
 	@${TOUCH} ${WRKDIR}/.genkeys_done
 	@echo " done"
 
-compress-usr: install prune config genkeys boot packages ${WRKDIR}/.compress-usr_done
+filesdir: config ${WRKDIR}/.filesdir_done
+${WRKDIR}/.filesdir_done:
+	@echo "Copying miscellaneous files ..."
+.if exists(${FILESDIR})
+	@${CP} -afv ${FILESDIR}/ ${_DESTDIR}/
+.endif
+	@${TOUCH} ${WRKDIR}/.filesdir_done
+	@echo " done"
+
+compress-usr: install prune config genkeys filesdir boot packages ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
@@ -482,9 +491,9 @@ ${WRKDIR}/.boot_done:
 	@echo " done"
 
 .if defined(ROOTHACK)
-mfsroot: install prune config genkeys boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys filesdir boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
 .else
-mfsroot: install prune config genkeys boot compress-usr packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys filesdir boot compress-usr packages ${WRKDIR}/.mfsroot_done
 .endif
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
@@ -501,7 +510,7 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-fbsddist: install prune config genkeys boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
+fbsddist: install prune config genkeys filesdir boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
@@ -510,7 +519,7 @@ ${WRKDIR}/.fbsddist_done:
 .endif
 	@${TOUCH} ${WRKDIR}/.fbsddist_done
 
-image: install prune config genkeys boot compress-usr mfsroot fbsddist ${IMAGE}
+image: install prune config genkeys filesdir boot compress-usr mfsroot fbsddist ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
@@ -521,7 +530,7 @@ ${IMAGE}:
 	@echo " done"
 	@${LS} -l ${IMAGE}
 
-iso: install prune config genkeys boot compress-usr mfsroot fbsddist ${ISOIMAGE}
+iso: install prune config genkeys filesdir boot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
 .if defined(USE_MKISOFS)
@@ -536,7 +545,7 @@ ${ISOIMAGE}:
 	@echo " done"
 	@${LS} -l ${ISOIMAGE}
 
-tar: install prune config boot compress-usr mfsroot fbsddist ${TARFILE}
+tar: install prune config filesdir boot compress-usr mfsroot fbsddist ${TARFILE}
 ${TARFILE}:
 	@echo -n "Creating tar file ..."
 	@cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
