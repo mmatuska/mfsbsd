@@ -11,9 +11,13 @@ BUILDING INSTRUCTIONS:
     these files to files without .sample ending and make modifications to suit 
     your needs.
 
- 2. Additional packages
+ 2. Additional packages and files
     If you want any packages installed, copy the .tbz files that should be 
-    automatically installed into the packages/ directory
+    automatically installed into the packages/ directory.
+
+    Add any additional files into the files/ directory. These will be copied
+    recursively into the root of the boot image.
+
     WARNING: Your image should not exceed 45MB in total, otherwise kernel panic
              may occur on boot-time. To allow bigger images, you have to
              recompile your kernel with increased NKPT (e.g. NKPT=120)
@@ -21,7 +25,7 @@ BUILDING INSTRUCTIONS:
  3. Distribution or custom world and kernel
     You may choose to build from a FreeBSD distribution (e.g. CDROM), or by
     using make buildworld / buildkernel from your own world and kernel
-    configuration. 
+    configuration.
 
     To use a distribution (e.g. FreeBSD cdrom), you need access to it 
     (e.g. a mounted FreeBSD ISO via mdconfig) and use BASE=/path/to/distribution
@@ -57,3 +61,8 @@ BUILDING INSTRUCTIONS:
 
     e) special edition (with FreeBSD distribution):
 	make iso BASE=/cdrom/9.2-RELEASE RELEASE=9.2-RELEASE ARCH=amd64
+
+    f) GCE-compatible .tar.gz file:
+	make gce BASE=/cdrom/usr/freebsd-dist
+	make gce BASE=/cdrom/9.2-RELEASE
+	make gce CUSTOM=1 BUILDWORLD=1 BUILDKERNEL=1

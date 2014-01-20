@@ -49,6 +49,7 @@ CHOWN=/usr/sbin/chown
 CAT=/bin/cat
 PWD=/bin/pwd
 TAR=/usr/bin/tar
+GTAR=/usr/local/bin/gtar
 CP=/bin/cp
 MV=/bin/mv
 RM=/bin/rm
@@ -101,6 +102,7 @@ IMAGE_PREFIX?=	mfsbsd-se
 IMAGE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.img
 ISOIMAGE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.iso
 TARFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
+GCEFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar.gz
 _DISTDIR= ${WRKDIR}/dist/${RELEASE}-${TARGET}
 
 .if !defined(DEBUG)
@@ -327,7 +329,7 @@ ${WRKDIR}/.packages_done:
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
-.for FILE in loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
+.for FILE in boot.config loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
 . if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
 	@echo "Missing ${CFGDIR}/${FILE}.sample" && exit 1
 . endif
@@ -339,6 +341,11 @@ ${WRKDIR}/.config_done:
 	@${INSTALL} -m 0644 ${TOOLSDIR}/motd ${_DESTDIR}/etc/motd
 .endif
 	@${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
+	@if [ -f "${CFGDIR}/boot.config" ]; then \
+		${INSTALL} -m 0644 ${CFGDIR}/boot.config ${_ROOTDIR}/boot.config; \
+	else \
+		${INSTALL} -m 0644 ${CFGDIR}/boot.config.sample ${_ROOTDIR}/boot.config; \
+	fi
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${_BOOTDIR}/loader.conf; \
 	else \
@@ -386,7 +393,13 @@ ${WRKDIR}/.config_done:
 	@echo ${ROOTPW} | ${PW} -V ${_DESTDIR}/etc usermod root -h 0
 .endif
 	@echo PermitRootLogin yes >> ${_DESTDIR}/etc/ssh/sshd_config
-	@echo 127.0.0.1 localhost > ${_DESTDIR}/etc/hosts
+.if exists(${CFGDIR}/hosts)
+	@${INSTALL} -m 0644 ${CFGDIR}/hosts ${_DESTDIR}/etc/hosts
+.elif exists(${CFGDIR}/hosts.sample)
+	@${INSTALL} -m 0644 ${CFGDIR}/hosts.sample ${_DESTDIR}/etc/hosts
+..else
+	@echo "Missing ${CFGDIR}/hosts.sample" && exit 1
+.endif
 	@${TOUCH} ${WRKDIR}/.config_done
 	@echo " done"
 
@@ -399,7 +412,16 @@ ${WRKDIR}/.genkeys_done:
 	@${TOUCH} ${WRKDIR}/.genkeys_done
 	@echo " done"
 
-compress-usr: install prune config genkeys boot packages ${WRKDIR}/.compress-usr_done
+filesdir: config ${WRKDIR}/.filesdir_done
+${WRKDIR}/.filesdir_done:
+	@echo "Copying miscellaneous files ..."
+.if exists(${FILESDIR})
+	@${CP} -afv ${FILESDIR}/ ${_DESTDIR}/
+.endif
+	@${TOUCH} ${WRKDIR}/.filesdir_done
+	@echo " done"
+
+compress-usr: install prune config genkeys filesdir boot packages ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
@@ -471,9 +493,9 @@ ${WRKDIR}/.boot_done:
 	@echo " done"
 
 .if defined(ROOTHACK)
-mfsroot: install prune config genkeys boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys filesdir boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
 .else
-mfsroot: install prune config genkeys boot compress-usr packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys filesdir boot compress-usr packages ${WRKDIR}/.mfsroot_done
 .endif
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
@@ -490,7 +512,7 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-fbsddist: install prune config genkeys boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
+fbsddist: install prune config genkeys filesdir boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
@@ -499,7 +521,7 @@ ${WRKDIR}/.fbsddist_done:
 .endif
 	@${TOUCH} ${WRKDIR}/.fbsddist_done
 
-image: install prune config genkeys boot compress-usr mfsroot fbsddist ${IMAGE}
+image: install prune config genkeys filesdir boot compress-usr mfsroot fbsddist ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
@@ -510,7 +532,18 @@ ${IMAGE}:
 	@echo " done"
 	@${LS} -l ${IMAGE}
 
-iso: install prune config genkeys boot compress-usr mfsroot fbsddist ${ISOIMAGE}
+gce: install prune config genkeys filesdir boot compress-usr mfsroot fbsddist ${IMAGE} ${GCEFILE}
+${GCEFILE}:
+	@echo -n "Creating GCE-compatible tarball..."
+.if !exists(${GTAR})
+	@echo "${GTAR} is missing, please install archivers/gtar first"; exit 1
+.else
+	@${GTAR} -C ${CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
+	@echo " GCE tarball built"
+	@${LS} -l ${GCEFILE}
+.endif
+
+iso: install prune config genkeys filesdir boot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
 .if defined(USE_MKISOFS)
@@ -525,7 +558,7 @@ ${ISOIMAGE}:
 	@echo " done"
 	@${LS} -l ${ISOIMAGE}
 
-tar: install prune config boot compress-usr mfsroot fbsddist ${TARFILE}
+tar: install prune config filesdir boot compress-usr mfsroot fbsddist ${TARFILE}
 ${TARFILE}:
 	@echo -n "Creating tar file ..."
 	@cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
