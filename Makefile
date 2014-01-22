@@ -397,7 +397,7 @@ ${WRKDIR}/.config_done:
 	@${INSTALL} -m 0644 ${CFGDIR}/hosts ${_DESTDIR}/etc/hosts
 .elif exists(${CFGDIR}/hosts.sample)
 	@${INSTALL} -m 0644 ${CFGDIR}/hosts.sample ${_DESTDIR}/etc/hosts
-..else
+.else
 	@echo "Missing ${CFGDIR}/hosts.sample" && exit 1
 .endif
 	@${TOUCH} ${WRKDIR}/.config_done
