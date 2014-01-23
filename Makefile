@@ -1,9 +1,9 @@
 # $Id$
 #
 # mfsBSD
-# Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2007-2013 Martin Matuska <mm at FreeBSD.org>
 #
-# Version 2.0
+# Version 2.1
 #
 
 #
@@ -26,6 +26,9 @@ MFSROOT_MAXSIZE?=64m
 #
 # For all of this use
 # -DCUSTOM -DBUILDWORLD -DBUILDKERNEL or CUSTOM=1 BUILDKERNEL=1 BUILDWORLD=1
+#
+# To use pkgng, specify
+# -DPKGNG or PKGNG=1
 
 #
 # Paths
@@ -34,9 +37,10 @@ SRC_DIR?=/usr/src
 CFGDIR=conf
 SCRIPTSDIR=scripts
 PACKAGESDIR?=packages
-FILESDIR=files
+CUSTOMFILESDIR=customfiles
 TOOLSDIR=tools
 PRUNELIST?=${TOOLSDIR}/prunelist
+PKG_STATIC?=${TOOLSDIR}/pkg-static
 #
 # Program defaults
 #
@@ -45,6 +49,7 @@ CHOWN=/usr/sbin/chown
 CAT=/bin/cat
 PWD=/bin/pwd
 TAR=/usr/bin/tar
+GTAR=/usr/local/bin/gtar
 CP=/bin/cp
 MV=/bin/mv
 RM=/bin/rm
@@ -65,6 +70,7 @@ MAKEFS=/usr/sbin/makefs
 MKISOFS=/usr/local/bin/mkisofs
 SSHKEYGEN=/usr/bin/ssh-keygen
 SYSCTL=/sbin/sysctl
+PKG=/usr/local/sbin/pkg
 #
 CURDIR!=${PWD}
 WRKDIR?=${CURDIR}/tmp
@@ -76,7 +82,6 @@ SCRIPTS=mdinit mfsbsd interfaces packages
 BOOTMODULES=acpi ahci
 MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs
 #
-COMPRESS?=	xz
 
 .if !defined(ARCH)
 TARGET!=	${SYSCTL} -n hw.machine_arch
@@ -97,19 +102,8 @@ IMAGE_PREFIX?=	mfsbsd-se
 IMAGE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.img
 ISOIMAGE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.iso
 TARFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
-
-.if defined(COMPRESS)
-. if ${COMPRESS} == "xz"
-COMPRESS_CMD=${XZ}
-SUFX=".xz"
-. elif ${COMPRESS} == "bzip2"
-COMPRESS_CMD=${BZIP2}
-SUFX=".bz2"
-. else
-COMPRESS_CMD=${GZIP}
-SUFX=".gz"
-. endif
-.endif
+GCEFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar.gz
+_DISTDIR= ${WRKDIR}/dist/${RELEASE}-${TARGET}
 
 .if !defined(DEBUG)
 EXCLUDE=--exclude *.symbols
@@ -183,9 +177,9 @@ ${WRKDIR}/.extract_done:
 .if !defined(CUSTOM)
 	@if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
-		echo "with FreeBSD distribution files (e.g. /cdrom/8.3-RELEASE)"; \
+		echo "with FreeBSD distribution files (e.g. /cdrom/9.2-RELEASE)"; \
 		echo "Examples:"; \
-		echo "make BASE=/cdrom/8.3-RELEASE"; \
+		echo "make BASE=/cdrom/9.2-RELEASE"; \
 		echo "make BASE=/cdrom/usr/freebsd-dist"; \
 		exit 1; \
 	fi
@@ -201,8 +195,8 @@ ${WRKDIR}/.extract_done:
 	@${CAT} ${BASEFILE} | ${TAR} --unlink -xpzf - -C ${_DESTDIR}
 .if !defined(FREEBSD9)
 	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_BOOTDIR}
-	@${MV} ${_BOOTDIR}/GENERIC/* ${_BOOTDIR}/kernel
-	@${RMDIR} ${_BOOTDIR}/GENERIC
+	@${MV} ${_BOOTDIR}/${KERNCONF}/* ${_BOOTDIR}/kernel
+	@${RMDIR} ${_BOOTDIR}/${KERNCONF}
 .else
 	@${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_ROOTDIR}
 .endif
@@ -231,21 +225,26 @@ ${WRKDIR}/.install_done:
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
 	@cd ${SRC_DIR} && \
 	${INSTALLENV} make installworld distribution DESTDIR="${_DESTDIR}" TARGET=${TARGET} && \
-	${INSTALLENV} make installkernel DESTDIR="${_ROOTDIR}" TARGET=${TARGET}
+	${INSTALLENV} make installkernel KERNCONF=${KERNCONF} DESTDIR="${_ROOTDIR}" TARGET=${TARGET}
 .endif
 .if defined(SE)
-	@echo -n "Creating FreeBSD distribution image ..."
-	@${MKDIR} ${WRKDIR}/dist
+. if !defined(CUSTOM) && exists(${BASE}/base.txz) && exists(${BASE}/kernel.txz)
+	@echo -n "Copying base.txz and kernel.txz ..."
+. else
+	@echo -n "Creating base.txz and kernel.txz ..."
+. endif
+	@${MKDIR} ${_DISTDIR}
 . if defined(ROOTHACK)
 	@${CP} -rp ${_BOOTDIR}/kernel ${_DESTDIR}/boot
 . endif
-	@cd ${_DESTDIR} && ${FIND} . -depth 1 \
-		-exec ${TAR} -r ${EXCLUDE} -f ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar {} \; 
-	@echo " done"
-. if defined(COMPRESS)
-	@echo "Compressing FreeBSD distribution image ..."
-	@${COMPRESS_CMD} -v ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar
+. if !defined(CUSTOM) && exists(${BASE}/base.txz) && exists(${BASE}/kernel.txz)
+	@${CP} ${BASE}/base.txz ${_DISTDIR}/base.txz
+	@${CP} ${BASE}/kernel.txz ${_DISTDIR}/kernel.txz
+. else
+	@${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} --exclude "boot/kernel/*" -f ${_DISTDIR}/base.txz .
+	@${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} -f ${_DISTDIR}/kernel.txz boot/kernel
 . endif
+	@echo " done"
 . if defined(ROOTHACK)
 	@${RM} -rf ${_DESTDIR}/boot/kernel
 . endif
@@ -289,17 +288,40 @@ ${WRKDIR}/.prune_done:
 
 packages: install prune ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
+.if defined(PKGNG)
+	@echo -n "Installing pkgng ..."
+.  if !exists(${PKG_STATIC})
+	@echo "pkg-static not found at: ${PKG_STATIC}"
+	@exit 1
+.  endif
+	@mkdir -p ${_DESTDIR}/usr/local/sbin
+	@${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
+	@${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
+	@echo " done"
+.endif
 	@if [ -d "${PACKAGESDIR}" ]; then \
 		echo -n "Copying user packages ..."; \
-		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}/packages; \
+		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}; \
 		echo " done"; \
 	fi
 	@if [ -d "${_DESTDIR}/packages" ]; then \
 		echo -n "Installing user packages ..."; \
+	fi
+.if defined(PKGNG)
+	@if [ -d "${_DESTDIR}/packages" ]; then \
+		cd ${_DESTDIR}/packages && for FILE in *; do \
+			${PKG} -c ${_DESTDIR} add /packages/$${FILE}; \
+		done; \
+	fi
+.else
+	@if [ -d "${_DESTDIR}/packages" ]; then \
 		cd ${_DESTDIR}/packages && for FILE in *; do \
 			env PKG_PATH=/packages pkg_add -fi -C ${_DESTDIR} /packages/$${FILE} > /dev/null; \
 		done; \
-		rm -rf ${_DESTDIR}/packages; \
+	fi
+.endif
+	@if [ -d "${_DESTDIR}/packages" ]; then \
+		${RM} -rf ${_DESTDIR}/packages; \
 		echo " done"; \
 	fi
 	@${TOUCH} ${WRKDIR}/.packages_done
@@ -307,7 +329,7 @@ ${WRKDIR}/.packages_done:
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
-.for FILE in loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
+.for FILE in boot.config loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
 . if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
 	@echo "Missing ${CFGDIR}/${FILE}.sample" && exit 1
 . endif
@@ -319,6 +341,11 @@ ${WRKDIR}/.config_done:
 	@${INSTALL} -m 0644 ${TOOLSDIR}/motd ${_DESTDIR}/etc/motd
 .endif
 	@${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
+	@if [ -f "${CFGDIR}/boot.config" ]; then \
+		${INSTALL} -m 0644 ${CFGDIR}/boot.config ${_ROOTDIR}/boot.config; \
+	else \
+		${INSTALL} -m 0644 ${CFGDIR}/boot.config.sample ${_ROOTDIR}/boot.config; \
+	fi
 	@if [ -f "${CFGDIR}/loader.conf" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${_BOOTDIR}/loader.conf; \
 	else \
@@ -366,7 +393,13 @@ ${WRKDIR}/.config_done:
 	@echo ${ROOTPW} | ${PW} -V ${_DESTDIR}/etc usermod root -h 0
 .endif
 	@echo PermitRootLogin yes >> ${_DESTDIR}/etc/ssh/sshd_config
-	@echo 127.0.0.1 localhost > ${_DESTDIR}/etc/hosts
+.if exists(${CFGDIR}/hosts)
+	@${INSTALL} -m 0644 ${CFGDIR}/hosts ${_DESTDIR}/etc/hosts
+.elif exists(${CFGDIR}/hosts.sample)
+	@${INSTALL} -m 0644 ${CFGDIR}/hosts.sample ${_DESTDIR}/etc/hosts
+.else
+	@echo "Missing ${CFGDIR}/hosts.sample" && exit 1
+.endif
 	@${TOUCH} ${WRKDIR}/.config_done
 	@echo " done"
 
@@ -379,19 +412,26 @@ ${WRKDIR}/.genkeys_done:
 	@${TOUCH} ${WRKDIR}/.genkeys_done
 	@echo " done"
 
-compress-usr: install prune config genkeys boot packages ${WRKDIR}/.compress-usr_done
+customfiles: config ${WRKDIR}/.customfiles_done
+${WRKDIR}/.customfiles_done:
+.if exists(${CUSTOMFILESDIR})
+	@echo "Copying user files ..."
+	@${CP} -afv ${CUSTOMFILESDIR}/ ${_DESTDIR}/
+	@${TOUCH} ${WRKDIR}/.customfiles_done
+	@echo " done"
+.endif
+
+compress-usr: install prune config genkeys customfiles boot packages ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
-	@${TAR} -c -C ${_DESTDIR} -f - usr | \
-	${COMPRESS_CMD} -v -c > ${_DESTDIR}/.usr.tar${SUFX} && \
-	${RM} -rf ${_DESTDIR}/usr && \
-	${MKDIR} ${_DESTDIR}/usr
+	@${TAR} -c -J -C ${_DESTDIR} -f ${_DESTDIR}/.usr.tar.xz usr 
+	@${RM} -rf ${_DESTDIR}/usr && ${MKDIR} ${_DESTDIR}/usr 
 .else
 	@echo -n "Compressing root ..."
 	@${TAR} -c -C ${_ROOTDIR} -f - rw | \
-	${COMPRESS_CMD} -v -c > ${_ROOTDIR}/root.txz
-	${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
+	${XZ} -v -c > ${_ROOTDIR}/root.txz
+	@${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
 .endif
 	@${TOUCH} ${WRKDIR}/.compress-usr_done
 	@echo " done"
@@ -453,9 +493,9 @@ ${WRKDIR}/.boot_done:
 	@echo " done"
 
 .if defined(ROOTHACK)
-mfsroot: install prune config genkeys boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys customfiles boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
 .else
-mfsroot: install prune config genkeys boot compress-usr packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys customfiles boot compress-usr packages ${WRKDIR}/.mfsroot_done
 .endif
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
@@ -472,16 +512,16 @@ ${WRKDIR}/.mfsroot_done:
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-fbsddist: install prune config genkeys boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
+fbsddist: install prune config genkeys customfiles boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
-	@${CP} ${WRKDIR}/dist/${RELEASE}-${TARGET}.tar${SUFX} ${WRKDIR}/disk/
+	@${CP} -rf ${_DISTDIR} ${WRKDIR}/disk/
 	@echo " done"
 .endif
 	@${TOUCH} ${WRKDIR}/.fbsddist_done
 
-image: install prune config genkeys boot compress-usr mfsroot fbsddist ${IMAGE}
+image: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
@@ -492,7 +532,18 @@ ${IMAGE}:
 	@echo " done"
 	@${LS} -l ${IMAGE}
 
-iso: install prune config genkeys boot compress-usr mfsroot fbsddist ${ISOIMAGE}
+gce: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${IMAGE} ${GCEFILE}
+${GCEFILE}:
+	@echo -n "Creating GCE-compatible tarball..."
+.if !exists(${GTAR})
+	@echo "${GTAR} is missing, please install archivers/gtar first"; exit 1
+.else
+	@${GTAR} -C ${CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
+	@echo " GCE tarball built"
+	@${LS} -l ${GCEFILE}
+.endif
+
+iso: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
 .if defined(USE_MKISOFS)
@@ -507,7 +558,7 @@ ${ISOIMAGE}:
 	@echo " done"
 	@${LS} -l ${ISOIMAGE}
 
-tar: install prune config boot compress-usr mfsroot fbsddist ${TARFILE}
+tar: install prune config customfiles boot compress-usr mfsroot fbsddist ${TARFILE}
 ${TARFILE}:
 	@echo -n "Creating tar file ..."
 	@cd ${WRKDIR}/disk && ${FIND} . -depth 1 \

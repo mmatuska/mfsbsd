@@ -104,12 +104,21 @@ extract(const char *filename)
 
 	a = archive_read_new();
 	archive_read_support_format_all(a);
+#if ARCHIVE_VERSION_NUMBER < 3000000
 	archive_read_support_compression_all(a);
+#else
+	archive_read_support_filter_all(a);
+#endif
 	ext = archive_write_disk_new();
 	archive_write_disk_set_options(ext, flags);
 	archive_write_disk_set_standard_lookup(ext);
+#if ARCHIVE_VERSION_NUMBER < 3000000
 	if ((r = archive_read_open_file(a, filename, 10240)))
 		die("archive_read_open_file");
+#else
+	if ((r = archive_read_open_filename(a, filename, 10240)))
+		die("archive_read_open_filename");
+#endif
 	for (;;) {
 		r = archive_read_next_header(a, &entry);
 		if (r == ARCHIVE_EOF)
