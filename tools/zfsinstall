@@ -85,7 +85,7 @@ sizeinMB() {
 }
 
 makeguid() {
-	echo "${1}$(/bin/cat /dev/random | /usr/bin/tr -cd '[:alnum:]' | /usr/bin/head -c 6)" | /usr/bin/head -c 14
+	echo "${1}$(/bin/cat /dev/random | /usr/bin/tr -cd '[:alnum:]' | /usr/bin/head -c 20)" | /usr/bin/head -c 14
 }
 
 usage() {
