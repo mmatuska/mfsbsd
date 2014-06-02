@@ -1,7 +1,7 @@
 mfsBSD
 =========
 
-Copyright (c) 2007-2012 Martin Matuska <mm at FreeBSD.org>
+Copyright (c) 2007-2013 Martin Matuska <mm at FreeBSD.org>
 
 ## Description
 
@@ -11,11 +11,11 @@ minimal installation gets completely loaded into memory.
 
 The image may be written directly using dd(1) onto any bootable block device,
 e.g. a hard disk or a USB stick e.g. /dev/da0, or a bootable slice only, 
-e.g. /dev/ad0s1
+e.g. /dev/ada0s1
 
 ## Build-time requirements
- - FreeBSD 7 or higher installed, tested on i386 or amd64
- - Base and kernel from a FreeBSD 7 or higher distribution
+ - FreeBSD 8 or higher installed, tested on i386 or amd64
+ - Base and kernel from a FreeBSD 8 or higher distribution
    (release or snapshots, e.g mounted CDROM disc1 or ISO file)
 
 ## Runtime requirements
