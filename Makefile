@@ -39,6 +39,7 @@ DOFSSIZE?=200000
 KEYCFG?=none
 KEYSDIR=keys
 SRC_DIR?=/usr/src
+CFGDIR=conf
 MFSBSDONLY=mfsbsdonly
 FILESDIR=all
 PACKAGESDIR?=packages
