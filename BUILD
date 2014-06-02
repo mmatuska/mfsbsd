@@ -14,6 +14,7 @@ This fork (github.com/johnko/mfsbsd) of mfsBSD is setup as follows:
 ./keys/all/server          # this is my custom folder, I don't think anyone will ever use this
 ./keys/mfsbsdonly          # another sub tree that can be copied
 ./keys/mfsbsdonly/boot     # copied to /boot, overwrites any existing files
+./keys/private
 ./mfsbsdonly               # the default sub tree that is copied first (later ones overwrite this)
 ./mfsbsdonly/boot          # copied to /boot first
 ./mfsbsdonly/etc           # now contains *.conf files, copied to /etc first
@@ -26,7 +27,7 @@ This fork (github.com/johnko/mfsbsd) of mfsBSD is setup as follows:
 
 QUICK START:
 git clone https://github.com/johnko/mfsbsd.git mfsbsd && cd mfsbsd && ./build.sh nox all $CSV
-
+# where $CSV is your own custom folder in ./keys like 'private' in the example above
 
 BUILDING INSTRUCTIONS:
  1. Configuration
