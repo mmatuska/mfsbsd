@@ -376,6 +376,9 @@ ${WRKDIR}/.config_done:
 		if [ ! -e "${_DESTDIR}/boot/$${FILE}.sample" ]; then \
 			echo "Missing ${_DESTDIR}/boot/$${FILE}.sample" && exit 1; \
 		fi; \
+		if [ ! -e "${_DESTDIR}/boot/$${FILE}" ]; then \
+			${CP} -a "${_DESTDIR}/boot/$${FILE}.sample" "${_DESTDIR}/boot/$${FILE}"; \
+		fi; \
 	done
 # /etc
 	@for MYDIR in ${MFSBSDONLY} ${FILESDIR} ; do \
@@ -410,6 +413,9 @@ ${WRKDIR}/.config_done:
 		if [ ! -e "${_DESTDIR}/etc/$${FILE}.sample" ]; then \
 			echo "Missing ${_DESTDIR}/etc/$${FILE}.sample" && exit 1; \
 		fi; \
+		if [ ! -e "${_DESTDIR}/etc/$${FILE}" ]; then \
+			${CP} -a "${_DESTDIR}/etc/$${FILE}.sample" "${_DESTDIR}/etc/$${FILE}"; \
+		fi; \
 	done
 .if defined(SE)
 	@${INSTALL} -m 0644 ${MFSBSDONLY}/etc/motd.se ${_DESTDIR}/etc/motd
@@ -421,6 +427,9 @@ ${WRKDIR}/.config_done:
 	@for FILE in interfaces.conf ; do \
 		if [ ! -e "${_DESTDIR}/etc/rc.conf.d/$${FILE}.sample" ]; then \
 			echo "Missing ${_DESTDIR}/etc/rc.conf.d/$${FILE}.sample" && exit 1; \
+		fi; \
+		if [ ! -e "${_DESTDIR}/etc/rc.conf.d/$${FILE}" ]; then \
+			${CP} -a "${_DESTDIR}/etc/rc.conf.d/$${FILE}.sample" "${_DESTDIR}/etc/rc.conf.d/$${FILE}"; \
 		fi; \
 	done
 .if defined(ROOTHACK)
