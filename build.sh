@@ -9,9 +9,6 @@ ARCH=amd64
 if [ "$1" = "nox" ]; then
 	NOX=1
 fi
-if [ "$2" = "dtrace" ]; then
-	DTRACE=1
-fi
 if [ "${NOX}" = "1" ]; then
 	IMAGE_PREFIX=NOX
 else
