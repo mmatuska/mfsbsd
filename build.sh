@@ -44,6 +44,7 @@ if [ "$2" = "iso" -o "$2" = "all" ]; then
 		IMAGE_PREFIX=${IMAGE_PREFIX} \
 		MFSROOT_MAXSIZE=999m \
 		KEYCFG="mfsbsdonly all $3" \
+		PKGNG=1 \
 		SE=1 || exit 1
 fi
 if [ "$2" = "imgtar" -o "$2" = "all" ]; then
@@ -52,6 +53,7 @@ if [ "$2" = "imgtar" -o "$2" = "all" ]; then
 		IMAGE_PREFIX=${IMAGE_PREFIX} \
 		MFSROOT_MAXSIZE=999m \
 		KEYCFG="mfsbsdonly all $3" \
+		PKGNG=1 \
 		SE=1 || exit 1
 	if /sbin/sysctl security.jail.jailed | /usr/bin/grep 0 >/dev/null 2>&1 ; then
 		DOFSSIZE=$(( `ls -l ${IMAGE_PREFIX}-${RELEASE}-${ARCH}.tar | awk '{print $5}'` / 1000 ))
@@ -62,6 +64,7 @@ if [ "$2" = "imgtar" -o "$2" = "all" ]; then
 			MFSROOT_MAXSIZE=999m \
 			DOFSSIZE=${DOFSSIZE} \
 			KEYCFG="mfsbsdonly all $3" \
+			PKGNG=1 \
 			SE=1 || exit 1
 		fi
 	fi

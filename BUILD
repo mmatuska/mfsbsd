@@ -12,8 +12,8 @@ BUILDING INSTRUCTIONS:
     your needs.
 
  2. Additional packages and files
-    If you want any packages installed, copy the .tbz files that should be 
-    automatically installed into the packages/ directory.
+    If you want any packages installed, copy the .t?z files that should be
+    automatically installed into the pkginstall/ directory.
 
     Add any additional files into the files/ directory. These will be copied
     recursively into the root of the boot image.
