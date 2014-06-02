@@ -135,7 +135,7 @@ help() {
 	echo "$0 -d ada0 -u /cdrom/10.0-RELEASE-amd64/ -b 1G -s 10G -z 30G -E -n -c"
 }
 
-while getopts d:u:t:r:p:f:s:z:m:b:V:hcl4gEnNUaA o; do
+while getopts d:u:t:r:p:f:s:z:m:b:V:hc4gEnNUaA o; do
 	case "$o" in
 		d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
 		u) URL="${OPTARG}" ;;
