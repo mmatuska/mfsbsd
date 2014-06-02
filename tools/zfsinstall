@@ -132,7 +132,7 @@ help() {
 	echo "When using swap and raidz/mirror, the swap partition is created on all drives."
 	echo "The /etc/fstab entry will contatin a gmirror-ed swap."
 	echo; echo; echo "For a headless server, typically:"
-	echo "$0 -d ada0 -u /cdrom//10.0-RELEASE-amd64/ -b 1G -s 10G -z 30G -E -n -c"
+	echo "$0 -d ada0 -u /cdrom/10.0-RELEASE-amd64/ -b 1G -s 10G -z 30G -E -n -c"
 }
 
 while getopts d:u:t:r:p:f:s:z:m:b:V:hcl4gEnNUaA o; do
