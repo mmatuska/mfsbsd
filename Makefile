@@ -309,7 +309,7 @@ ${WRKDIR}/.packages_done:
 	@echo "pkg-static not found at: ${PKG_STATIC}"
 	@exit 1
 .  endif
-	@{MKDIR} ${_DESTDIR}/usr/local/sbin
+	@${MKDIR} ${_DESTDIR}/usr/local/sbin
 	@${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
 	@${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
 	@echo " done"
