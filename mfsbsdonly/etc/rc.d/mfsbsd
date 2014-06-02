@@ -45,8 +45,9 @@ mfsbsd_start()
 	fi
 	if [ -n "$_dhcp" ]; then
 		if `checkyesno _dhcp`; then
-			_dif=`/sbin/ifconfig -l | /usr/bin/sed -E 's/lo[0-9]+//g'`
+			_dif=`/sbin/ifconfig -l | /usr/bin/sed -E 's/lo[0-9]+//g' | /usr/bin/sed -E 's/plip[0-9]+//g' | /usr/bin/sed -E 's/ipfw[0-9]+//g' | /usr/bin/sed -E 's/enc[0-9]+//g' | /usr/bin/sed -E 's/pflog[0-9]+//g'`
 			for i in $_dif; do
+				/usr/bin/grep "ifconfig_$i" /etc/rc.conf.d/network >/dev/null 2>&1 || \
 				echo "ifconfig_$i=\"DHCP\"" >> /etc/rc.conf.d/network
 			done
 		fi
@@ -75,7 +76,7 @@ mfsbsd_start()
 	elif [ -n "$_rootpwhash" ]; then
 		echo $_rootpwhash | /usr/bin/sed -e 's,%,$,g' | /usr/sbin/pw usermod root -H 0
 		/bin/kenv -u mfsbsd.rootpwhash
-        fi
+	fi
 	if [ -n "$_ns" ]; then
 		for n in $_ns; do
 			echo "nameserver $n" >> /etc/resolv.conf

@@ -5,6 +5,30 @@
 #
 # Version 2.1
 
+This fork (github.com/johnko/mfsbsd) of mfsBSD is setup as follows:
+./conf
+./keys                     # allows organizing different directories to include/exclude
+./keys/all                 # a sub tree that can be copied
+./keys/all/root            # copied to /root, overwrites any existing files
+./keys/all/root/bin        # some tools should be moved to here
+./keys/all/server          # this is my custom folder, I don't think anyone will ever use this
+./keys/mfsbsdonly          # another sub tree that can be copied
+./keys/mfsbsdonly/boot     # copied to /boot, overwrites any existing files
+./keys/private
+./mfsbsdonly               # the default sub tree that is copied first (later ones overwrite this)
+./mfsbsdonly/boot          # copied to /boot first
+./mfsbsdonly/etc           # now contains *.conf files, copied to /etc first
+./mfsbsdonly/etc/rc.conf.d
+./mfsbsdonly/etc/rc.d      # startup scripts
+./mfsbsdonly/root          # root users's home folder, copied to /root first
+./mfsbsdonly/root/.ssh     # contains authorized_keys
+./tools
+./tools/roothack
+
+QUICK START:
+git clone https://github.com/johnko/mfsbsd.git mfsbsd && cd mfsbsd && ./build.sh nox all $CSV
+# where $CSV is your own custom folder in ./keys like 'private' in the example above
+
 BUILDING INSTRUCTIONS:
  1. Configuration
     Read hints in the sample configuration files in the conf/ directory, copy
@@ -12,8 +36,8 @@ BUILDING INSTRUCTIONS:
     your needs.
 
  2. Additional packages and files
-    If you want any packages installed, copy the .tbz files that should be 
-    automatically installed into the packages/ directory.
+    If you want any packages installed, copy the .t?z files that should be
+    automatically installed into the pkginstall/ directory.
 
     Add any additional files into the files/ directory. These will be copied
     recursively into the root of the boot image.

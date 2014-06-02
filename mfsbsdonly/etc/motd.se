@@ -11,6 +11,6 @@ To make a full-ZFS FreeBSD install from this ISO:
 Run zfsinstall with the -h flag for help or without flags for options.
 I recommend creating a GPT swap partition (e.g. -s 2G for a 2GB swap).
 
-Feel free to email me with any bug reports or feature suggestions.
-Martin Matuska <mm@FreeBSD.org>
-http://mfsbsd.vx.sk/
+Visit https://github.com/mmatuska/mfsbsd
+for bug reports or feature suggestions.
+

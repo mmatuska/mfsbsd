@@ -9,11 +9,14 @@
 #
 # User-defined variables
 #
+# Not really debug, but can't unset DEBUG since undef doesn't work
+NODEBUG=yes
 BASE?=/cdrom/usr/freebsd-dist
 KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=10%
 MFSROOT_FREE_BLOCKS?=10%
 MFSROOT_MAXSIZE?=64m
+DOFSSIZE?=200000
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -33,10 +36,14 @@ MFSROOT_MAXSIZE?=64m
 #
 # Paths
 #
+KEYCFG?=none
+KEYSDIR=keys
 SRC_DIR?=/usr/src
 CFGDIR=conf
-SCRIPTSDIR=scripts
+MFSBSDONLY=mfsbsdonly
+FILESDIR=all
 PACKAGESDIR?=packages
+PKGINSTALLDIR?=pkginstall
 CUSTOMFILESDIR=customfiles
 TOOLSDIR=tools
 PRUNELIST?=${TOOLSDIR}/prunelist
@@ -46,6 +53,7 @@ PKG_STATIC?=${TOOLSDIR}/pkg-static
 #
 MKDIR=/bin/mkdir -p
 CHOWN=/usr/sbin/chown
+CHMOD=/bin/chmod
 CAT=/bin/cat
 PWD=/bin/pwd
 TAR=/usr/bin/tar
@@ -61,6 +69,7 @@ INSTALL=/usr/bin/install
 LS=/bin/ls
 LN=/bin/ln
 FIND=/usr/bin/find
+GREP=/usr/bin/egrep
 PW=/usr/sbin/pw
 SED=/usr/bin/sed
 UNAME=/usr/bin/uname
@@ -70,7 +79,7 @@ MAKEFS=/usr/sbin/makefs
 MKISOFS=/usr/local/bin/mkisofs
 SSHKEYGEN=/usr/bin/ssh-keygen
 SYSCTL=/sbin/sysctl
-PKG=/usr/local/sbin/pkg
+PKG=/usr/local/sbin/pkg-static
 #
 CURDIR!=${PWD}
 WRKDIR?=${CURDIR}/tmp
@@ -78,10 +87,8 @@ WRKDIR?=${CURDIR}/tmp
 BSDLABEL=bsdlabel
 #
 DOFS=${TOOLSDIR}/doFS.sh
-SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi ahci
-MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs
-#
+BOOTMODULES?=acpi ahci aesni
+MFSMODULES?=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs acpi ahci aesni geom_eli geom_label smbfs crypto zlib linux nvidia snd_uaudio if_lagg carp pf pflog
 
 .if !defined(ARCH)
 TARGET!=	${SYSCTL} -n hw.machine_arch
@@ -105,7 +112,7 @@ TARFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
 GCEFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar.gz
 _DISTDIR= ${WRKDIR}/dist/${RELEASE}-${TARGET}
 
-.if !defined(DEBUG)
+.if !defined(DEBUG) || defined(NODEBUG)
 EXCLUDE=--exclude *.symbols
 .else
 EXCLUDE=
@@ -302,34 +309,39 @@ ${WRKDIR}/.packages_done:
 	@echo "pkg-static not found at: ${PKG_STATIC}"
 	@exit 1
 .  endif
-	@mkdir -p ${_DESTDIR}/usr/local/sbin
+	@${MKDIR} ${_DESTDIR}/usr/local/sbin
 	@${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
 	@${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
 	@echo " done"
 .endif
 	@if [ -d "${PACKAGESDIR}" ]; then \
-		echo -n "Copying user packages ..."; \
+		echo -n "Copying user packages to disk image ..."; \
 		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}; \
 		echo " done"; \
 	fi
-	@if [ -d "${_DESTDIR}/packages" ]; then \
+	@if [ -d "${PKGINSTALLDIR}" ]; then \
+		echo -n "Copying user packages for install ..."; \
+		${CP} -rf ${PKGINSTALLDIR} ${_DESTDIR}; \
+		echo " done"; \
+	fi
+	@if [ -d "${_DESTDIR}/${PKGINSTALLDIR}" ]; then \
 		echo -n "Installing user packages ..."; \
 	fi
 .if defined(PKGNG)
-	@if [ -d "${_DESTDIR}/packages" ]; then \
-		cd ${_DESTDIR}/packages && for FILE in *; do \
-			${PKG} -c ${_DESTDIR} add /packages/$${FILE}; \
-		done; \
+	@if [ -d "${_DESTDIR}/${PKGINSTALLDIR}" ]; then \
+		cd ${_DESTDIR}/${PKGINSTALLDIR} && \
+			${PKG} -c ${_DESTDIR} add `/bin/ls -1 *.t?z | /usr/bin/awk '{ print "/${PKGINSTALLDIR}/"$$1 }' | /usr/bin/tr '\n' ' '` || echo "SOME ALREADY INSTALLED"; \
+		echo " done"; \
 	fi
 .else
-	@if [ -d "${_DESTDIR}/packages" ]; then \
+	@if [ -d "${_DESTDIR}/${PKGINSTALLDIR}" ]; then \
 		cd ${_DESTDIR}/packages && for FILE in *; do \
 			env PKG_PATH=/packages pkg_add -fi -C ${_DESTDIR} /packages/$${FILE} > /dev/null; \
 		done; \
 	fi
 .endif
-	@if [ -d "${_DESTDIR}/packages" ]; then \
-		${RM} -rf ${_DESTDIR}/packages; \
+	@if [ -d "${_DESTDIR}/${PKGINSTALLDIR}" ]; then \
+		${RM} -rf ${_DESTDIR}/${PKGINSTALLDIR}; \
 		echo " done"; \
 	fi
 	@${TOUCH} ${WRKDIR}/.packages_done
@@ -337,59 +349,114 @@ ${WRKDIR}/.packages_done:
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
-.for FILE in boot.config loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
-. if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
-	@echo "Missing ${CFGDIR}/${FILE}.sample" && exit 1
-. endif
-.endfor
+# /boot
+	@for MYDIR in ${MFSBSDONLY} ${FILESDIR} ; do \
+		FILEPERM=644 ; \
+		if [     -d "$${MYDIR}/boot" ]; then \
+			${FIND}  $${MYDIR}/boot -type d -exec ${CHMOD} 755 {} \;; \
+			${FIND}  $${MYDIR}/boot -type f -exec ${CHMOD} $${FILEPERM} {} \;; \
+			${CP} -a $${MYDIR}/boot ${_DESTDIR}; \
+		fi ; \
+	done
+	@for MYDIR in ${KEYCFG} ; do \
+		FILEPERM=600 ; \
+		if [     -d "${KEYSDIR}/$${MYDIR}/boot" ]; then \
+			${FIND}  ${KEYSDIR}/$${MYDIR}/boot -type d -exec ${CHMOD} 755 {} \;; \
+			${FIND}  ${KEYSDIR}/$${MYDIR}/boot -type f -exec ${CHMOD} $${FILEPERM} {} \;; \
+			${CP} -a ${KEYSDIR}/$${MYDIR}/boot ${_DESTDIR}; \
+		fi ; \
+	done
+	@${INSTALL} -d -m 0700 ${_DESTDIR}/boot/keys
+	@for FILE in boot.config ; do \
+		if [ ! -e "${CFGDIR}/$${FILE}.sample" ]; then \
+			echo "Missing ${CFGDIR}/$${FILE}.sample" && exit 1; \
+		fi; \
+	done
+	@for FILE in loader.conf ; do \
+		if [ ! -e "${_DESTDIR}/boot/$${FILE}.sample" ]; then \
+			echo "Missing ${_DESTDIR}/boot/$${FILE}.sample" && exit 1; \
+		fi; \
+		if [ ! -e "${_DESTDIR}/boot/$${FILE}" ]; then \
+			${CP} -a "${_DESTDIR}/boot/$${FILE}.sample" "${_DESTDIR}/boot/$${FILE}"; \
+		fi; \
+	done
+# /etc
+	@for MYDIR in ${MFSBSDONLY} ${FILESDIR} ; do \
+		FILEPERM=644 ; \
+		if [     -d "$${MYDIR}/etc" ]; then \
+			${FIND}  $${MYDIR}/etc -type d -exec ${CHMOD} 755 {} \;; \
+			${FIND}  $${MYDIR}/etc -type f -exec ${CHMOD} $${FILEPERM} {} \;; \
+			if [ -d "$${MYDIR}/etc/rc.d" ]; then \
+			 ${FIND} $${MYDIR}/etc/rc.d -type f -exec ${CHMOD} 755 {} \;; \
+			fi ; \
+			if [ -d "$${MYDIR}/etc/periodic" ]; then \
+			 ${FIND} $${MYDIR}/etc/periodic -type f -exec ${CHMOD} 755 {} \;; \
+			fi ; \
+			${CP} -a $${MYDIR}/etc ${_DESTDIR}; \
+		fi ; \
+	done
+	@for MYDIR in ${KEYCFG}; do \
+		FILEPERM=600 ; \
+		if [     -d "${KEYSDIR}/$${MYDIR}/etc" ]; then \
+			${FIND}  ${KEYSDIR}/$${MYDIR}/etc -type d -exec ${CHMOD} 755 {} \;; \
+			${FIND}  ${KEYSDIR}/$${MYDIR}/etc -type f -exec ${CHMOD} $${FILEPERM} {} \;; \
+			if [ -d "${KEYSDIR}/$${MYDIR}/etc/rc.d" ]; then \
+			 ${FIND} ${KEYSDIR}/$${MYDIR}/etc/rc.d -type f -exec ${CHMOD} 755 {} \;; \
+			fi ; \
+			if [ -d "${KEYSDIR}/$${MYDIR}/etc/periodic" ]; then \
+			 ${FIND} ${KEYSDIR}/$${MYDIR}/etc/periodic -type f -exec ${CHMOD} 755 {} \;; \
+			fi ; \
+			${CP} -a ${KEYSDIR}/$${MYDIR}/etc ${_DESTDIR}; \
+		fi ; \
+	done
+	@for FILE in rc.conf rc.local resolv.conf ttys ; do \
+		if [ ! -e "${_DESTDIR}/etc/$${FILE}.sample" ]; then \
+			echo "Missing ${_DESTDIR}/etc/$${FILE}.sample" && exit 1; \
+		fi; \
+		if [ ! -e "${_DESTDIR}/etc/$${FILE}" ]; then \
+			${CP} -a "${_DESTDIR}/etc/$${FILE}.sample" "${_DESTDIR}/etc/$${FILE}"; \
+		fi; \
+	done
 .if defined(SE)
-	@${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${_DESTDIR}/etc/motd
+	@${INSTALL} -m 0644 ${MFSBSDONLY}/etc/motd.se ${_DESTDIR}/etc/motd
 	@${INSTALL} -d -m 0755 ${_DESTDIR}/cdrom
 .else
-	@${INSTALL} -m 0644 ${TOOLSDIR}/motd ${_DESTDIR}/etc/motd
+	@${INSTALL} -m 0644 ${MFSBSDONLY}/etc/motd ${_DESTDIR}/etc/motd
 .endif
 	@${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
-	@if [ -f "${CFGDIR}/boot.config" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/boot.config ${_ROOTDIR}/boot.config; \
-	else \
-		${INSTALL} -m 0644 ${CFGDIR}/boot.config.sample ${_ROOTDIR}/boot.config; \
-	fi
-	@if [ -f "${CFGDIR}/loader.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${_BOOTDIR}/loader.conf; \
-	else \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${_BOOTDIR}/loader.conf; \
-	fi
-	@if [ -f "${CFGDIR}/rc.local" ]; then \
-		${INSTALL} -m 0744 ${CFGDIR}/rc.local ${_DESTDIR}/etc/rc.local; \
-   else \
-		${INSTALL} -m 0744 ${CFGDIR}/rc.local.sample ${_DESTDIR}/etc/rc.local; \
-   fi
-.for FILE in rc.conf ttys
-	@if [ -f "${CFGDIR}/${FILE}" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_DESTDIR}/etc/${FILE}; \
-	else \
-		${INSTALL} -m 0644 ${CFGDIR}/${FILE}.sample ${_DESTDIR}/etc/${FILE}; \
-	fi
-.endfor
+	@for FILE in interfaces.conf ; do \
+		if [ ! -e "${_DESTDIR}/etc/rc.conf.d/$${FILE}.sample" ]; then \
+			echo "Missing ${_DESTDIR}/etc/rc.conf.d/$${FILE}.sample" && exit 1; \
+		fi; \
+		if [ ! -e "${_DESTDIR}/etc/rc.conf.d/$${FILE}" ]; then \
+			${CP} -a "${_DESTDIR}/etc/rc.conf.d/$${FILE}.sample" "${_DESTDIR}/etc/rc.conf.d/$${FILE}"; \
+		fi; \
+	done
 .if defined(ROOTHACK)
 	@echo 'root_rw_mount="NO"' >> ${_DESTDIR}/etc/rc.conf
 .endif
-	@if [ -f "${CFGDIR}/resolv.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/resolv.conf ${_DESTDIR}/etc/resolv.conf; \
-	fi
-	@if [ -f "${CFGDIR}/interfaces.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/interfaces.conf ${_DESTDIR}/etc/rc.conf.d/interfaces; \
-	fi
-	@if [ -f "${CFGDIR}/authorized_keys" ]; then \
-		${INSTALL} -d -m 0700 ${_DESTDIR}/root/.ssh; \
-		${INSTALL} ${CFGDIR}/authorized_keys ${_DESTDIR}/root/.ssh/; \
-	fi
+# /root
 	@${MKDIR} ${_DESTDIR}/root/bin
-	@${INSTALL} ${TOOLSDIR}/zfsinstall ${_DESTDIR}/root/bin
-	@${INSTALL} ${TOOLSDIR}/destroygeom ${_DESTDIR}/root/bin
-	@for SCRIPT in ${SCRIPTS}; do \
-		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${_DESTDIR}/etc/rc.d/; \
+	@for MYDIR in ${MFSBSDONLY} ${FILESDIR} ; do \
+		FILEPERM=600 ; \
+		if [     -d "$${MYDIR}/root" ]; then \
+			${FIND}  $${MYDIR}/root -type d -exec ${CHMOD} 700 {} \;; \
+			${FIND}  $${MYDIR}/root -type f -exec ${CHMOD} $${FILEPERM} {} \;; \
+			${CP} -a $${MYDIR}/root ${_DESTDIR}; \
+		fi ; \
 	done
+	@for MYDIR in ${KEYCFG}; do \
+		FILEPERM=600 ; \
+		if [     -d "${KEYSDIR}/$${MYDIR}/root" ]; then \
+			${FIND}  ${KEYSDIR}/$${MYDIR}/root -type d -exec ${CHMOD} 700 {} \;; \
+			${FIND}  ${KEYSDIR}/$${MYDIR}/root -type f -exec ${CHMOD} $${FILEPERM} {} \;; \
+			${CP} -a ${KEYSDIR}/$${MYDIR}/root ${_DESTDIR}; \
+		fi ; \
+	done
+	@if [ -f "${_DESTDIR}/root/.ssh/authorized_keys" ]; then \
+		${CHMOD} go-rwx ${_DESTDIR}/root/.ssh; \
+		${CHMOD} go-rwx ${_DESTDIR}/root/.ssh/authorized_keys; \
+	fi
 #	@${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${_DESTDIR}/etc/ttys
 .if !defined(ROOTHACK)
 	@echo "/dev/md0 / ufs rw 0 0" > ${_DESTDIR}/etc/fstab
@@ -397,26 +464,19 @@ ${WRKDIR}/.config_done:
 .else
 	@${TOUCH} ${_DESTDIR}/etc/fstab
 .endif
+	@echo "/dev/mirror/swap.eli none swap sw,aalgo=HMAC/SHA256 0 0" >> ${_DESTDIR}/etc/fstab
 .if defined(ROOTPW)
 	@echo ${ROOTPW} | ${PW} -V ${_DESTDIR}/etc usermod root -h 0
 .endif
 	@echo PermitRootLogin yes >> ${_DESTDIR}/etc/ssh/sshd_config
-.if exists(${CFGDIR}/hosts)
-	@${INSTALL} -m 0644 ${CFGDIR}/hosts ${_DESTDIR}/etc/hosts
-.elif exists(${CFGDIR}/hosts.sample)
-	@${INSTALL} -m 0644 ${CFGDIR}/hosts.sample ${_DESTDIR}/etc/hosts
-.else
-	@echo "Missing ${CFGDIR}/hosts.sample" && exit 1
-.endif
 	@${TOUCH} ${WRKDIR}/.config_done
 	@echo " done"
 
 genkeys: config ${WRKDIR}/.genkeys_done
 ${WRKDIR}/.genkeys_done:
 	@echo -n "Generating SSH host keys ..."
-	@${SSHKEYGEN} -t rsa1 -b 1024 -f ${_DESTDIR}/etc/ssh/ssh_host_key -N '' > /dev/null
-	@${SSHKEYGEN} -t dsa -f ${_DESTDIR}/etc/ssh/ssh_host_dsa_key -N '' > /dev/null
 	@${SSHKEYGEN} -t rsa -f ${_DESTDIR}/etc/ssh/ssh_host_rsa_key -N '' > /dev/null
+	@${CHMOD} go-rwx ${_DESTDIR}/etc/ssh/ssh_host*key
 	@${TOUCH} ${WRKDIR}/.genkeys_done
 	@echo " done"
 
@@ -434,11 +494,13 @@ ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
 	@${TAR} -c -J -C ${_DESTDIR} -f ${_DESTDIR}/.usr.tar.xz usr 
+	@${FIND} ${_DESTDIR}/usr -type l -exec ${CHFLAGS} -h nosunlink {} \;
 	@${RM} -rf ${_DESTDIR}/usr && ${MKDIR} ${_DESTDIR}/usr 
 .else
 	@echo -n "Compressing root ..."
 	@${TAR} -c -C ${_ROOTDIR} -f - rw | \
 	${XZ} -v -c > ${_ROOTDIR}/root.txz
+	@${FIND} ${_DESTDIR} -type l -exec ${CHFLAGS} -h nosunlink {} \;
 	@${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
 .endif
 	@${TOUCH} ${WRKDIR}/.compress-usr_done
@@ -492,7 +554,7 @@ ${WRKDIR}/.boot_done:
 .endfor
 .if defined(ROOTHACK)
 	@echo -n "Installing tmpfs module for roothack ..."
-	@${MKDIR} -p ${_ROOTDIR}/boot/modules
+	@${MKDIR} ${_ROOTDIR}/boot/modules
 	@${INSTALL} -m 0666 ${_BOOTDIR}/kernel/tmpfs.ko ${_ROOTDIR}/boot/modules
 	@echo " done"
 .endif
@@ -509,14 +571,21 @@ ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	@${MKDIR} ${WRKDIR}/mnt
 	@${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
+	@${FIND} ${_DESTDIR} -type l -exec ${CHFLAGS} -h nosunlink {} \;
 	@${RM} -rf ${WRKDIR}/mnt ${_DESTDIR}
 	@${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	@${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
-	@if [ -f "${CFGDIR}/loader.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/disk/boot/loader.conf; \
-	else \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
-	fi
+# /boot for disk and iso
+	@for MYDIR in ${MFSBSDONLY} ${FILESDIR} ; do \
+		if [     -d "$${MYDIR}/boot" ]; then \
+			${CP} -a $${MYDIR}/boot ${WRKDIR}/disk/; \
+		fi ; \
+	done
+	@for MYDIR in ${KEYCFG} ; do \
+		if [     -d "${KEYSDIR}/$${MYDIR}/boot" ]; then \
+			${CP} -a ${KEYSDIR}/$${MYDIR}/boot ${WRKDIR}/disk/; \
+		fi ; \
+	done
 	@${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
@@ -534,7 +603,7 @@ ${IMAGE}:
 	@echo -n "Creating image file ..."
 	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
 	@${INSTALL} -m 0444 ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
-	@${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
+	@${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt ${DOFSSIZE} ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
 	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	@${MV} ${WRKDIR}/disk.img ${IMAGE}
 	@echo " done"

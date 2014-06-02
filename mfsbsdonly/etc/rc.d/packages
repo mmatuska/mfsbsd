@@ -16,10 +16,7 @@ packages_start()
 {
 	PACKAGES=`/bin/ls -1 /packages/*.t?z 2>/dev/null`
 	if /bin/test -n "$PACKAGES"; then
-		MD=`/sbin/mdconfig -a -t swap -s 64m`
-		/sbin/newfs -U /dev/$MD
-		/sbin/mount /dev/$MD /usr/local
-		cd /packages && /usr/sbin/pkg_add *.t?z > /dev/null 2> /dev/null
+		cd /packages && /usr/local/sbin/pkg-static add *.t?z > /dev/null 2> /dev/null
 	fi
 }
 
