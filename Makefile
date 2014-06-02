@@ -367,11 +367,11 @@ ${WRKDIR}/.config_done:
 		fi ; \
 	done
 	@${INSTALL} -d -m 0700 ${_DESTDIR}/boot/keys
-.for FILE in boot.config
-. if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
-	@echo "Missing ${CFGDIR}/${FILE}.sample" && exit 1
-. endif
-.endfor
+	@for FILE in boot.config ; do \
+		if [ ! -e "${CFGDIR}/$${FILE}.sample" ]; then \
+			echo "Missing ${CFGDIR}/$${FILE}.sample" && exit 1; \
+		fi; \
+	done
 	@for FILE in loader.conf ; do \
 		if [ ! -e "${_DESTDIR}/boot/$${FILE}.sample" ]; then \
 			echo "Missing ${_DESTDIR}/boot/$${FILE}.sample" && exit 1; \
