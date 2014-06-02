@@ -32,7 +32,6 @@ fi
 /bin/rm ${IMAGE_PREFIX}*.iso
 /bin/rm ${IMAGE_PREFIX}*.img
 /bin/rm ${IMAGE_PREFIX}*.tar
-/bin/rm tmp/mfs/rw/etc/ssh/ssh_host*
 if [ ! -e tools/pkg-static ]; then
 	/bin/cp -a `which pkg-static` tools/pkg-static || exit 1
 fi
