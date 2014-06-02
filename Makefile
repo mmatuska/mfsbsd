@@ -372,11 +372,11 @@ ${WRKDIR}/.config_done:
 	@echo "Missing ${CFGDIR}/${FILE}.sample" && exit 1
 . endif
 .endfor
-.for FILE in loader.conf
-. if !exists(${_DESTDIR}/boot/${FILE}) && !exists(${_DESTDIR}/boot/${FILE}.sample)
-	@echo "Missing ${_DESTDIR}/boot/${FILE}.sample" && exit 1
-. endif
-.endfor
+	@for FILE in loader.conf ; do \
+		if [ ! -e "${_DESTDIR}/boot/$${FILE}.sample" ]; then \
+			echo "Missing ${_DESTDIR}/boot/$${FILE}.sample" && exit 1; \
+		fi; \
+	done
 # /etc
 	@for MYDIR in ${MFSBSDONLY} ${FILESDIR} ; do \
 		FILEPERM=644 ; \
@@ -406,11 +406,11 @@ ${WRKDIR}/.config_done:
 			${CP} -a ${KEYSDIR}/$${MYDIR}/etc ${_DESTDIR}; \
 		fi ; \
 	done
-.for FILE in rc.conf rc.local resolv.conf ttys
-. if !exists(${_DESTDIR}/etc/${FILE}) && !exists(${_DESTDIR}/etc/${FILE}.sample)
-	@echo "Missing ${_DESTDIR}/etc/${FILE}.sample" && exit 1
-. endif
-.endfor
+	@for FILE in rc.conf rc.local resolv.conf ttys ; do \
+		if [ ! -e "${_DESTDIR}/etc/$${FILE}.sample" ]; then \
+			echo "Missing ${_DESTDIR}/etc/$${FILE}.sample" && exit 1; \
+		fi; \
+	done
 .if defined(SE)
 	@${INSTALL} -m 0644 ${MFSBSDONLY}/etc/motd.se ${_DESTDIR}/etc/motd
 	@${INSTALL} -d -m 0755 ${_DESTDIR}/cdrom
@@ -418,11 +418,11 @@ ${WRKDIR}/.config_done:
 	@${INSTALL} -m 0644 ${MFSBSDONLY}/etc/motd ${_DESTDIR}/etc/motd
 .endif
 	@${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
-.for FILE in interfaces.conf
-. if !exists(${_DESTDIR}/etc/rc.conf.d/${FILE}) && !exists(${_DESTDIR}/etc/rc.conf.d/${FILE}.sample)
-	@echo "Missing ${_DESTDIR}/etc/rc.conf.d/${FILE}.sample" && exit 1
-. endif
-.endfor
+	@for FILE in interfaces.conf ; do \
+		if [ ! -e "${_DESTDIR}/etc/rc.conf.d/$${FILE}.sample" ]; then \
+			echo "Missing ${_DESTDIR}/etc/rc.conf.d/$${FILE}.sample" && exit 1; \
+		fi; \
+	done
 .if defined(ROOTHACK)
 	@echo 'root_rw_mount="NO"' >> ${_DESTDIR}/etc/rc.conf
 .endif
