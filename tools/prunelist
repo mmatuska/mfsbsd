@@ -48,9 +48,6 @@ usr/share/games
 usr/share/man
 usr/share/openssl
 usr/share/nls
-usr/bin/dig
-usr/bin/host
-usr/bin/nslookup
 usr/bin/nsupdate
 usr/sbin/dnssec-dsfromkey
 usr/sbin/dnssec-signzone
@@ -64,3 +61,4 @@ usr/sbin/dnssec-keyfromlabel
 usr/sbin/rndc-confgen
 usr/sbin/named-reconfig
 usr/sbin/named-reload
+
