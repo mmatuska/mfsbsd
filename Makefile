@@ -165,6 +165,11 @@ INSTALLENV?= ${BUILDENV} \
 	WITHOUT_TOOLCHAIN=1
 .endif
 
+.if defined(FULLDIST)
+NO_PRUNE=1
+NO_RESCUE_LINKS=1
+.endif
+
 all: image
 
 destdir: ${_DESTDIR} ${_BOOTDIR}
@@ -252,7 +257,7 @@ ${WRKDIR}/.install_done:
 . endif
 .endif
 	@${CHFLAGS} -R noschg ${_DESTDIR} > /dev/null 2> /dev/null || exit 0
-.if !defined(WITHOUT_RESCUE)
+.if !defined(WITHOUT_RESCUE) || defined(NO_RESCUE_LINKS)
 	@cd ${_DESTDIR} && \
 	for FILE in `${FIND} rescue -type f`; do \
 	FILE=$${FILE##rescue/}; \
@@ -270,13 +275,15 @@ ${WRKDIR}/.install_done:
 		${LN} -s ../../rescue/$$FILE usr/sbin/$$FILE; \
 	fi; \
 	done
-.else
+.endif
+.if defined(WITHOUT_RESCUE)
 	@cd ${_DESTDIR} && ${RM} -rf rescue
 .endif
 	@${TOUCH} ${WRKDIR}/.install_done
 
 prune: install ${WRKDIR}/.prune_done
 ${WRKDIR}/.prune_done:
+.if !defined(NO_PRUNE)
 	@echo -n "Removing selected files from distribution ..."
 	@if [ -f "${PRUNELIST}" ]; then \
 		for FILE in `cat ${PRUNELIST}`; do \
@@ -287,6 +294,7 @@ ${WRKDIR}/.prune_done:
 	fi
 	@${TOUCH} ${WRKDIR}/.prune_done
 	@echo " done"
+.endif
 
 packages: install prune ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
