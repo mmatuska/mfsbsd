@@ -61,6 +61,7 @@ INSTALL=/usr/bin/install
 LS=/bin/ls
 LN=/bin/ln
 FIND=/usr/bin/find
+GREP=/usr/bin/egrep
 PW=/usr/sbin/pw
 SED=/usr/bin/sed
 UNAME=/usr/bin/uname
@@ -78,9 +79,10 @@ WRKDIR?=${CURDIR}/tmp
 BSDLABEL=bsdlabel
 #
 DOFS=${TOOLSDIR}/doFS.sh
-SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi ahci
-MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs
+SCRIPTS?=mdinit mfsbsd interfaces packages
+BOOTMODULES?=acpi ahci aesni
+MFSMODULES?=geom_mirror geom_nop opensolaris zfs geom_eli crypto zlib \
+  geom_label ext2fs snp smbus ipmi ntfs nullfs tmpfs aesni
 #
 
 .if !defined(ARCH)

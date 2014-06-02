@@ -46,6 +46,10 @@
 #
 # Do not change anything here until you know what you are doing
 #
+aesni_load="YES"
+geom_mirror_load="YES"
+geom_label_load="YES"
+geom_eli_load="YES"
 geom_uzip_load="YES"
 tmpfs_load="YES"
 mfs_load="YES"

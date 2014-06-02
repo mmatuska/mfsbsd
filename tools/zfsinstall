@@ -3,11 +3,16 @@
 #
 # mfsBSD ZFS install script
 # Copyright (c) 2011-2013 Martin Matuska <mm at FreeBSD.org>
+# Modified by @johnko https://github.com/johnko with help from 
+# @keltia https://github.com/keltia
+# encryption setup based on input from 
+# http://forums.freebsd.org/showthread.php?t=2775
 #
+RESTOREMASK=`umask`
 FS_LIST="var tmp"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u dist_url [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u dist_url [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-f zfs_fs_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-b boot_size] [-E] [-g] [-c] [-l] [-4]"
 }
 
 help() {
@@ -20,8 +25,12 @@ help() {
 	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
 	echo "-z zfs_part_size  : create zfs parition of this size (default: all space left)"
 	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
+	echo "-f fs_name        : specify a name for the ZFS filesystem (default: rfs)"
 	echo "-V pool_version   : specify a version number for ZFS pool (default: 13)"
 	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
+	echo "-b boot_size      : create a unencrypted boot partition (default: 500M)"
+	echo "-E                : enable GELI support incl. encrypted/mirrored swap"
+	echo "-g                : enable NOP support to emulate 4k alignment"
 	echo "-c                : enable lzjb compression for all datasets"
 	echo "-l                : use legacy mounts (via fstab) instead of ZFS mounts"
 	echo "-4                : use fletcher4 as default checksum algorithm"
@@ -30,23 +39,38 @@ help() {
 	echo "$0 -u /path/to/release -d da0 -s 2G"
 	echo "Install on a mirror without swap, pool name rpool:"
 	echo "$0 -u /path/to/release -d da0 -d da1 -r mirror -p rpool"
+	echo "Install GELI encrypted / with unencrypted /boot using \
+  key and password at boot time:"
+	echo "$0 -d ad4 -b 500M -E"
+	echo "Install GELI encrypted / that can't boot (maybe useful if using \
+  custom mfsbsd to boot, unlock, chroot, and continue rc):"
+	echo "$0 -d ad4 -E"
+	echo; echo "Note about ENCRYPTION:"
+  echo "You must backup your keyfiles and headers to a safe (and secure) location."
+  echo "Without them, you will not be able to unlock or restore your data"
+  echo "from corrupt disk headers."
+  echo "You need to remember the password you used if you installed using the -b option."
 	echo; echo "Notes:"
 	echo "When using swap and raidz/mirror, the swap partition is created on all drives."
 	echo "The /etc/fstab entry will contatin only the first drive's swap partition."
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:u:t:r:p:s:z:m:V:hcl4 o; do
+while getopts d:u:t:r:p:f:s:z:m:b:V:hcgEl4 o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
 		u) URL="${OPTARG}" ;;
 		t) ARCHIVE="${OPTARG}" ;;
 		p) POOL="${OPTARG}" ;;
+        	f) RFS="${OPTARG}" ;;
 		s) SWAP="${OPTARG}" ;;
 		m) MNT="${OPTARG}" ;;
+        	b) BSIZE="${OPTARG}"; USEBOOT=1;;
 		r) RAID="${OPTARG}" ;;
 		z) ZPART="${OPTARG}" ;;
 		V) VERSION="${OPTARG}" ;;
+		E) GELI=1 ;;
+		g) GNOP=1 ;;
 		c) LZJB=1 ;;
 		l) LEGACY=1 ;;
 		4) FLETCHER=1 ;;
@@ -78,6 +102,18 @@ if [ -z "$POOL" ]; then
 	POOL=tank
 fi
 
+if [ -z "$RFS" ]; then
+	RFS=rfs
+fi
+
+if [ -z "$BSIZE" ]; then
+	if [ "${USEBOOT}" = "1" ]; then
+		BSIZE=500M
+	else
+		BSIZE=1M
+	fi
+fi
+
 if [ -z "$VERSION" ]; then
 	VERSION=${ZFS_VERSION}
 elif [ "$VERSION" -gt "$ZFS_VERSION" ]; then
@@ -97,7 +133,7 @@ if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
 	exit 1
 fi
 
-EXPOOLS=`/sbin/zpool import | /usr/bin/grep pool: | /usr/bin/awk '{ print $2 }'`
+EXPOOLS=`/sbin/zpool import 2> /dev/null | /usr/bin/grep pool: | /usr/bin/awk '{ print $2 }'`
 
 if [ -n "${EXPOOLS}" ]; then
 	for P in ${EXPOOLS}; do
@@ -175,9 +211,13 @@ fi
 if [ "${LEGACY}" = "1" ]; then
 	ALTROOT=
 	ROOTMNT=legacy
+	BALTROOT=
+	BROOTMNT=legacy
 else
 	ALTROOT="-o altroot=${MNT} -o cachefile=/boot/zfs/zpool.cache"
 	ROOTMNT=/
+	BALTROOT="-o altroot=${MNT} -o cachefile=/boot/zfs/zpool.cache"
+	BROOTMNT=/bootdir
 fi
 
 # Fetch base.txz and kernel.txz
@@ -195,6 +235,9 @@ fi
 # Create GPT
 
 for DEV in ${DEVS}; do
+	echo -n "zpool labelclear ${DEV} ..."
+	/sbin/zpool labelclear -f /dev/${DEV} > /dev/null 2>&1
+	echo " done"
 	echo -n "Creating GUID partitions on ${DEV} ..."
 	if ! /sbin/gpart create -s GPT /dev/${DEV} > /dev/null; then
 		echo " error"
@@ -205,60 +248,152 @@ for DEV in ${DEVS}; do
 		echo " error"
 		exit 1
 	fi
-	if ! /sbin/gpart add -t freebsd-boot -s 128 ${DEV} > /dev/null; then
+	if ! /sbin/gpart add -t freebsd-boot -s 128 -a 4k ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
-	if [ -n "${SWAP}" ]; then
-		if ! /sbin/gpart add -t freebsd-swap -s "${SWAP}" ${DEV} > /dev/null; then
+	if [ -n "${BSIZE}" ]; then
+		if ! /sbin/gpart add -t freebsd-zfs -a 4k -s ${BSIZE} ${DEV} > /dev/null ; then
 			echo " error"
 			exit 1
 		fi
-		SWAPPART=`/sbin/glabel status ${DEV}p2 | /usr/bin/grep gptid | /usr/bin/awk '{ print $1 }'`
-		if [ -z "$SWAPPART" ]; then
-			echo " error determining swap partition"
-		fi
-		if [ -z "$FSWAP" ]; then
-			FSWAP=${SWAPPART}
+	fi
+	if [ -n "${SWAP}" ]; then
+		if ! /sbin/gpart add -t freebsd-swap -a 4k -s "${SWAP}" ${DEV} > /dev/null; then
+			echo " error"
+			exit 1
 		fi
 	fi
-	if ! /sbin/gpart add -t freebsd-zfs ${SZPART} ${DEV} > /dev/null; then
+	if ! /sbin/gpart add -t freebsd-zfs -a 4k ${SZPART} ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
 	/bin/dd if=/dev/zero of=/dev/${DEV}p2 bs=512 count=560 > /dev/null 2> /dev/null
+	/sbin/zpool labelclear -f /dev/${DEV}p2 > /dev/null 2>&1
+	/bin/dd if=/dev/zero of=/dev/${DEV}p3 bs=512 count=560 > /dev/null 2> /dev/null
+	/sbin/zpool labelclear -f /dev/${DEV}p3 > /dev/null 2>&1
 	if [ -n "${SWAP}" ]; then
-		/bin/dd if=/dev/zero of=/dev/${DEV}p3 bs=512 count=560 > /dev/null 2> /dev/null
+		/bin/dd if=/dev/zero of=/dev/${DEV}p4 bs=512 count=560 > /dev/null 2> /dev/null
+		/sbin/zpool labelclear -f /dev/${DEV}p4 > /dev/null 2>&1
 	fi
 	echo " done"
-
 	echo -n "Configuring ZFS bootcode on ${DEV} ..."
-		if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${DEV} > /dev/null; then
+	if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
 	echo " done"
 	/sbin/gpart show ${DEV}
 done
+/bin/sleep 1
+for DEV in ${DEVS}; do
+	if [ -n "${SWAP}" ]; then
+		# Detect swap part here because we dd above
+		SWAPPART=`/sbin/glabel status ${DEV}p3 | /usr/bin/grep gptid | /usr/bin/awk '{ print $1 }'`
+		if [ -z "$SWAPPART" ]; then
+			echo " error determining swap partition"
+		fi
+		if [ -z "$FSWAP" ]; then
+			FSWAP=${SWAPPART}
+		else
+			FSWAP="${FSWAP} ${SWAPPART}"
+		fi
+	fi
+done
+
+# Create mirrored swap, FSWAP is the list of swap part.
+if [ -n "${FSWAP}" ]; then
+	/sbin/gmirror load > /dev/null 2> /dev/null
+	/sbin/gmirror label -b round-robin swap ${FSWAP}
+fi
 
 # Create zpool and zfs
 
+KEYFILES=""
+BCOUNT=0
 for DEV in ${DEVS}; do
-	PART=`/sbin/gpart show ${DEV} | /usr/bin/grep freebsd-zfs | /usr/bin/awk '{ print $3 }'`
+	PART=`/sbin/gpart show ${DEV} | /usr/bin/grep freebsd-zfs | /usr/bin/tail -1 \
+| /usr/bin/awk '{ print $3 }'`
+	DISKLABEL=`/sbin/glabel list ${DEV}p${PART} | /usr/bin/grep gptid \
+| /usr/bin/awk -F"gptid/" '{ print $2 }'`
 
 	if [ -z "${PART}" ]; then
 		echo Error: freebsd-zfs partition not found on /dev/$DEV
 		exit 1
 	fi
+	if [ "${GELI}" = "1" ]; then
+		/bin/mkdir -p /boot/keys > /dev/null 2>&1
+		##### Generate an alphanumeric key
+		umask 077
+		TMPKEY="/boot/keys/`hostname -s`.${POOL}.${DISKLABEL}.${PART}"
+		/bin/dd if=/dev/random of=${TMPKEY} bs=128k count=1
+		umask $RESTOREMASK
+		KEYFILES="${KEYFILES} ${TMPKEY}"
+	fi
 
-	GPART=`/sbin/glabel list ${DEV}p${PART} | /usr/bin/grep gptid | /usr/bin/awk -F"gptid/" '{ print "gptid/" $2 }'`
+	BOOTPART=`/sbin/gpart show ${DEV} | /usr/bin/grep freebsd-zfs | /usr/bin/head -1 \
+| /usr/bin/awk '{ print $3 }'`
+	BPART="${DEV}p${BOOTPART}"
+	BPARTS="${BPARTS} ${BPART}"
+	BCOUNT=$(( BCOUNT + 1 ))
 
-	GPARTS="${GPARTS} ${GPART}"
+	if [ "${GNOP}" = "1" ]; then
+		GPART=`/sbin/glabel list ${DEV}p${PART} | /usr/bin/grep gptid \
+| /usr/bin/awk -F"gptid/" '{ print "gptid/" $2 }'`
+		/sbin/gnop create -S 4096 ${GPART}
+		GPARTS="${GPARTS} ${GPART}.nop"
+	fi
 	PARTS="${PARTS} ${DEV}p${PART}"
+	if [ "${GELI}" = "1" ]; then
+		if [ "${USEBOOT}" = "1" ]; then
+			##### PASSWORD AT CONSOLE
+			/sbin/geli init -b    -K ${TMPKEY} -e AES-XTS -s 4096 /dev/${DEV}p${PART}
+			/sbin/geli attach     -k ${TMPKEY} /dev/${DEV}p${PART}
+		else
+			##### PASSWORDLESS
+			/sbin/geli init -b -P -K ${TMPKEY} -e AES-XTS -s 4096 /dev/${DEV}p${PART}
+			/sbin/geli attach  -p -k ${TMPKEY} /dev/${DEV}p${PART}
+		fi
+		EPARTS="${EPARTS}${DEV}p${PART}.eli "
+		umask 077
+		/bin/cat >> /boot/loader.keys <<EOF
+geli_${DEV}p${PART}_keyfile0_load="YES"
+geli_${DEV}p${PART}_keyfile0_type="${DEV}p${PART}:geli_keyfile0"
+geli_${DEV}p${PART}_keyfile0_name="${TMPKEY}"
+EOF
+		umask $RESTOREMASK
+	fi
 done
 
-echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
-if ! /sbin/zpool create -f -m none ${ALTROOT} ${VERSION} ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
+if [ "${USEBOOT}" = 1 ]; then
+  BRAID=""
+  if [ $BCOUNT -gt 1 ]; then
+    BRAID="mirror"
+  fi
+  echo -n "Creating ZFS pool boot${POOL} on ${BPARTS} ..."
+  if ! /sbin/zpool create -f -m none ${BALTROOT} ${VERSION} boot${POOL} ${BRAID} ${BPARTS} > /dev/null 2> /dev/null; then
+    echo " error"
+    exit 1
+  fi
+  echo " done"
+  echo -n "Creating ZFS FS bootdir on boot${POOL} ..."
+  if ! /sbin/zfs create -o mountpoint=${BROOTMNT} boot${POOL}/bootdir > /dev/null 2> /dev/null; then
+    echo " error"
+    exit 1
+  fi
+  echo " done"
+fi
+
+POOLPARTS=${PARTS}
+if [ "${GNOP}" = "1" ]; then
+	POOLPARTS=${GPARTS}
+fi
+if [ "${GELI}" = "1" ]; then
+	POOLPARTS=${EPARTS}
+fi
+
+echo -n "Creating ZFS pool ${POOL} on ${POOLPARTS} ..."
+if ! /sbin/zpool create -f -m none ${ALTROOT} ${VERSION} ${POOL} ${RAID} ${POOLPARTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
@@ -282,28 +417,28 @@ if [ "${LZJB}" = "1" ]; then
 	echo " done"
 fi
 
-echo -n "Creating ${POOL} root partition:"
-if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${POOL}/root > /dev/null 2> /dev/null; then
+echo -n "Creating ${POOL} ${RFS} partition:"
+if ! /sbin/zfs create -o mountpoint=${ROOTMNT} ${POOL}/${RFS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
 echo " ... done"
 echo -n "Creating ${POOL} partitions:"
 for FS in ${FS_LIST}; do
-	if [ "${LEGACY}" = 1 ]; then
+	if [ "${LEGACY}" = "1" ]; then
 		MNTPT="-o mountpoint=legacy"
 	else
 		MNTPT=
 	fi
-	if ! /sbin/zfs create ${MNTPT} ${POOL}/root/${FS} > /dev/null 2> /dev/null; then
+	if ! /sbin/zfs create ${MNTPT} ${POOL}/${RFS}/${FS} > /dev/null 2> /dev/null; then
 		echo " error"
 		exit 1
 	fi
 	echo -n " ${FS}"
 done
 echo " ... done"
-echo -n "Setting bootfs for ${POOL} to ${POOL}/root ..."
-if ! /sbin/zpool set bootfs=${POOL}/root ${POOL} > /dev/null 2> /dev/null; then
+echo -n "Setting bootfs for ${POOL} to ${POOL}/${RFS} ..."
+if ! /sbin/zpool set bootfs=${POOL}/${RFS} ${POOL} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
@@ -314,18 +449,36 @@ echo " done"
 if [ "${LEGACY}" = "1" ]; then
 	echo -n "Mounting ${POOL} on ${MNT} ..."
 	/bin/mkdir -p ${MNT}
-	if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then
-		echo " error mounting pool/root"
+	if ! /sbin/mount -t zfs ${POOL}/${RFS} ${MNT} > /dev/null 2> /dev/null; then
+		echo " error mounting ${POOL}/${RFS}"
 		exit 1
 	fi
 	for FS in ${FS_LIST}; do
 		/bin/mkdir -p ${MNT}/${FS}
-		if ! /sbin/mount -t zfs ${POOL}/root/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
-			echo " error mounting ${POOL}/root/${FS}"
+		if ! /sbin/mount -t zfs ${POOL}/${RFS}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
+			echo " error mounting ${POOL}/${RFS}/${FS}"
 			exit 1
 		fi
 	done
-echo " done"
+	echo " done"
+fi
+
+if [ "${USEBOOT}" = "1" ]; then
+  echo -n "Setting bootfs for bootdir to bootdir ..."
+  if ! /sbin/zpool set bootfs=boot${POOL}/bootdir boot${POOL} > /dev/null 2> /dev/null; then
+    echo " error"
+    exit 1
+  fi
+  echo " done"
+	##### Create /bootdir
+	echo -n "Creating /bootdir ..."
+	if [ ! -e ${MNT}/bootdir ]; then
+		/bin/mkdir ${MNT}/bootdir
+	fi
+	if ! /sbin/mount | /usr/bin/grep bootdir >/dev/null 2>&1 ; then
+		/sbin/mount -t zfs boot${POOL}/bootdir ${MNT}/bootdir || exit 1
+	fi
+	echo " done"
 fi
 
 echo -n "Extracting FreeBSD distribution ..."
@@ -340,8 +493,40 @@ echo " done"
 # Adjust configuration files
 
 echo -n "Writing /boot/loader.conf..."
-echo "zfs_load=\"YES\"" > ${MNT}/boot/loader.conf
-echo "vfs.root.mountfrom=\"zfs:${POOL}/root\"" >> ${MNT}/boot/loader.conf
+/bin/cat >>${MNT}/boot/loader.conf <<EOF
+zfs_load="YES"
+aesni_load="YES"
+ahci_load="YES"
+geom_mirror_load="YES"
+geom_label_load="YES"
+EOF
+if [ "${GELI}" = "1" ]; then
+	/bin/cat >>${MNT}/boot/loader.conf <<EOF
+geom_eli_load="YES"
+EOF
+	umask 077
+	/bin/mkdir -p ${MNT}/var/backups > /dev/null 2>&1
+	/bin/cp -Rpv /var/backups/*.eli ${MNT}/var/backups/
+	umask $RESTOREMASK
+	/bin/cat >>${MNT}/etc/rc.conf <<EOF
+geli_swap_flags="-e AES-XTS -l 256 -s 4096 -d"
+EOF
+fi
+if [ "${USEBOOT}" = "1" ]; then
+	/bin/cat >>${MNT}/boot/loader.conf <<EOF
+vfs.root.mountfrom="zfs:boot${POOL}/bootdir"
+EOF
+	umask 077
+	/bin/mkdir -p ${MNT}/boot/keys > /dev/null 2>&1
+	for k in ${KEYFILES}; do
+		/bin/cp -pv ${k} ${MNT}/boot/keys/
+	done
+	umask $RESTOREMASK
+	/bin/cat /boot/loader.keys >> ${MNT}/boot/loader.conf
+fi
+/bin/cat >>${MNT}/boot/loader.conf <<EOF
+vfs.root.mountfrom="zfs:${POOL}/${RFS}"
+EOF
 echo " done"
 
 # Write fstab if swap or legacy
@@ -349,27 +534,51 @@ echo -n "Writing /etc/fstab..."
 rm -f ${MNT}/etc/fstab
 touch ${MNT}/etc/fstab
 if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
-	if [ -n "${FSWAP}" ]; then
-		echo "/dev/${FSWAP} none swap sw 0 0" > ${MNT}/etc/fstab
+	if [ "${GELI}" = 1 ]; then
+		if [ -n "${FSWAP}" ]; then
+			echo "/dev/mirror/swap.eli none swap sw 0 0" > ${MNT}/etc/fstab
+		fi
+	else
+		if [ -n "${FSWAP}" ]; then
+			echo "/dev/mirror/swap none swap sw 0 0" > ${MNT}/etc/fstab
+		fi
 	fi
 	if [ "${LEGACY}" = "1" ]; then
-		for FS in ${FS_LIST}; do
-			echo ${POOL}/root/${FS} /${FS} zfs rw 0 0 >> ${MNT}/etc/fstab
+		for FS in ${FS_REG}; do
+			echo ${POOL}/${RFS}/${FS} /${FS} zfs rw,noatime 0 0 >> ${MNT}/etc/fstab
+		done
+		for FS in ${FS_NOX}; do
+			echo ${POOL}/${RFS}/${FS} /${FS} zfs rw,noatime,nosuid,noexec,nodev 0 0 >> ${MNT}/etc/fstab
 		done
 	fi
 fi
 if [ "${LEGACY}" != "1" ]; then
+  if [ "${USEBOOT}" = "1" ]; then
+    echo boot${POOL}/bootdir /bootdir zfs rw,noatime 0 0 >> ${MNT}/etc/fstab
+  fi
 	echo -n "Writing /etc/rc.conf..."
 	echo 'zfs_enable="YES"' >> ${MNT}/etc/rc.conf
 fi
 echo " done"
 
 echo -n "Copying /boot/zfs/zpool.cache ..."
-if [ -n "${LEGACY}" ]; then
+if [ "${LEGACY}" = "1" ]; then
+  if [ "${USEBOOT}" = "1" ]; then
+    if ! /sbin/umount ${MNT}/bootdir > /dev/null 2>&1 ; then
+      echo " error unmounting /bootdir"
+      exit 1
+    fi
+  fi
 	for FS in ${FS_LIST}; do
 		/sbin/umount ${MNT}/${FS} > /dev/null 2> /dev/null
 	done
 	/sbin/umount ${MNT} > /dev/null 2> /dev/null
+fi
+if [ "${USEBOOT}" = "1" ]; then
+  if ! /sbin/zpool export boot${POOL} > /dev/null 2> /dev/null; then
+    echo " error exporting boot${POOL}"
+    exit 1
+  fi
 fi
 if ! /sbin/zpool export ${POOL} > /dev/null 2> /dev/null; then
 	echo " error exporting pool"
@@ -379,25 +588,53 @@ if ! /sbin/zpool import ${ALTROOT} ${POOL} > /dev/null 2> /dev/null; then
 	echo " error importing pool"
 	exit 1
 fi
-if [ -n "${LEGACY}" ]; then
-	if ! /sbin/mount -t zfs ${POOL}/root ${MNT} > /dev/null 2> /dev/null; then
-		echo " error mounting ${POOL}/root"
+if [ "${USEBOOT}" = "1" ]; then
+  # import after import main pool
+  if ! /sbin/zpool import ${BALTROOT} boot${POOL} > /dev/null 2> /dev/null; then
+    echo " error importing boot${POOL}"
+    exit 1
+  fi
+fi
+if [ "${LEGACY}" = "1" ]; then
+	if ! /sbin/mount -t zfs ${POOL}/${RFS} ${MNT} > /dev/null 2> /dev/null; then
+		echo " error mounting ${POOL}/${RFS}"
 		exit 1
 	fi
+  if [ "${USEBOOT}" = "1" ]; then
+    if ! /sbin/mount -t zfs boot${POOL}/bootdir ${MNT}/bootdir > /dev/null 2>&1 ; then
+      echo " error remounting /bootdir"
+      exit 1
+    fi
+  fi
 fi
 if ! /bin/cp /boot/zfs/zpool.cache ${MNT}/boot/zfs/ > /dev/null 2> /dev/null; then
 	echo " error copying zpool.cache"
 	exit 1
 fi
-if [ -n "${LEGACY}" ]; then
+if [ "${LEGACY}" = "1" ]; then
 	for FS in ${FS_LIST}; do
-		if ! /sbin/mount -t zfs ${POOL}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
-		echo " error mounting ${POOL}/${FS}"
+		if ! /sbin/mount -t zfs ${POOL}/${RFS}/${FS} ${MNT}/${FS} > /dev/null 2> /dev/null; then
+		echo " error mounting ${POOL}/${RFS}/${FS}"
 		exit 1
 		fi
 	done
 fi
 echo " done"
+
+if [ "$USEBOOT" = "1" ]; then
+	echo -n "Linking /bootdir ..."
+	cd ${MNT}
+	/bin/mv boot bootdir/ || exit 1
+	/bin/ln -s bootdir/boot ${MNT}/boot || exit 1
+	/bin/chflags -h sunlink ${MNT}/boot || exit 1
+	echo " done"
+fi
+
+# Mount devfs for post-configuration
+
+if ! /sbin/mount -t devfs devfs ${MNT}/dev; then
+	echo "Error mounting devfs on ${MNT}/dev"
+fi
 
 echo ""
 echo "Installation complete."
@@ -410,3 +647,9 @@ echo "Some adjustments may require a mounted devfs:"
 echo "mount -t devfs devfs ${MNT}/dev"
 echo ""
 echo "WARNING - Don't export ZFS pool \"${POOL}\"!"
+if [ "${GELI}" = "1" ]; then
+echo "!!!!!!!!!!"
+echo "! YOU MUST BACKUP YOUR KEYS FROM /boot/keys/"
+echo "! YOU MUST BACKUP YOUR HEADERS FROM /var/backups/"
+echo "!!!!!!!!!!"
+fi
