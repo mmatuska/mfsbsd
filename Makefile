@@ -425,8 +425,8 @@ ${WRKDIR}/.config_done:
 .if defined(ROOTHACK)
 	@echo 'root_rw_mount="NO"' >> ${_DESTDIR}/etc/rc.conf
 .endif
-	@${MKDIR} ${_DESTDIR}/root/bin
 # /root
+	@${MKDIR} ${_DESTDIR}/root/bin
 	@for MYDIR in ${MFSBSDONLY} ${FILESDIR} ; do \
 		FILEPERM=600 ; \
 		if [     -d "$${MYDIR}/root" ]; then \
