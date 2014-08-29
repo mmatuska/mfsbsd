@@ -15,7 +15,7 @@ BUILDING INSTRUCTIONS:
     If you want any packages installed, copy the .tbz files that should be 
     automatically installed into the packages/ directory.
 
-    Add any additional files into the files/ directory. These will be copied
+    Add any additional files into the customfiles/ directory. These will be copied
     recursively into the root of the boot image.
 
     WARNING: Your image should not exceed 45MB in total, otherwise kernel panic
