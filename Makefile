@@ -317,9 +317,10 @@ ${WRKDIR}/.packages_done:
 	fi
 .if defined(PKGNG)
 	@if [ -d "${_DESTDIR}/packages" ]; then \
-		cd ${_DESTDIR}/packages && for FILE in *; do \
-			${PKG} -c ${_DESTDIR} add /packages/$${FILE}; \
-		done; \
+                cd ${_DESTDIR}/packages && for _FILE in *; do \
+                        _FILES="$${_FILES} /packages/$${_FILE}"; \
+                done; \
+                ${PKG} -c ${_DESTDIR} add -M $${_FILES}; \
 	fi
 .else
 	@if [ -d "${_DESTDIR}/packages" ]; then \
