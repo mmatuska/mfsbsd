@@ -2,3 +2,7 @@
 /*.gz
 /*.img
 /tmp/
+/packages/*.txz
+/tools/pkg-static
+/tools/roothack/roothack
+/tools/roothack/roothack.o
