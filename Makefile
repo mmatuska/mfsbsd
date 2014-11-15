@@ -152,10 +152,6 @@ BUILDENV?= env \
 	WITHOUT_GAMES=1 \
 	WITHOUT_LIB32=1
 
-. if !defined(WITH_RESCUE)
-BUILDENV+=	WITHOUT_RESCUE=1
-. endif
-
 # Environment for custom install
 INSTALLENV?= ${BUILDENV} \
 	WITHOUT_TOOLCHAIN=1
@@ -164,7 +160,6 @@ INSTALLENV?= ${BUILDENV} \
 .if defined(FULLDIST)
 NO_PRUNE=1
 WITH_RESCUE=1
-NO_RESCUE_LINKS=1
 .endif
 
 all: image
@@ -254,7 +249,7 @@ ${WRKDIR}/.install_done:
 . endif
 .endif
 	@${CHFLAGS} -R noschg ${_DESTDIR} > /dev/null 2> /dev/null || exit 0
-.if defined(WITH_RESCUE) && !defined(NO_RESCUE_LINKS)
+.if !defined(WITHOUT_RESCUE) && defined(RESCUE_LINKS)
 	@cd ${_DESTDIR} && \
 	for FILE in `${FIND} rescue -type f`; do \
 	FILE=$${FILE##rescue/}; \
@@ -273,7 +268,7 @@ ${WRKDIR}/.install_done:
 	fi; \
 	done
 .endif
-.if !defined(WITH_RESCUE)
+.if defined(WITHOUT_RESCUE)
 	@cd ${_DESTDIR} && ${RM} -rf rescue
 .endif
 	@${TOUCH} ${WRKDIR}/.install_done
