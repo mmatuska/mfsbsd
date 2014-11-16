@@ -7,7 +7,7 @@
 FS_LIST="var tmp"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u dist_url [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u dist_url [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4] [-a]"
 }
 
 help() {
@@ -25,6 +25,7 @@ help() {
 	echo "-c                : enable lzjb compression for all datasets"
 	echo "-l                : use legacy mounts (via fstab) instead of ZFS mounts"
 	echo "-4                : use fletcher4 as default checksum algorithm"
+	echo "-a                : ensure partitions are aligned to 4K blocks"
 	echo; echo "Examples:"
 	echo "Install on a single drive with 2GB swap:"
 	echo "$0 -u /path/to/release -d da0 -s 2G"
@@ -36,7 +37,7 @@ help() {
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:u:t:r:p:s:z:m:V:hcl4 o; do
+while getopts d:u:t:r:p:s:z:m:V:hcl4a o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
 		u) URL="${OPTARG}" ;;
@@ -49,6 +50,7 @@ while getopts d:u:t:r:p:s:z:m:V:hcl4 o; do
 		V) VERSION="${OPTARG}" ;;
 		c) LZJB=1 ;;
 		l) LEGACY=1 ;;
+		a) ALIGNMENT=1 ;;
 		4) FLETCHER=1 ;;
 		h) help; exit 1;;
 		[?]) usage; exit 1;;
@@ -107,6 +109,15 @@ if [ -n "${EXPOOLS}" ]; then
 			exit 1
 		fi
 	done
+fi
+
+# 4k block alignment arrives in 28 and higher
+if [ "$ZFS_VERSION" -lt "28" ]; then
+        ALIGNMENT=""
+        ASHIFT=""
+elif [ "$ALIGNMENT" = "1" ]; then
+        ALIGNMENT="-a 4k"
+        ASHIFT="-o ashift=12"
 fi
 
 COUNT=`echo ${DEVS} | /usr/bin/wc -w | /usr/bin/awk '{ print $1 }'`
@@ -210,7 +221,7 @@ for DEV in ${DEVS}; do
 		exit 1
 	fi
 	if [ -n "${SWAP}" ]; then
-		if ! /sbin/gpart add -t freebsd-swap -s "${SWAP}" ${DEV} > /dev/null; then
+		if ! /sbin/gpart add -t freebsd-swap ${ALIGNMENT} -s "${SWAP}" ${DEV} > /dev/null; then
 			echo " error"
 			exit 1
 		fi
@@ -222,7 +233,7 @@ for DEV in ${DEVS}; do
 			FSWAP=${SWAPPART}
 		fi
 	fi
-	if ! /sbin/gpart add -t freebsd-zfs ${SZPART} ${DEV} > /dev/null; then
+	if ! /sbin/gpart add -t freebsd-zfs ${ALIGNMENT} ${SZPART} ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
@@ -254,7 +265,12 @@ for DEV in ${DEVS}; do
 	GPART=`/sbin/glabel list ${DEV}p${PART} | /usr/bin/grep gptid | /usr/bin/awk -F"gptid/" '{ print "gptid/" $2 }'`
 
 	GPARTS="${GPARTS} ${GPART}"
-	PARTS="${PARTS} ${DEV}p${PART}"
+        if [ -z "${ALIGNMENT}" ]; then
+                PARTS="${PARTS} ${DEV}p${PART}"
+        else
+		/sbin/gnop create -S 4096 ${DEV}p${PART} > /dev/null 2> /dev/null
+                PARTS="${PARTS} ${DEV}p${PART}.nop"
+        fi
 done
 
 echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
