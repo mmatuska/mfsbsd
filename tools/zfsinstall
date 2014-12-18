@@ -7,7 +7,7 @@
 FS_LIST="var tmp"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u dist_url [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-V zfs_pool_version] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-l] [-4]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u dist_url [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4]"
 }
 
 help() {
@@ -20,7 +20,8 @@ help() {
 	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
 	echo "-z zfs_part_size  : create zfs parition of this size (default: all space left)"
 	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
-	echo "-V pool_version   : specify a version number for ZFS pool (default: 13)"
+	echo "-C                : compatibility mode with limited feature flags"
+	echo "                    (enable only async_destroy, empty_bpobj and lz4_compress)"
 	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
 	echo "-c                : enable lzjb compression for all datasets"
 	echo "-l                : use legacy mounts (via fstab) instead of ZFS mounts"
@@ -36,7 +37,7 @@ help() {
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:u:t:r:p:s:z:m:V:hcl4 o; do
+while getopts d:u:t:r:p:s:z:m:V:Chcl4 o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
 		u) URL="${OPTARG}" ;;
@@ -47,6 +48,7 @@ while getopts d:u:t:r:p:s:z:m:V:hcl4 o; do
 		r) RAID="${OPTARG}" ;;
 		z) ZPART="${OPTARG}" ;;
 		V) VERSION="${OPTARG}" ;;
+		C) COMPAT=1 ;;
 		c) LZJB=1 ;;
 		l) LEGACY=1 ;;
 		4) FLETCHER=1 ;;
@@ -89,6 +91,14 @@ if [ "$VERSION" = "5000" ]; then
 	VERSION=
 else
 	VERSION="-o version=${VERSION}"
+fi
+
+if [ "$COMPAT" = "1" ]; then
+	if [ "$ZFS_VERSION" != 5000 ]; then
+		echo "Error: compatibility mode requires ZFS version 5000"
+		exit 1
+	fi
+	COMPATFLAGS="-d -o feature@async_destroy=enabled -o feature@empty_bpobj=enabled -o feature@lz4_compress=enabled"
 fi
 
 if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
@@ -258,7 +268,7 @@ for DEV in ${DEVS}; do
 done
 
 echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
-if ! /sbin/zpool create -f -m none ${ALTROOT} ${VERSION} ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
+if ! /sbin/zpool create -f -m none ${ALTROOT} ${COMPATFLAGS} ${VERSION} ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
