@@ -32,7 +32,7 @@ MFSROOT_MAXSIZE?=64m
 # Paths
 #
 SRC_DIR?=/usr/src
-CFGDIR=conf
+CFGDIR?=conf
 SCRIPTSDIR=scripts
 PACKAGESDIR?=packages
 CUSTOMFILESDIR=customfiles
