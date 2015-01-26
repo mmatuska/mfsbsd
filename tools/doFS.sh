@@ -24,7 +24,7 @@ FSLABEL=$1 ; shift
 if [ ${FSSIZE} -eq 0 -a ${FSLABEL} = "auto" ]; then
 	roundup() echo $((($1+$2-1)-($1+$2-1)%$2))
 	nf=$(find ${FSPROTO} |wc -l)
-	sk=$(du -sk ${FSPROTO} |cut -f1)
+	sk=$(du -skA ${FSPROTO} |cut -f1)
 	FSINODE=$(roundup $(($sk*1024/$nf)) ${FSINODE})
 	FSSIZE=$(roundup $(($sk*12/10)) 1024)
 fi
