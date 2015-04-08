@@ -79,7 +79,7 @@ DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
 BOOTMODULES=acpi ahci
 MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs \
-	crypto cryptodev geom_eli
+	aesni crypto cryptodev geom_eli
 #
 
 .if defined(V)
