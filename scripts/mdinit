@@ -24,6 +24,9 @@ mdinit_start()
 		/sbin/mount -t tmpfs tmpfs /usr
 		/rescue/gzip -d -c /.usr.tar.gz | /rescue/tar -x -C / -f -
 	fi
+	/sbin/mount -t tmpfs /var/db/pkg
+	mkdir -p /var/cache/pkg
+	/sbin/mount -t tmpfs /var/cache/pkg
 }
 
 load_rc_config $name
