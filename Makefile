@@ -84,8 +84,10 @@ MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullf
 
 .if defined(V)
 _v=
+VERB=1
 .else
 _v=@
+VERB=
 .endif
 
 .if !defined(ARCH)
@@ -533,7 +535,7 @@ ${IMAGE}:
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
 .else
-	${_v}sh ./tools/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0
+	${_v}sh ./tools/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${_ROOTDIR}/boot ${VERB}
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
 .endif

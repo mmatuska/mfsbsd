@@ -5,6 +5,8 @@ set -e
 FSIMG=$1
 FSPROTO=$2
 FSSIZE=$3
+BOOTDIR=$4
+VERBOSE=$5
 
 FSLABEL="auto"
 
@@ -37,8 +39,9 @@ if [ ${FSSIZE} -eq 0 -a ${FSLABEL} = "auto" ]; then
 	IMG_SIZE=$((${FSSIZE}+32))
 fi
 
-echo "FSIMG ${FSIMG} FSPROTO ${FSPROTO} FSSIZE ${FSSIZE}"
-
+if [ -n "$VERBOSE" ]; then
+  echo "FSIMG ${FSIMG} FSPROTO ${FSPROTO} FSSIZE ${FSSIZE}"
+fi
 
 dd of=${FSIMG} if=/dev/zero count=${IMG_SIZE} bs=1k
 dd of=${FSIMG}.$$ if=/dev/zero count=${FSSIZE} bs=1k
@@ -49,16 +52,23 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-set -x
+if [ -n "$VERBOSE" ]; then
+  TIME=time
+  set -x
+else
+  TIME=
+fi
 gpart create -s gpt ${unit}
 gpart add -t freebsd-boot -b 34 -l boot -s 512K ${unit}
-gpart bootcode -b ${FSPROTO}/boot/pmbr -p ${FSPROTO}/boot/gptboot -i 1 ${unit}
+gpart bootcode -b ${BOOTDIR}/pmbr -p ${BOOTDIR}/gptboot -i 1 ${unit}
 gpart add -t freebsd-ufs -l rootfs ${unit}
 
-time makefs -B little ${FSIMG}.$$ ${FSPROTO}
-time dd if=${FSIMG}.$$ of=/dev/${unit}p2 bs=128k
+${TIME} makefs -B little ${FSIMG}.$$ ${FSPROTO}
+${TIME} dd if=${FSIMG}.$$ of=/dev/${unit}p2 bs=128k
 
-set +x
+if [ -n "$VERBOSE" ]; then
+  set +x
+fi
 if [ $? -ne 0 ]; then
   echo "makefs failed"
   exit_with 1
