@@ -261,7 +261,7 @@ ${IMAGE}:
 	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
 .else
-	${_v}sh ./tools/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${_ROOTDIR}/boot ${VERB}
+	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${BASEDIR}/boot ${VERB}
 .endif
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
