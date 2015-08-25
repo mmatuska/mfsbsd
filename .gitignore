@@ -1,8 +1,13 @@
-/*.iso
 /*.gz
+/*.iso
 /*.img
+/mini/*.gz
+/mini/*.iso
+/mini/*.img
 /tmp/
+/mini/tmp/
 /packages/*.txz
+/mini/packages/*.txz
 /tools/pkg-static
 /tools/roothack/roothack
 /tools/roothack/roothack.o
