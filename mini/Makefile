@@ -1,7 +1,7 @@
 # $Id$
 #
 # mfsBSD-mini
-# Copyright (c) 2014 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2015 Martin Matuska <mm at FreeBSD.org>
 #
 # Version 0.1
 #
@@ -59,6 +59,13 @@ BOOTMODULES=acpi ahci
 MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs smbus ipmi ntfs nullfs tmpfs \
 	crypto cryptodev geom_eli
 #
+.if defined(V)
+_v=
+VERB=1
+.else
+_v=@
+VERB=
+.endif
 
 .if !defined(ARCH)
 TARGET!=	${SYSCTL} -n hw.machine_arch
@@ -91,196 +98,196 @@ all: image
 
 destdir: ${_ROOTDIR} ${_BOOTDIR}
 ${_ROOTDIR}:
-	@${MKDIR} ${_ROOTDIR} && ${CHOWN} root:wheel ${_ROOTDIR}
+	${_v}${MKDIR} ${_ROOTDIR} && ${CHOWN} root:wheel ${_ROOTDIR}
 
 ${_BOOTDIR}:
-	@${MKDIR} ${_BOOTDIR}/kernel ${_BOOTDIR}/modules && ${CHOWN} -R root:wheel ${_BOOTDIR}
+	${_v}${MKDIR} ${_BOOTDIR}/kernel ${_BOOTDIR}/modules && ${CHOWN} -R root:wheel ${_BOOTDIR}
 
 hierarchy: destdir ${WRKDIR}/.hierarchy_done
 ${WRKDIR}/.hierarchy_done:
-	@echo -n "Creating directory hierarchy ..."
-	@${MTREE} -deU -f ${BASEDIR}/etc/mtree/BSD.root.dist -p ${_ROOTDIR} > /dev/null
-	@${MTREE} -deU -f ${BASEDIR}/etc/mtree/BSD.usr.dist -p ${_ROOTDIR}/usr > /dev/null
-	@${TOUCH} ${WRKDIR}/.hierarchy_done
-	@echo " done"
+	${_v}echo -n "Creating directory hierarchy ..."
+	${_v}${MTREE} -deU -f ${BASEDIR}/etc/mtree/BSD.root.dist -p ${_ROOTDIR} > /dev/null
+	${_v}${MTREE} -deU -f ${BASEDIR}/etc/mtree/BSD.usr.dist -p ${_ROOTDIR}/usr > /dev/null
+	${_v}${TOUCH} ${WRKDIR}/.hierarchy_done
+	${_v}echo " done"
 
 installkernel: ${_BOOTDIR} ${WRKDIR}/.installkernel_done
 ${WRKDIR}/.installkernel_done:
-	@echo -n "Installing kernel ..."
-	@${CP} -a ${BASEDIR}/boot/ ${_BOOTDIR}
-	@${TOUCH} ${WRKDIR}/.installkernel_done
-	@echo " done"
+	${_v}echo -n "Installing kernel ..."
+	${_v}${CP} -a ${BASEDIR}/boot/ ${_BOOTDIR}
+	${_v}${TOUCH} ${WRKDIR}/.installkernel_done
+	${_v}echo " done"
 
 rescuelinks: hierarchy ${WRKDIR}/.rescuelinks_done
 ${WRKDIR}/.rescuelinks_done:
-	@echo -n "Installing rescue with linking script ..."
-	@${INSTALL} -m 0555 ${BASEDIR}/rescue/rescue ${_ROOTDIR}/rescue/rescue
-	@for FILE in `cat ${FILESDIR}/rescuelinks`; do \
+	${_v}echo -n "Installing rescue with linking script ..."
+	${_v}${INSTALL} -m 0555 ${BASEDIR}/rescue/rescue ${_ROOTDIR}/rescue/rescue
+	${_v}for FILE in `cat ${FILESDIR}/rescuelinks`; do \
 		${LN} ${_ROOTDIR}/rescue/rescue ${_ROOTDIR}/$${FILE}; \
 	done
-	@${TOUCH} ${WRKDIR}/.rescuelinks_done
-	@echo " done"
+	${_v}${TOUCH} ${WRKDIR}/.rescuelinks_done
+	${_v}echo " done"
 
 installbase: hierarchy rescuelinks ${WRKDIR}/.installbase_done
 ${WRKDIR}/.installbase_done:
-	@echo -n "Installing base files ..."
-	@cd ${_ROOTDIR} && for FILE in `cat ${FILESDIR}/instfiles`; do \
+	${_v}echo -n "Installing base files ..."
+	${_v}cd ${_ROOTDIR} && for FILE in `cat ${FILESDIR}/instfiles`; do \
 		${CP} -pP ${BASEDIR}/$${FILE} ${_ROOTDIR}/$${FILE}; \
 	done
-	@cd ${_ROOTDIR} && for DIR in `cat ${FILESDIR}/instdirs`; do \
+	${_v}cd ${_ROOTDIR} && for DIR in `cat ${FILESDIR}/instdirs`; do \
 		${CP} -a ${BASEDIR}/$${DIR}/ ${_ROOTDIR}/$${DIR}; \
 	done
-	@${TOUCH} ${WRKDIR}/.installbase_done
-	@echo " done"
+	${_v}${TOUCH} ${WRKDIR}/.installbase_done
+	${_v}echo " done"
 
 basetar: hierarchy rescuelinks ${WRKDIR}/.basetar_done
 ${WRKDIR}/.basetar_done:
-	@echo -n "Creating tar of base libraries and binaries ..."
-	@cd ${BASEDIR} && ${TAR} -cJf ${_ROOTDIR}/.mfs_base.txz \
+	${_v}echo -n "Creating tar of base libraries and binaries ..."
+	${_v}cd ${BASEDIR} && ${TAR} -cJf ${_ROOTDIR}/.mfs_base.txz \
 	`cat ${FILESDIR}/basedirs` `cat ${FILESDIR}/basefiles`
-	@${TOUCH} ${WRKDIR}/.basetar_done
-	@echo " done"
+	${_v}${TOUCH} ${WRKDIR}/.basetar_done
+	${_v}echo " done"
 
 localtar: hierarchy ${WRKDIR}/.localtar_done
 ${WRKDIR}/.localtar_done:
 .if exists(${FILESDIR}/localfiles)
-	@echo -n "Creating local files tar ..."
-	@cd ${LOCALBASEDIR}/usr/local && ${TAR} -cJf ${_ROOTDIR}/.mfs_local.txz \
+	${_v}echo -n "Creating local files tar ..."
+	${_v}cd ${LOCALBASEDIR}/usr/local && ${TAR} -cJf ${_ROOTDIR}/.mfs_local.txz \
 	`cat ${FILESDIR}/localfiles`
-	@${TOUCH} ${WRKDIR}/.localtar_done
-	@echo " done"
+	${_v}${TOUCH} ${WRKDIR}/.localtar_done
+	${_v}echo " done"
 .endif
 	
 install: installbase basetar localtar
 
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
-	@echo -n "Installing configuration scripts and files ..."
-	@if [ -f "${CFGDIR}/loader.conf" ]; then \
+	${_v}echo -n "Installing configuration scripts and files ..."
+	${_v}if [ -f "${CFGDIR}/loader.conf" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${_BOOTDIR}/loader.conf; \
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${_BOOTDIR}/loader.conf; \
 	fi
 .for FILE in rc hosts ttys resolv.conf rc.local
-	@if [ -f "${CFGDIR}/${FILE}" ]; then \
+	${_v}if [ -f "${CFGDIR}/${FILE}" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_ROOTDIR}/etc/${FILE}; \
 	elif [ -f "${CFGDIR}/${FILE}.sample" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/${FILE}.sample ${_ROOTDIR}/etc/${FILE}; \
 	fi
 .endfor
-	@${MKDIR} ${_ROOTDIR}/root/bin
+	${_v}${MKDIR} ${_ROOTDIR}/root/bin
 .for FILE in .cshrc .profile
-	@if [ -f "${CFGDIR}/${FILE}" ]; then \
+	${_v}if [ -f "${CFGDIR}/${FILE}" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_ROOTDIR}/root/${FILE}; \
 	elif [ -f "${CFGDIR}/${FILE}.sample" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/${FILE}.sample ${_ROOTDIR}/root/${FILE}; \
 	fi
 .endfor
-	@${INSTALL} ${TOOLSDIR}/zfsinstall ${_ROOTDIR}/root/bin
-	@${INSTALL} ${TOOLSDIR}/destroygeom ${_ROOTDIR}/root/bin
-	@echo "/dev/md0 / ufs rw 0 0" > ${_ROOTDIR}/etc/fstab
-	@echo "tmpfs /tmp tmpfs rw,mode=1777 0 0" >> ${_ROOTDIR}/etc/fstab
-	@echo ${ROOTPW} | ${PW} -V ${_ROOTDIR}/etc usermod root -h 0
-	@${TOUCH} ${WRKDIR}/.config_done
-	@echo " done"
+	${_v}${INSTALL} ${TOOLSDIR}/zfsinstall ${_ROOTDIR}/root/bin
+	${_v}${INSTALL} ${TOOLSDIR}/destroygeom ${_ROOTDIR}/root/bin
+	${_v}echo "/dev/md0 / ufs rw 0 0" > ${_ROOTDIR}/etc/fstab
+	${_v}echo "tmpfs /tmp tmpfs rw,mode=1777 0 0" >> ${_ROOTDIR}/etc/fstab
+	${_v}echo ${ROOTPW} | ${PW} -V ${_ROOTDIR}/etc usermod root -h 0
+	${_v}${TOUCH} ${WRKDIR}/.config_done
+	${_v}echo " done"
 
 
 boot: installkernel install ${WRKDIR}/.boot_done
 ${WRKDIR}/.boot_done:
-	@echo -n "Configuring boot environment ..."
-	@${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
-	@${RM} -f ${_BOOTDIR}/kernel/kernel.debug
-	@${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
+	${_v}echo -n "Configuring boot environment ..."
+	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
+	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
+	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
 .for FILE in boot defaults loader loader.help *.rc *.4th
-	@${CP} -rp ${_ROOTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
+	${_v}${CP} -rp ${_ROOTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
-	@${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
+	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
-	@test -f ${_BOOTDIR}/kernel/kernel.symbols \
+	${_v}test -f ${_BOOTDIR}/kernel/kernel.symbols \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 .endif
 .for FILE in ${BOOTMODULES}
-	@test -f ${_BOOTDIR}/kernel/${FILE}.ko \
+	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
-	@test -f ${_BOOTDIR}/kernel/${FILE}.ko \
+	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
-	@${MKDIR} ${_ROOTDIR}/boot/modules
+	${_v}${MKDIR} ${_ROOTDIR}/boot/modules
 .for FILE in ${MFSMODULES}
-	@test -f ${_BOOTDIR}/kernel/${FILE}.ko \
+	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_ROOTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
-	@test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
+	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_ROOTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
-	@${RM} -rf ${_BOOTDIR}/kernel ${_BOOTDIR}/*.symbols
-	@${TOUCH} ${WRKDIR}/.boot_done
-	@echo " done"
+	${_v}${RM} -rf ${_BOOTDIR}/kernel ${_BOOTDIR}/*.symbols
+	${_v}${TOUCH} ${WRKDIR}/.boot_done
+	${_v}echo " done"
 
 boottar: boot ${WRKDIR}/.boottar_done
 ${WRKDIR}/.boottar_done:
-	@echo -n "Compressing mfsroot boot ..."
-	@${TAR} -c -J -C ${_ROOTDIR} -f ${_ROOTDIR}/.mfs_boot.txz boot
-	@cd ${_ROOTDIR} && ${RM} -rf boot
-	@${TOUCH} ${WRKDIR}/.boottar_done
-	@echo " done"
+	${_v}echo -n "Compressing mfsroot boot ..."
+	${_v}${TAR} -c -J -C ${_ROOTDIR} -f ${_ROOTDIR}/.mfs_boot.txz boot
+	${_v}cd ${_ROOTDIR} && ${RM} -rf boot
+	${_v}${TOUCH} ${WRKDIR}/.boottar_done
+	${_v}echo " done"
 
 mfsroot: boottar ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
-	@echo -n "Creating and compressing mfsroot ..."
-	@${MKDIR} ${WRKDIR}/mnt
-	@${MAKEFS} -t ffs -M ${MFSROOT_MINSIZE} -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
-	@${RM} -rf ${WRKDIR}/mnt
-	@${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
-	@${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
-	@if [ -f "${CFGDIR}/loader.conf" ]; then \
+	${_v}echo -n "Creating and compressing mfsroot ..."
+	${_v}${MKDIR} ${WRKDIR}/mnt
+	${_v}${MAKEFS} -t ffs -M ${MFSROOT_MINSIZE} -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
+	${_v}${RM} -rf ${WRKDIR}/mnt
+	${_v}${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
+	${_v}${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
+	${_v}if [ -f "${CFGDIR}/loader.conf" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/disk/boot/loader.conf; \
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
 	fi
-	@${TOUCH} ${WRKDIR}/.mfsroot_done
-	@echo " done"
+	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
+	${_v}echo " done"
 
 image: install config boot mfsroot ${IMAGE}
 ${IMAGE}:
-	@echo -n "Creating image file ..."
-	@${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
-	@${INSTALL} -m 0444 ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
-	@${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
-	@${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
-	@${MV} ${WRKDIR}/disk.img ${IMAGE}
-	@echo " done"
-	@${LS} -l ${IMAGE}
+	${_v}echo -n "Creating image file ..."
+	${_v}${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
+	${_v}${INSTALL} -m 0444 ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
+	${_v}${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
+	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
+	${_v}${MV} ${WRKDIR}/disk.img ${IMAGE}
+	${_v}echo " done"
+	${_v}${LS} -l ${IMAGE}
 
 gce: install config boot mfsroot ${IMAGE} ${GCEFILE}
 ${GCEFILE}:
-	@echo -n "Creating GCE-compatible tarball..."
+	${_v}echo -n "Creating GCE-compatible tarball..."
 .if !exists(${GTAR})
-	@echo "${GTAR} is missing, please install archivers/gtar first"; exit 1
+	${_v}echo "${GTAR} is missing, please install archivers/gtar first"; exit 1
 .else
-	@${GTAR} -C ${CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
-	@echo " GCE tarball built"
-	@${LS} -l ${GCEFILE}
+	${_v}${GTAR} -C ${CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
+	${_v}echo " GCE tarball built"
+	${_v}${LS} -l ${GCEFILE}
 .endif
 
 iso: install config boot mfsroot ${ISOIMAGE}
 ${ISOIMAGE}:
-	@echo -n "Creating ISO image ..."
-	@${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
-	@echo " done"
-	@${LS} -l ${ISOIMAGE}
+	${_v}echo -n "Creating ISO image ..."
+	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+	${_v}echo " done"
+	${_v}${LS} -l ${ISOIMAGE}
 
 tar: install config boot mfsroot ${TARFILE}
 ${TARFILE}:
-	@echo -n "Creating tar file ..."
-	@cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
+	${_v}echo -n "Creating tar file ..."
+	${_v}cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
 		-exec ${TAR} -r -f ${CURDIR}/${TARFILE} {} \;
-	@echo " done"
-	@${LS} -l ${TARFILE}
+	${_v}echo " done"
+	${_v}${LS} -l ${TARFILE}
 
 clean: 
-	@if [ -d ${WRKDIR} ]; then ${CHFLAGS} -R noschg ${WRKDIR}; fi
-	@cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done
+	${_v}if [ -d ${WRKDIR} ]; then ${CHFLAGS} -R noschg ${WRKDIR}; fi
+	${_v}cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done
