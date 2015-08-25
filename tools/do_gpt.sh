@@ -21,7 +21,7 @@ exit_with() {
 	fi
 
 	mdconfig -d -u ${unit}
-	rm -f ${FSIMG}.$$
+	rm -f ${TMPIMG}
 
 	exit ${status}
 }
@@ -34,7 +34,7 @@ trap "exit_with 1 'Received signal SIGTERM'" SIGTERM
 if [ ${FSSIZE} -eq 0 -a ${FSLABEL} = "auto" ]; then
 	roundup() echo $((($1+$2-1)-($1+$2-1)%$2))
 	nf=$(find ${FSPROTO} |wc -l)
-	sk=$(du -sk ${FSPROTO} |cut -f1)
+	sk=$(du -skA ${FSPROTO} |cut -f1)
 	FSSIZE=$(roundup $(($sk*12/10)) 1024)
 	IMG_SIZE=$((${FSSIZE}+32))
 fi
@@ -43,8 +43,10 @@ if [ -n "$VERBOSE" ]; then
   echo "FSIMG ${FSIMG} FSPROTO ${FSPROTO} FSSIZE ${FSSIZE}"
 fi
 
+TMPIMG=`env TMPDIR=. mktemp -t ${FSIMG}`
+
 dd of=${FSIMG} if=/dev/zero count=${IMG_SIZE} bs=1k
-dd of=${FSIMG}.$$ if=/dev/zero count=${FSSIZE} bs=1k
+dd of=${TMPIMG} if=/dev/zero count=${FSSIZE} bs=1k
 
 export unit=`mdconfig -a -t vnode -f ${FSIMG}`
 if [ $? -ne 0 ]; then
@@ -63,8 +65,8 @@ gpart add -t freebsd-boot -b 34 -l boot -s 512K ${unit}
 gpart bootcode -b ${BOOTDIR}/pmbr -p ${BOOTDIR}/gptboot -i 1 ${unit}
 gpart add -t freebsd-ufs -l rootfs ${unit}
 
-${TIME} makefs -B little ${FSIMG}.$$ ${FSPROTO}
-${TIME} dd if=${FSIMG}.$$ of=/dev/${unit}p2 bs=128k
+${TIME} makefs -B little ${TMPIMG} ${FSPROTO}
+${TIME} dd if=${TMPIMG} of=/dev/${unit}p2 bs=128k
 
 if [ -n "$VERBOSE" ]; then
   set +x
