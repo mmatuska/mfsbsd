@@ -10,8 +10,8 @@ tar archive from a installed FreeBSD system. The image gets completely loaded
 into memory.
 
 The image may be written directly using dd(1) onto any bootable block device,
-e.g. a hard disk or a USB stick e.g. /dev/da0, or a bootable slice only, 
-e.g. /dev/ada0s1
+e.g. a hard disk or a USB stick e.g. /dev/da0, or a bootable partition only, 
+e.g. /dev/ada0p2
 
 ## Building
 
