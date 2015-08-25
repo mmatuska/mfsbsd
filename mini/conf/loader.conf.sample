@@ -1,0 +1,5 @@
+tmpfs_load="YES"
+mfs_load="YES"
+mfs_type="mfs_root"
+mfs_name="/mfsroot"
+vfs.root.mountfrom="ufs:/dev/md0"

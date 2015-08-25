@@ -1,0 +1,4 @@
+#!/bin/sh
+ln -s /usr/local/bin/dbclient /usr/local/bin/ssh
+mkdir -p /usr/local/etc/dropbear
+/usr/local/sbin/dropbear -R

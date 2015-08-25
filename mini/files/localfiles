@@ -1,0 +1,11 @@
+bin/cpdup
+bin/dbclient
+bin/scp
+bin/dropbearconvert
+bin/dropbearkey
+bin/ipmitool
+bin/rsync
+bin/nano
+bin/tmux
+sbin/dropbear
+sbin/dmidecode

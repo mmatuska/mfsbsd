@@ -1,0 +1,7 @@
+lib/geom
+libexec
+usr/libexec/bsdconfig
+usr/libexec/bsdinstall
+usr/share/bsdconfig
+usr/share/syscons
+usr/share/zoneinfo

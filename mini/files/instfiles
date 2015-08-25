@@ -1,0 +1,16 @@
+etc/crontab
+etc/gettytab
+etc/group
+etc/hosts
+etc/login.conf
+etc/master.passwd
+etc/mtree/BSD.var.dist
+etc/newsyslog.conf
+etc/nsswitch.conf
+etc/passwd
+etc/pwd.db
+etc/services
+etc/spwd.db
+etc/syslog.conf
+etc/termcap.small
+etc/ttys
