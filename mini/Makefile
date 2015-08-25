@@ -10,6 +10,7 @@
 # User-defined variables
 #
 BASEDIR?=${CURDIR}/../tmp/mfs
+CFGDIR?=${CURDIR}/conf
 MFSROOT_FREE_INODES?=5000
 MFSROOT_FREE_BLOCKS?=10%
 MFSROOT_MINSIZE?=64m
@@ -51,13 +52,12 @@ CURDIR!=${PWD}
 WRKDIR?=${CURDIR}/tmp
 FILESDIR=${CURDIR}/files
 TOOLSDIR=${CURDIR}/../tools
-CFGDIR=${CURDIR}/conf
 #
 #
 DOFS=${TOOLSDIR}/doFS.sh
 BOOTMODULES=acpi ahci
 MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs smbus ipmi ntfs nullfs tmpfs \
-	crypto cryptodev geom_eli
+	aesni crypto cryptodev geom_eli
 #
 .if defined(V)
 _v=
@@ -198,7 +198,7 @@ ${WRKDIR}/.boot_done:
 	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
 	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
 	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
-.for FILE in boot defaults loader loader.help *.rc *.4th
+.for FILE in boot defaults device.hints loader loader.help *.rc *.4th
 	${_v}${CP} -rp ${_ROOTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
