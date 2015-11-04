@@ -78,6 +78,7 @@ BSDLABEL?=	bsdlabel
 DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
+BOOTFILES?=	boot defaults device.hints loader loader.help *.rc *.4th
 MFSMODULES?=	geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs \
 	aesni crypto cryptodev geom_eli
 # Sometimes the kernel is compiled with a different destination.
@@ -460,8 +461,8 @@ ${WRKDIR}/.boot_done:
 	${_v}${CHOWN} root:wheel ${WRKDIR}/disk
 	${_v}${TAR} -cf -  -X ${KERN_EXCLUDE} -C ${_BOOTDIR}/${KERNDIR} . | ${TAR} -xvf - -C ${WRKDIR}/disk/boot/kernel
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
-.for FILE in boot defaults device.hints loader loader.help *.rc *.4th
-	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
+.for FILE in ${BOOTFILES}
+	${_v}-${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
