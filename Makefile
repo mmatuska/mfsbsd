@@ -38,6 +38,7 @@ PACKAGESDIR?=	packages
 CUSTOMFILESDIR?=customfiles
 TOOLSDIR?=	tools
 PRUNELIST?=	${TOOLSDIR}/prunelist
+KERN_EXCLUDE?=	${TOOLSDIR}/kern_exclude
 PKG_STATIC?=	${TOOLSDIR}/pkg-static
 #
 # Program defaults
@@ -80,6 +81,8 @@ SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
 MFSMODULES?=	geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs \
 	aesni crypto cryptodev geom_eli
+# Sometimes the kernel is compiled with a different destination.
+KERNDIR?=	kernel
 
 .if defined(V)
 _v=
@@ -241,18 +244,18 @@ ${WRKDIR}/.install_done:
 . endif
 	${_v}${MKDIR} ${_DISTDIR}
 . if defined(ROOTHACK)
-	${_v}${CP} -rp ${_BOOTDIR}/kernel ${_DESTDIR}/boot
+	${_v}${CP} -rp ${_BOOTDIR}/${KERNDIR}/* ${_DESTDIR}/boot/kernel/*
 . endif
 . if !defined(CUSTOM) && exists(${BASE}/base.txz) && exists(${BASE}/kernel.txz)
 	${_v}${CP} ${BASE}/base.txz ${_DISTDIR}/base.txz
 	${_v}${CP} ${BASE}/kernel.txz ${_DISTDIR}/kernel.txz
 . else
-	${_v}${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} --exclude "boot/kernel/*" -f ${_DISTDIR}/base.txz .
+	${_v}${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} --exclude "boot/${KERNDIR}/*" -f ${_DISTDIR}/base.txz .
 	${_v}${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} -f ${_DISTDIR}/kernel.txz boot/kernel
 . endif
 	@echo " done"
 . if defined(ROOTHACK)
-	${_v}${RM} -rf ${_DESTDIR}/boot/kernel
+	${_v}${RM} -rf ${_DESTDIR}/boot/${KERNDIR}
 . endif
 .endif
 	${_v}${CHFLAGS} -R noschg ${_DESTDIR} > /dev/null 2> /dev/null || exit 0
@@ -454,42 +457,41 @@ ${WRKDIR}/.install-roothack_done:
 boot: install prune ${WRKDIR}/.boot_done
 ${WRKDIR}/.boot_done:
 	@echo -n "Configuring boot environment ..."
-	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
-	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
-	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
+	${_v}${MKDIR} -p ${WRKDIR}/disk/boot/kernel
+	${_v}${CHOWN} root:wheel ${WRKDIR}/disk
+	${_v}${TAR} -cf -  -X ${KERN_EXCLUDE} -C ${_BOOTDIR}/${KERNDIR} . | ${TAR} -xvf - -C ${WRKDIR}/disk/boot/kernel
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
 .for FILE in boot defaults device.hints loader loader.help *.rc *.4th
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
-	${_v}test -f ${_BOOTDIR}/kernel/kernel.symbols \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+	${_v}-${INSTALL} -m 0555 ${_BOOTDIR}/${KERNDIR}/kernel.symbols ${WRKDIR}/disk/boot/kernel
 .endif
 .for FILE in ${BOOTMODULES}
-	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+	${_v}[ ! -f ${_BOOTDIR}/${KERNDIR}/${FILE}.ko ] || \
+		${INSTALL} -m 0555 ${_BOOTDIR}/${KERNDIR}/${FILE}.ko ${WRKDIR}/disk/boot/kernel
 . if defined(DEBUG)
-	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+	${_v}[ ! -f ${_BOOTDIR}/${KERNDIR}/${FILE}.ko.symbols ] || \
+		${INSTALL} -m 0555 ${_BOOTDIR}/${KERNDIR}/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel
 . endif
 .endfor
 	${_v}${MKDIR} -p ${_DESTDIR}/boot/modules
 .for FILE in ${MFSMODULES}
-	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
+	${_v}[ ! -f ${_BOOTDIR}/${KERNDIR}/${FILE}.ko ] || \
+		${INSTALL} -m 0555 ${_BOOTDIR}/${KERNDIR}/${FILE}.ko ${_DESTDIR}/boot/modules
 . if defined(DEBUG)
-	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
+	${_v}[ ! -f ${_BOOTDIR}/${KERNDIR}/${FILE}.ko.symbols ] || \
+		${INSTALL} -m 0555 ${_BOOTDIR}/${KERNDIR}/${FILE}.ko.symbols ${_DESTDIR}/boot/modules
 . endif
 .endfor
 .if defined(ROOTHACK)
 	@echo -n "Installing tmpfs module for roothack ..."
 	${_v}${MKDIR} -p ${_ROOTDIR}/boot/modules
-	${_v}${INSTALL} -m 0666 ${_BOOTDIR}/kernel/tmpfs.ko ${_ROOTDIR}/boot/modules
+	${_v}${INSTALL} -m 0666 ${_BOOTDIR}/${KERNDIR}/tmpfs.ko ${_ROOTDIR}/boot/modules
 	@echo " done"
 .endif
-	${_v}${RM} -rf ${_BOOTDIR}/kernel ${_BOOTDIR}/*.symbols
+	${_v}${RM} -rf ${_BOOTDIR}/${KERNDIR} ${_BOOTDIR}/*.symbols
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
