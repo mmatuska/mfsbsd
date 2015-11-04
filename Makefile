@@ -71,8 +71,7 @@ SSHKEYGEN?=	/usr/bin/ssh-keygen
 SYSCTL?=	/sbin/sysctl
 PKG?=		/usr/local/sbin/pkg
 #
-CURDIR!=${PWD}
-WRKDIR?=	${CURDIR}/tmp
+WRKDIR?=	${.CURDIR}/work
 #
 BSDLABEL?=	bsdlabel
 #
@@ -545,7 +544,7 @@ ${GCEFILE}:
 .if !exists(${GTAR})
 	${_v}echo "${GTAR} is missing, please install archivers/gtar first"; exit 1
 .else
-	${_v}${GTAR} -C ${CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
+	${_v}${GTAR} -C ${.CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
 	@echo " GCE tarball built"
 	${_v}${LS} -l ${GCEFILE}
 .endif
@@ -569,7 +568,7 @@ tar: install prune config customfiles boot compress-usr mfsroot fbsddist ${TARFI
 ${TARFILE}:
 	@echo -n "Creating tar file ..."
 	${_v}cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
-		-exec ${TAR} -r -f ${CURDIR}/${TARFILE} {} \;
+		-exec ${TAR} -r -f ${.CURDIR}/${TARFILE} {} \;
 	@echo " done"
 	${_v}${LS} -l ${TARFILE}
 
