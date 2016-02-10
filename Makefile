@@ -9,11 +9,12 @@
 #
 # User-defined variables
 #
-BASE?=/cdrom/usr/freebsd-dist
+#BASE?=/cdrom/usr/freebsd-dist
+BASE=/image
 KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=10%
 MFSROOT_FREE_BLOCKS?=10%
-MFSROOT_MAXSIZE?=80m
+MFSROOT_MAXSIZE?=100m
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -39,7 +40,8 @@ CUSTOMFILESDIR?=customfiles
 TOOLSDIR?=	tools
 PRUNELIST?=	${TOOLSDIR}/prunelist
 KERN_EXCLUDE?=	${TOOLSDIR}/kern_exclude
-PKG_STATIC?=	${TOOLSDIR}/pkg-static
+#PKG_STATIC?=	${TOOLSDIR}/pkg-static
+PKG_STATIC?=	$(which pkg_static)
 #
 # Program defaults
 #
