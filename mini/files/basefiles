@@ -78,6 +78,7 @@ usr/lib/libdialog.so*
 usr/lib/libfetch.so*
 usr/lib/libgnuregex*.so*
 usr/lib/liblzma.so*
+usr/lib/libmagic.so.*
 usr/lib/libopie.so*
 usr/lib/libpam.so*
 usr/lib/librt.so*

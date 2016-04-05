@@ -46,8 +46,6 @@
 #
 # Do not change anything here until you know what you are doing
 #
-geom_uzip_load="YES"
-tmpfs_load="YES"
 mfs_load="YES"
 mfs_type="mfs_root"
 mfs_name="/mfsroot"
