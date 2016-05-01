@@ -354,9 +354,9 @@ ${WRKDIR}/.config_done:
 	fi
 	${_v}if [ -f "${CFGDIR}/rc.local" ]; then \
 		${INSTALL} -m 0744 ${CFGDIR}/rc.local ${_DESTDIR}/etc/rc.local; \
-   else \
+	else \
 		${INSTALL} -m 0744 ${CFGDIR}/rc.local.sample ${_DESTDIR}/etc/rc.local; \
-   fi
+	fi
 .for FILE in rc.conf ttys
 	${_v}if [ -f "${CFGDIR}/${FILE}" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_DESTDIR}/etc/${FILE}; \
