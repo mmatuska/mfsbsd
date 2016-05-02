@@ -458,7 +458,11 @@ ${WRKDIR}/.boot_done:
 	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
 	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
 	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
+.if defined(ROOTHACK)
+	${_v}${CP} -rp ${_DESTDIR}/../boot.config ${WRKDIR}/disk
+.else
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
+.endif
 .for FILE in boot defaults device.hints loader loader.help *.rc *.4th
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
