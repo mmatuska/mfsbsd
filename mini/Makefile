@@ -168,6 +168,9 @@ ${WRKDIR}/.config_done:
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${_BOOTDIR}/loader.conf; \
 	fi
+	${_v}if [ -f "${CFGDIR}/loader.efi" ]; then \
+		${INSTALL} -m 0555 ${CFGDIR}/loader.efi ${_BOOTDIR}/loader.efi; \
+	fi
 .for FILE in rc hosts ttys resolv.conf rc.local
 	${_v}if [ -f "${CFGDIR}/${FILE}" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_ROOTDIR}/etc/${FILE}; \
