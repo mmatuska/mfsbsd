@@ -251,6 +251,9 @@ ${WRKDIR}/.mfsroot_done:
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
 	fi
+	${_v}if [ -f "${CFGDIR}/loader.efi" ]; then \
+		${CP} ${CFGDIR}/loader.efi ${WRKDIR}/disk/boot/loader.conf; \
+	fi
 	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
 	${_v}echo " done"
 
