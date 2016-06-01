@@ -352,8 +352,9 @@ ${WRKDIR}/.config_done:
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${_BOOTDIR}/loader.conf; \
 	fi
+	@echo -n "copying loader.efi to ${_BOOTDIR}"
 	${_v}if [ -f "${CFGDIR}/loader.efi" ]; then \
-		${CP} ${CFGDIR}/loader.efi ${_BOOTDIR}/loader.efi; \
+		${CP} ${CFGDIR}/loader.efi ${_BOOTDIR}/loader.efi; echo $? ;\
 	fi
 	${_v}if [ -f "${CFGDIR}/rc.local" ]; then \
 		${INSTALL} -m 0744 ${CFGDIR}/rc.local ${_DESTDIR}/etc/rc.local; \
@@ -518,8 +519,9 @@ ${WRKDIR}/.mfsroot_done:
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
 	fi
+	@echo -n "copying loader.efi to ${_WRKDIR}"
 	${_v}if [ -f "${CFGDIR}/loader.efi" ]; then \
-		${CP} ${CFGDIR}/loader.efi ${WRKDIR}/disk/boot/loader.efi; \
+		${CP} ${CFGDIR}/loader.efi ${WRKDIR}/disk/boot/loader.efi; echo $? ; \
 	fi
 	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
