@@ -215,7 +215,7 @@ for DEV in ${DEVS}; do
 		echo " error"
 		exit 1
 	fi
-	if ! /sbin/gpart add -t freebsd-boot -s 128 ${DEV} > /dev/null; then
+	if ! /sbin/gpart add -t freebsd-boot -b 40 -s 472 ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
