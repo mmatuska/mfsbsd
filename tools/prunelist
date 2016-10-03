@@ -23,6 +23,9 @@ usr/bin/gasp
 usr/bin/gdb
 usr/bin/gdbreplay
 usr/bin/ld
+usr/bin/ld.bfd
+usr/bin/lldb
+usr/bin/llvm-tblgen
 usr/bin/nm
 usr/bin/objcopy
 usr/bin/objdump
