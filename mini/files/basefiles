@@ -24,7 +24,6 @@ lib/libedit.so.*
 lib/libgcc_s.so.*
 lib/libgeom.so.*
 lib/libipsec.so.*
-lib/libipx.so.*
 lib/libjail.so.*
 lib/libkiconv.so.*
 lib/libkvm.so.*
@@ -33,7 +32,6 @@ lib/libmd.so.*
 lib/libncurses.so.*
 lib/libncursesw.so.*
 lib/libpcap.so.*
-lib/libreadline.so.*
 lib/libsbuf.so.*
 lib/libssp.so.*
 lib/libthr.so.*
