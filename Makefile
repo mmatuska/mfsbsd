@@ -343,9 +343,9 @@ ${WRKDIR}/.config_done:
 .endif
 	${_v}${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
 	${_v}if [ -f "${CFGDIR}/boot.config" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/boot.config ${_ROOTDIR}/boot.config; \
+		${INSTALL} -m 0644 ${CFGDIR}/boot.config ${_DESTDIR}/boot.config; \
 	else \
-		${INSTALL} -m 0644 ${CFGDIR}/boot.config.sample ${_ROOTDIR}/boot.config; \
+		${INSTALL} -m 0644 ${CFGDIR}/boot.config.sample ${_DESTDIR}/boot.config; \
 	fi
 	${_v}if [ -f "${CFGDIR}/loader.conf" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${_BOOTDIR}/loader.conf; \
