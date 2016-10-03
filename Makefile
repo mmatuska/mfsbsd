@@ -81,6 +81,8 @@ BOOTMODULES=acpi ahci
 MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs \
 	aesni crypto cryptodev geom_eli
 #
+XZ_FLAGS=
+#
 
 .if defined(V)
 _v=
@@ -433,7 +435,7 @@ ${WRKDIR}/.compress-usr_done:
 .else
 	@echo -n "Compressing root ..."
 	${_v}${TAR} -c -C ${_ROOTDIR} -f - rw | \
-	${XZ} -v -c > ${_ROOTDIR}/root.txz
+	${XZ} ${XZ_FLAGS} -v -c > ${_ROOTDIR}/root.txz
 	${_v}${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.compress-usr_done
