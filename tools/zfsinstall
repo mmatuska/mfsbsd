@@ -7,7 +7,7 @@
 FS_LIST="var tmp"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u dist_url [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u dist_url [-r mirror|raidz|raidz2|raidz3] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4]"
 }
 
 help() {
@@ -16,7 +16,7 @@ help() {
 	echo "-d geom_provider  : geom provider(s) to install to (e.g. da0)"
 	echo "-u dist_url       : URL or directory with base.txz and kernel.txz"
 	echo; echo "Optional flags:"
-	echo "-r raidz|mirror   : select raid mode if more than one -d provider given"
+	echo "-r raidz[2,3]|mirror   : select raid mode if more than one -d provider given"
 	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
 	echo "-z zfs_part_size  : create zfs parition of this size (default: all space left)"
 	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
@@ -26,6 +26,7 @@ help() {
 	echo "-c                : enable lzjb compression for all datasets"
 	echo "-l                : use legacy mounts (via fstab) instead of ZFS mounts"
 	echo "-4                : use fletcher4 as default checksum algorithm"
+	echo "-M		: Manual zpool creation"
 	echo; echo "Examples:"
 	echo "Install on a single drive with 2GB swap:"
 	echo "$0 -u /path/to/release -d da0 -s 2G"
@@ -37,7 +38,7 @@ help() {
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:u:t:r:p:s:z:m:V:Chcl4 o; do
+while getopts d:u:t:r:p:s:z:m:V:Chcl4M o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
 		u) URL="${OPTARG}" ;;
@@ -52,6 +53,7 @@ while getopts d:u:t:r:p:s:z:m:V:Chcl4 o; do
 		c) LZJB=1 ;;
 		l) LEGACY=1 ;;
 		4) FLETCHER=1 ;;
+		M) MANUAL=1 ;;
 		h) help; exit 1;;
 		[?]) usage; exit 1;;
 esac
@@ -126,11 +128,17 @@ if [ "$COUNT" -lt "3" -a "$RAID" = "raidz" ]; then
 elif [ "$COUNT" = "1" -a "$RAID" = "mirror" ]; then
 	echo "Error: mirror needs at least two devices (-d switch)"
 	exit 1
+elif [ "$COUNT" -lt "4" -a "$RAID" = "raidz2" ]; then
+	echo "Error: raidz2 needs at least 4 (four) devices (-d switch)"
+	exit 1
+elif [ "$COUNT" -lt "5" -a "$RAID" = "raidz3" ]; then
+	echo "Error: raidz2 needs at least 5 (five) devices (-d switch)"
+	exit 1
 elif [ "$COUNT" = "2" -a "$RAID" != "mirror" ]; then
 	echo "Notice: two drives selected, automatically choosing mirror mode"
 	RAID="mirror"
-elif [ "$COUNT" -gt "2" -a "$RAID" != "mirror" -a "$RAID" != "raidz" ]; then
-	echo "Error: please choose raid mode with the -r switch (mirror or raidz)"
+elif [ "$COUNT" -gt "2" -a "$RAID" != "mirror" -a "$RAID" != "raidz" -a "$RAID" != "raidz2" -a "$RAID" != "raidz3" ]; then
+	echo "Error: please choose raid mode with the -r switch (mirror, raidz, raidz2 or raidz3)"
 	exit 1
 fi
 
@@ -267,8 +275,21 @@ for DEV in ${DEVS}; do
 	PARTS="${PARTS} ${DEV}p${PART}"
 done
 
+CREATE_OPTS="${RAID} ${PARTS}"
+if [ "${MANUAL}" = "1" ]; then
+	echo "Default ZFS pool creation options are ${CREATE_OPTS}"
+	echo ""
+	echo "Please enter alternative creation options or leave blank to use the default options above."
+	echo -n "Options: "
+
+	read options
+	if [ -n "options" ]; then
+		CREATE_OPTS="$options"
+	fi
+fi
+
 echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
-if ! /sbin/zpool create -f -m none ${ALTROOT} ${COMPATFLAGS} ${VERSION} ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
+if ! /sbin/zpool create -f -m none ${ALTROOT} ${COMPATFLAGS} ${VERSION} ${POOL} ${CREATE_OPTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
