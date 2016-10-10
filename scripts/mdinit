@@ -24,9 +24,12 @@ mdinit_start()
 		/sbin/mount -t tmpfs tmpfs /usr
 		/rescue/gzip -d -c /.usr.tar.gz | /rescue/tar -x -C / -f -
 	fi
-	/sbin/mount -t tmpfs tmpfs /var/db/pkg
-	mkdir -p /var/cache/pkg
-	/sbin/mount -t tmpfs tmpfs /var/cache/pkg
+	# Check if we are using roothack
+	if ! /sbin/mount -t tmpfs | /usr/bin/grep -q " /rw "; then
+		/sbin/mount -t tmpfs tmpfs /var/db/pkg
+		mkdir -p /var/cache/pkg
+		/sbin/mount -t tmpfs tmpfs /var/cache/pkg
+	fi
 }
 
 load_rc_config $name
