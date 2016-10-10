@@ -15,12 +15,14 @@ lib/libbegemot.so.*
 lib/libbsdxml.so.*
 lib/libc.so.*
 lib/libcam.so.*
+lib/libcasper.so.*
 lib/libcrypt.so.*
 lib/libcrypto.so.*
 lib/libctf.so.*
 lib/libcxxrt.so.*
 lib/libdevstat.so.*
 lib/libedit.so.*
+lib/libelf.so.*
 lib/libgcc_s.so.*
 lib/libgeom.so.*
 lib/libipsec.so.*
@@ -38,6 +40,7 @@ lib/libthr.so.*
 lib/libufs.so.*
 lib/libulog.so.*
 lib/libutil.so.*
+lib/libxo.so.*
 lib/libz.so.*
 usr/bin/awk
 usr/bin/basename
