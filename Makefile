@@ -489,12 +489,12 @@ ${WRKDIR}/.boot_done:
 . endif
 .endfor
 .if defined(ROOTHACK)
-	@echo -n "Installing tmpfs module for roothack ..."
 	${_v}${MKDIR} -p ${_ROOTDIR}/boot/modules
 	${_v}${INSTALL} -m 0666 ${_BOOTDIR}/kernel/tmpfs.ko ${_ROOTDIR}/boot/modules
-	@echo " done"
 .endif
 	${_v}${RM} -rf ${_BOOTDIR}/kernel ${_BOOTDIR}/*.symbols
+	${_v}${MKDIR} -p ${WRKDIR}/boot
+	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot	
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
@@ -537,7 +537,7 @@ ${IMAGE}:
 	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
 .else
-	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${_ROOTDIR}/boot ${VERB}
+	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${WRKDIR}/boot ${VERB}
 .endif
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
