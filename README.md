@@ -1,7 +1,6 @@
-mfsBSD
-=========
+# mfsBSD
 
-Copyright (c) 2007-2015 Martin Matuska <mm at FreeBSD.org>
+Copyright (c) 2007-2016 Martin Matuska <mm at FreeBSD.org>
 
 ## Description
 
@@ -14,8 +13,8 @@ e.g. a hard disk or a USB stick e.g. /dev/da0, or a bootable slice only,
 e.g. /dev/ada0s1
 
 ## Build-time requirements
- - FreeBSD 8 or higher installed, tested on i386 or amd64
- - Base and kernel from a FreeBSD 8 or higher distribution
+ - FreeBSD 10 or higher installed, tested on i386 or amd64
+ - Base and kernel from a FreeBSD 10 or higher distribution
    (release or snapshots, e.g mounted CDROM disc1 or ISO file)
 
 ## Runtime requirements
@@ -23,7 +22,7 @@ e.g. /dev/ada0s1
 
 ## Other information
 
-See BUILD and INSTALL files for building and installation instructions.
+See [BUILD](./BUILD.md) and [INSTALL](./INSTALL.md) for building and installation instructions.
 
 Project homepage: http://mfsbsd.vx.sk
 

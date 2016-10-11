@@ -2,9 +2,6 @@
 #
 # mfsBSD
 # Copyright (c) 2007-2015 Martin Matuska <mm at FreeBSD.org>
-#
-# Version 2.1
-#
 
 #
 # User-defined variables
