@@ -2,20 +2,30 @@
 # $Id$
 #
 # mfsBSD ZFS install script
-# Copyright (c) 2011-2015 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2011-2016 Martin Matuska <mm at FreeBSD.org>
 #
+FREEBSD_MIRROR="${FREEBSD_MIRROR:-ftp://ftp.freebsd.org/pub/FreeBSD}"
 FS_LIST="var tmp"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] -u dist_url [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] [ -u dist_url ] [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4]"
+}
+
+osarch() {
+	/sbin/sysctl -n hw.machine_arch
+}
+
+osrelease() {
+	/sbin/sysctl -n kern.osrelease | /usr/bin/sed -E -e 's,-p[0-9]+$,,g'
 }
 
 help() {
 	echo; echo "Install FreeBSD using ZFS from a compressed archive"
 	echo; echo "Required flags:"
 	echo "-d geom_provider  : geom provider(s) to install to (e.g. da0)"
-	echo "-u dist_url       : URL or directory with base.txz and kernel.txz"
 	echo; echo "Optional flags:"
+	echo "-u dist_url       : URL or directory with base.txz and kernel.txz"
+	echo "                    (defaults to FreeBSD FTP mirror)"
 	echo "-r raidz|mirror   : select raid mode if more than one -d provider given"
 	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
 	echo "-z zfs_part_size  : create zfs parition of this size (default: all space left)"
@@ -71,7 +81,7 @@ elif [ "$ZFS_VERSION" -lt "13" ]; then
 	exit 1
 fi
 
-if [ -z "$DEVS" -o -z "$URL" -a -z "$ARCHIVE" ]; then
+if [ -z "$DEVS" ]; then
 	usage
 	exit 1
 fi
@@ -107,7 +117,7 @@ if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
 	exit 1
 fi
 
-EXPOOLS=`/sbin/zpool import | /usr/bin/grep pool: | /usr/bin/awk '{ print $2 }'`
+EXPOOLS=`/sbin/zpool import 2> /dev/null | /usr/bin/grep pool: | /usr/bin/awk '{ print $2 }'`
 
 if [ -n "${EXPOOLS}" ]; then
 	for P in ${EXPOOLS}; do
@@ -148,8 +158,12 @@ for DEV in ${DEVS}; do
 	fi
 done
 
+EXTRACT_FILES="/tmp/base.txz /tmp/kernel.txz"
+
 if [ -z "${URL}" ]; then
-	if ! [ -f "${ARCHIVE}" ]; then
+	if [ -z "${ARCHIVE}" ]; then
+		URL="${FREEBSD_MIRROR}/releases/$(osarch)/$(osrelease)"
+	elif ! [ -f "${ARCHIVE}" ]; then
 		echo "Error: file $ARCHIVE does not exist"
 		exit 1
 	else
@@ -164,8 +178,6 @@ else
 			fi
 		done
 		EXTRACT_FILES="${URL}/base.txz ${URL}/kernel.txz"
-	else
-		EXTRACT_FILES="/tmp/base.txz /tmp/kernel.txz"
 	fi
 fi
 
@@ -193,6 +205,7 @@ fi
 # Fetch base.txz and kernel.txz
 
 if [ -n "${URL}" -a ! -d "${URL}" ]; then
+	echo "Fetching base files from: $URL"
 	if ! /usr/bin/fetch -o /tmp/base.txz "${URL}/base.txz"; then
 		echo "Error fetching ${URL}/base.txz"
 		exit 1
