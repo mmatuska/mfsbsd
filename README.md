@@ -2,6 +2,8 @@
 
 Copyright (c) 2007-2016 Martin Matuska <mm at FreeBSD.org>
 
+Version 2.3
+
 ## Description
 
 This is a set of scripts that generates a bootable image, ISO file or boot 
