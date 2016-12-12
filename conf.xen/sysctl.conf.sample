@@ -1,0 +1,3 @@
+security.bsd.see_other_uids=0
+vm.max_wired=-1
+

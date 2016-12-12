@@ -1,0 +1,24 @@
+# $Id$
+#
+# This will be the rc.conf file in your image.
+#
+# You may set anything you want here, including network interfaces.
+# If you are not sure about network interface names and/or their order, 
+# see the interfaces.conf file in this directory.
+#
+# Set this to any desired hostname
+hostname="mfsbsd"
+#
+# You need a gateway defined for a working network setup
+#defaultrouter="192.168.0.254"
+#
+# You may configure a network interface here, you may use "DHCP" as well
+#ifconfig_em0="inet 192.168.0.1 netmask 255.255.255.0"
+#ifconfig_rl0="DHCP"
+#
+# Change the values below only if you know what you are doing!
+#
+sshd_enable="YES"
+sendmail_enable="NONE"
+cron_enable="NO"
+local_enable="YES"

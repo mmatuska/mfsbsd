@@ -1,0 +1,214 @@
+#!/bin/sh
+#
+# Copyright (c) 2016 Ivan at UAdm.
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in the
+#    documentation and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+# SUCH DAMAGE.
+#
+
+set -e
+msg() { echo "====>> $1"; }
+
+err() {
+        if [ $# -ne 2 ]; then
+                err 1 "err expects 2 arguments: exit_number \"message\""
+        fi
+        err_msg="Error: $2"
+        msg "${err_msg}" >&2
+        [ -n "${MY_JOBID}" ] && job_msg "${err_msg}"
+        exit "$1"
+}
+
+eargs() {
+        case $# in
+        0) err 1 "No arguments expected" ;;
+        1) err 1 "1 argument expected: $1" ;;
+        *) err 1 "$# arguments expected: $*" ;;
+        esac
+}
+o_verbose=1     # set to 1 or 2 if you want more debugging
+log() {
+    [ ${o_verbose} -gt 0 ] && echo "*** $* ***"
+    [ ${o_verbose} -gt 1 ] && read -p "=== Press enter to continue" foo
+    echo -n '.'
+}
+
+chkerr() {
+    lastitem () ( n=$(($# - 1)) ; shift $n ; echo "$1" )
+    mountpoint="$(lastitem "$2")"
+    [ -r "${mountpoint}/remount_optional" ] && ( echo "$2 failed: ignoring due to remount_optional" ; return )
+    case $1 in
+    0)
+	;;
+    *)
+	echo "$2 failed: dropping into /bin/sh"
+	/bin/sh
+	# RESUME
+	;;
+    esac
+}
+
+# The list of filesystems to umount after the copy
+to_umount=""
+tmp_file="/tmp/cfg.param"
+
+log "Store config request"
+
+
+handle_mfs_remount() { # $1 = mount point $2 = mount_opts
+### should be same as rc.initdiskless
+    local mountopts b
+    b=$1
+    log "handle_remount $1 $2"
+    mountopts=$2
+    [ -d "$b" -a -f "${b}/memdisk_remount" ] || return
+    ENCLABEL=$(echo "$b" | sed -e s/"\/"/_/g)
+    RFS_LABEL=`/bin/kenv -q bsdxen.fs${ENCLABEL}.label`
+    test -z "$RFS_LABEL" && read RFS_LABEL < "$b/memdisk_remount"
+    log "RFS_LABEL ${RFS_LABEL}"
+    if [ -c "/dev/gpt/${RFS_LABEL}" ];
+    then
+      mount $mountopts "/dev/gpt/${RFS_LABEL}" "$b"
+      if [ -f "${b}/${b}" ]; then
+      # nested file image
+          log "found nested image for $b"
+          umount "$b"
+          [ -d "/tmp/${b}" ] || mkdir -p "/tmp/${b}"
+          mount "$mountopts" /dev/gpt/${RFS_LABEL} /tmp/$b
+          MD=`mdconfig -a -t vnode -f "/tmp/${b}/${b}" `
+          mount "$mountopts" /dev/${MD} "$b"
+          to_demd="$MD ${to_demd}"
+          to_umount_late="/tmp/${b} ${to_umount_late}"
+      fi
+      chkerr $? "mount $mountopts $RFS_LABEL $b"
+    else
+      echo "no config partitions found for $b do return"
+      return
+    fi
+    to_umount="$b ${to_umount}"
+}
+handle_umount(){
+  # umount partitions used to fill the memory filesystems
+  msg "Call umount ${to_umount} || ${to_demd} || ${to_umount_late}"
+  [ -n "${to_umount}" ] && umount $to_umount
+  if [ -n "${to_demd}" ] 
+  then
+      for MDD in ${to_demd}; do
+        mdconfig -du $MDD
+      done
+  fi
+  [ -n "${to_umount_late}" ] && umount $to_umount_late
+  if [ -n "${to_demd_late}" ] 
+  then
+      for MDD in ${to_demd_late}; do
+        mdconfig -du $MDD
+      done
+  fi
+  [ -f $tmp_file ] && ( . $tmp_file && rm $tmp_file && handle_umount )
+  log "umount func done"
+}
+
+handle_mounttmp(){
+          msg "prepair tmp md"
+          MD=`mdconfig -a -t malloc -s 10240 `
+          to_demd_late="$MD ${to_demd_late}"
+          newfs -U /dev/${MD}
+          mount /dev/${MD} /tmp
+          to_umount_late="/tmp ${to_umount_late}"
+          chmod 1777 /tmp
+          log "Malloc /tmp created"
+}
+
+save_values(){
+  msg "save mount_values"
+  [ -n "${to_umount}" ]      && echo "to_umount=\"$to_umount\"" > $tmp_file
+  [ -n "${to_demd}" ]        && echo "to_demd=\"$to_demd\"">> $tmp_file
+  [ -n "${to_umount_late}" ] && echo "to_umount_late=\"$to_umount_late\"">> $tmp_file
+  [ -n "${to_demd_late}" ]   && echo "to_demd_late=\"$to_demd_late\"">> $tmp_file
+  log "Values saved to $tmp_file"
+
+}
+
+mountconf_p(){
+  echo ""> $tmp_file || handle_mounttmp
+  b=$1
+  [ -z "$b" ] && b='-o rw'
+  if [ -f /conf/memdisk_remount ] 
+  then
+    handle_mfs_remount /conf "$b"
+    trap handle_umount 1 2 15 EXIT
+  fi
+}
+
+act_sshkeys(){
+   msg "Save ssh keys"
+   test -d /conf/default/etc/ssh || mkdir -p /conf/default/etc/ssh
+   (
+   cd /etc/ssh
+   cp ssh_host_* /conf/default/etc/ssh
+   )
+   log "ssh keys saved"
+}
+
+act_passwds(){
+   msg "Save passwd"
+   test -d /conf/default/etc/ || mkdir -p /conf/default/etc/
+   cp /etc/master.passwd /etc/passwd /etc/pwd.db /etc/spwd.db /etc/group /conf/default/etc/
+   log "passwd data saved"
+}
+
+
+
+
+case $# in
+  1) echo "Arg q-ty $#. doing $1"
+     # do nothing           
+     ;;
+  *)  eargs "Expect cfgsave [bucket] arguments"
+      exit ;;
+esac
+#       Set main Variables      
+msg "Store config request $1"        
+case $1 in
+                [Ss][Ss][Hh]) 
+                  mountconf_p
+                  act_sshkeys
+                  handle_umount
+                ;;
+                [Pp][Aa][Ss][Ww][Oo][Rr][Dd]) 
+                  mountconf_p
+                  act_passwds
+                  handle_umount
+                ;;
+                [Mm][Oo][Uu][Nn][Tt]) 
+                   mountconf_p '-rw'
+                   save_values
+                ;;
+                [Mm][Oo][Uu][Nn][Tt][Rr][Oo]) 
+                   mountconf_p '-r'
+                   save_values
+                ;;
+                [Uu][Mm][Oo][Uu][Nn][Tt]) handle_umount;;
+                *) echo "Expect arguments: ssh|password|mount|mountro " ;;
+esac
+msg " ... Done"
+trap 1 2 15 EXIT

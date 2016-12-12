@@ -1,0 +1,6 @@
+# $Id$
+#
+# The file will be the /etc/resolv.conf file in your image
+#
+#domain com
+#nameserver 192.168.0.254

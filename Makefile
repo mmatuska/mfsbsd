@@ -1,9 +1,11 @@
-# $Id$
+# # # $Id$
 #
-# mfsBSD
-# Copyright (c) 2007-2015 Martin Matuska <mm at FreeBSD.org>
+# BSDXen
 #
-# Version 2.1
+# Based on mfsBSD by Martin Matuska <mm at FreeBSD.org>
+# Modified 2015-2016 Ivan Balakaev <ivan.uadm at gmail.com>
+#
+# Version 1.0
 #
 
 #
@@ -13,7 +15,10 @@ BASE?=/cdrom/usr/freebsd-dist
 KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=10%
 MFSROOT_FREE_BLOCKS?=10%
-MFSROOT_MAXSIZE?=80m
+MFSROOT_MAXSIZE?=800m
+MFSCONF_FREE_INODES?=10%
+MFSCONF_FREE_BLOCKS?=10%
+MFSCONF_MAXSIZE?=100m
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -33,12 +38,12 @@ MFSROOT_MAXSIZE?=80m
 #
 SRC_DIR?=/usr/src
 CFGDIR?=conf
+DCFGDIR?=conf
 SCRIPTSDIR=scripts
 PACKAGESDIR?=packages
 CUSTOMFILESDIR=customfiles
 TOOLSDIR=tools
 PRUNELIST?=${TOOLSDIR}/prunelist
-PKG_STATIC?=${TOOLSDIR}/pkg-static
 #
 # Program defaults
 #
@@ -74,13 +79,21 @@ CURDIR!=${PWD}
 WRKDIR?=${CURDIR}/tmp
 #
 BSDLABEL=bsdlabel
+MFSDISKLABEL=BSDXen
 #
 DOFS=${TOOLSDIR}/doFS.sh
-SCRIPTS=mdinit mfsbsd interfaces packages
+SCRIPTS=mdinit mfsbsd mfs_storages interfaces packages
 BOOTMODULES=acpi ahci
+MFSMODULES=geom_nop ext2fs snp ntfs nullfs tmpfs aesni crypto cryptodev geom_eli ciss
+
+.if defined(BSDXEN)
+BOOTMODULES=acpi ahci opensolaris zfs if_tap if_bridge bridgestp ciss
 MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs \
-	aesni crypto cryptodev geom_eli
-#
+        aesni crypto cryptodev geom_eli pf pflog ciss
+DCFGDIR=conf.xen
+STORECFG=yes
+.endif
+
 
 .if defined(V)
 _v=
@@ -93,23 +106,46 @@ VERB=
 .if !defined(ARCH)
 TARGET!=	${SYSCTL} -n hw.machine_arch
 .else
-TARGET=		${ARCH}
+TARGET= 	${ARCH}
 .endif
 
 .if !defined(RELEASE)
 RELEASE!=${UNAME} -r
 .endif
 
+PKG_STATIC?=${TOOLSDIR}/${RELEASE}/pkg-static
+
+
 .if !defined(SE)
-IMAGE_PREFIX?=	mfsbsd
+. if defined(BSDXEN)
+IMAGE_PREFIX?=  mfsxen
+. else
+IMAGE_PREFIX?=  mfsbsd
+. endif
 .else
-IMAGE_PREFIX?=	mfsbsd-se
+. if defined(BSDXEN)
+IMAGE_PREFIX?=  mfsxen-se
+. else
+IMAGE_PREFIX?=  mfsbsd-se
+. endif
 .endif
 
-IMAGE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.img
+
+
+IMAGE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.img
 ISOIMAGE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.iso
 TARFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
 GCEFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar.gz
+
+
+.if defined(TEMPLATE)
+CFGDIR=_${TEMPLATE}/conf
+PACKAGESDIR=_${TEMPLATE}/packages
+CUSTOMFILESDIR=_${TEMPLATE}/customfiles
+WRKDIR=tmp-${TEMPLATE}
+IMAGE=  ${TEMPLATE}-${RELEASE}-${TARGET}.img
+.endif
+
 _DISTDIR= ${WRKDIR}/dist/${RELEASE}-${TARGET}
 
 .if !defined(DEBUG)
@@ -138,31 +174,31 @@ KERNELFILE?=${BASE}/kernels/generic.??
 .endif
 
 .if defined(MAKEJOBS)
-_MAKEJOBS=	-j${MAKEJOBS}
+_MAKEJOBS=      -j${MAKEJOBS}
 .endif
 
-_ROOTDIR=	${WRKDIR}/mfs
-_BOOTDIR=	${_ROOTDIR}/boot
+_ROOTDIR=       ${WRKDIR}/mfs
+_BOOTDIR=       ${_ROOTDIR}/boot
 .if defined(ROOTHACK)
-_DESTDIR=	${_ROOTDIR}/rw
+_DESTDIR=       ${_ROOTDIR}/rw
 MFSROOT_FREE_INODES?=1%
 MFSROOT_FREE_BLOCKS?=1%
 .else
-_DESTDIR=	${_ROOTDIR}
+_DESTDIR=       ${_ROOTDIR}
 .endif
 
 .if !defined(SE)
 # Environment for custom build
 BUILDENV?= env \
-	NO_FSCHG=1 \
-	WITHOUT_CLANG=1 \
-	WITHOUT_DICT=1 \
-	WITHOUT_GAMES=1 \
-	WITHOUT_LIB32=1
+        NO_FSCHG=1 \
+        WITHOUT_CLANG=1 \
+        WITHOUT_DICT=1 \
+        WITHOUT_GAMES=1 \
+        WITHOUT_LIB32=1
 
 # Environment for custom install
 INSTALLENV?= ${BUILDENV} \
-	WITHOUT_TOOLCHAIN=1
+        WITHOUT_TOOLCHAIN=1
 .endif
 
 .if defined(FULLDIST)
@@ -183,20 +219,20 @@ extract: destdir ${WRKDIR}/.extract_done
 ${WRKDIR}/.extract_done:
 .if !defined(CUSTOM)
 	${_v}if [ ! -d "${BASE}" ]; then \
-		echo "Please set the environment variable BASE to a path"; \
-		echo "with FreeBSD distribution files (e.g. /cdrom/9.2-RELEASE)"; \
-		echo "Examples:"; \
-		echo "make BASE=/cdrom/9.2-RELEASE"; \
-		echo "make BASE=/cdrom/usr/freebsd-dist"; \
-		exit 1; \
-	fi
+                echo "Please set the environment variable BASE to a path"; \
+                echo "with FreeBSD distribution files (e.g. /cdrom/9.2-RELEASE)"; \
+                echo "Examples:"; \
+                echo "make BASE=/cdrom/9.2-RELEASE"; \
+                echo "make BASE=/cdrom/usr/freebsd-dist"; \
+                exit 1; \
+        fi
 .if !defined(FREEBSD9)
 	${_v}for DIR in base kernels; do \
-		if [ ! -d "${BASE}/$$DIR" ]; then \
-			echo "Cannot find directory \"${BASE}/$$DIR\""; \
-			exit 1; \
-		fi \
-	done
+                if [ ! -d "${BASE}/$$DIR" ]; then \
+                        echo "Cannot find directory \"${BASE}/$$DIR\""; \
+                        exit 1; \
+                fi \
+        done
 .endif
 	@echo -n "Extracting base and kernel ..."
 	${_v}${CAT} ${BASEFILE} | ${TAR} --unlink -xpzf - -C ${_DESTDIR}
@@ -259,22 +295,22 @@ ${WRKDIR}/.install_done:
 	${_v}${CHFLAGS} -R noschg ${_DESTDIR} > /dev/null 2> /dev/null || exit 0
 .if !defined(WITHOUT_RESCUE) && defined(RESCUE_LINKS)
 	${_v}cd ${_DESTDIR} && \
-	for FILE in `${FIND} rescue -type f`; do \
-	FILE=$${FILE##rescue/}; \
-	if [ -f bin/$$FILE ]; then \
-		${RM} bin/$$FILE && \
-		${LN} rescue/$$FILE bin/$$FILE; \
-	elif [ -f sbin/$$FILE ]; then \
-		${RM} sbin/$$FILE && \
-		${LN} rescue/$$FILE sbin/$$FILE; \
-	elif [ -f usr/bin/$$FILE ]; then \
-		${RM} usr/bin/$$FILE && \
-		${LN} -s ../../rescue/$$FILE usr/bin/$$FILE; \
-	elif [ -f usr/sbin/$$FILE ]; then \
-		${RM} usr/sbin/$$FILE && \
-		${LN} -s ../../rescue/$$FILE usr/sbin/$$FILE; \
-	fi; \
-	done
+        for FILE in `${FIND} rescue -type f`; do \
+        FILE=$${FILE##rescue/}; \
+        if [ -f bin/$$FILE ]; then \
+        	${RM} bin/$$FILE && \
+        	${LN} rescue/$$FILE bin/$$FILE; \
+        elif [ -f sbin/$$FILE ]; then \
+        	${RM} sbin/$$FILE && \
+        	${LN} rescue/$$FILE sbin/$$FILE; \
+        elif [ -f usr/bin/$$FILE ]; then \
+        	${RM} usr/bin/$$FILE && \
+        	${LN} -s ../../rescue/$$FILE usr/bin/$$FILE; \
+        elif [ -f usr/sbin/$$FILE ]; then \
+        	${RM} usr/sbin/$$FILE && \
+        	${LN} -s ../../rescue/$$FILE usr/sbin/$$FILE; \
+        fi; \
+        done
 .endif
 .if defined(WITHOUT_RESCUE)
 	${_v}cd ${_DESTDIR} && ${RM} -rf rescue
@@ -286,17 +322,72 @@ ${WRKDIR}/.prune_done:
 .if !defined(NO_PRUNE)
 	@echo -n "Removing selected files from distribution ..."
 	${_v}if [ -f "${PRUNELIST}" ]; then \
-		for FILE in `cat ${PRUNELIST}`; do \
-			if [ -n "$${FILE}" ]; then \
-				${RM} -rf ${_DESTDIR}/$${FILE}; \
-			fi; \
-		done; \
-	fi
+                for FILE in `cat ${PRUNELIST}`; do \
+                        if [ -n "$${FILE}" ]; then \
+                        	${RM} -rf ${_DESTDIR}/$${FILE}; \
+                        fi; \
+                done; \
+        fi
 	${_v}${TOUCH} ${WRKDIR}/.prune_done
 	@echo " done"
 .endif
 
-packages: install prune ${WRKDIR}/.packages_done
+xenroothack: install prune xenpackage ${WRKDIR}/.xenroothack_done
+${WRKDIR}/.xenroothack_done:
+.if defined(BSDXEN)
+	@echo -n "xen ROOT setup..."
+	${_v}if [ -f "${CFGDIR}/menu.rc.local" ]; then \
+        	${INSTALL} -m 0744 ${CFGDIR}/menu.rc.local ${_DESTDIR}/boot/menu.rc.local; \
+        else \
+        	${INSTALL} -m 0744 ${DCFGDIR}/menu.rc.local.sample ${_DESTDIR}/menu.rc.local; \
+                ls ${_DESTDIR}/ ;\
+        fi
+.endif
+	${_v}${TOUCH} ${WRKDIR}/.xenroothack_done
+
+
+xenpackage: install prune ${WRKDIR}/.xenpackage_done
+${WRKDIR}/.xenpackage_done:
+.if defined(BSDXEN)
+	@echo -n "early xenpackage pkgng install..."
+.  if !exists(${PKG_STATIC})
+	@echo "pkg-static not found at: ${PKG_STATIC}"
+	${_v}exit 1
+.  endif
+	${_v}mkdir -p ${_DESTDIR}/usr/local/sbin
+	${_v}${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
+	${_v}${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
+	@echo " done"
+	${_v}if [ -d "${PACKAGESDIR}" ]; then \
+                echo -n "Copying Xen packages ..."; \
+        	${MKDIR} ${_DESTDIR}/packages; \
+        	${CP} -rf ${PACKAGESDIR}/xen-kernel* ${_DESTDIR}/packages; \
+                echo " done"; \
+        fi
+	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
+                echo -n "Installing Xen packages ..."; \
+        else \
+                echo -n "not found Xen packages ..."; \
+                ls ${_DESTDIR}/packages ; \
+        fi
+	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
+                cd ${_DESTDIR}/packages && for _FILE in *; do \
+                        _FILES="$${_FILES} packages/$${_FILE}"; \
+                done; \
+                cd ${CURDIR}; \
+        	${PKG} -c ${_DESTDIR} add -M $${_FILES}; \
+        fi
+	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
+        	${RM} -rf ${_DESTDIR}/packages; \
+                echo " done"; \
+        fi
+.else
+	@echo -n "skip xenpackage pkgng ..."
+.endif
+	${_v}${TOUCH} ${WRKDIR}/.xenpackage_done
+
+
+packages: install prune xenpackage ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
 	@echo -n "Installing pkgng ..."
 .  if !exists(${PKG_STATIC})
@@ -308,31 +399,32 @@ ${WRKDIR}/.packages_done:
 	${_v}${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
 	@echo " done"
 	${_v}if [ -d "${PACKAGESDIR}" ]; then \
-		echo -n "Copying user packages ..."; \
-		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}; \
-		echo " done"; \
-	fi
+                echo -n "Copying user packages ..."; \
+        	${CP} -rf ${PACKAGESDIR} ${_DESTDIR}; \
+                echo " done"; \
+        fi
 	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
-		echo -n "Installing user packages ..."; \
-	fi
+                echo -n "Installing user packages ..."; \
+        fi
 	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
                 cd ${_DESTDIR}/packages && for _FILE in *; do \
                         _FILES="$${_FILES} /packages/$${_FILE}"; \
                 done; \
-                ${PKG} -c ${_DESTDIR} add -M $${_FILES}; \
-	fi
+                cd ${CURDIR}; \
+        	${PKG} -c ${_DESTDIR} add -M $${_FILES}; \
+        fi
 	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
-		${RM} -rf ${_DESTDIR}/packages; \
-		echo " done"; \
-	fi
+        	${RM} -rf ${_DESTDIR}/packages; \
+                echo " done"; \
+        fi
 	${_v}${TOUCH} ${WRKDIR}/.packages_done
 
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
 .for FILE in boot.config loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
-. if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
-	@echo "Missing ${CFGDIR}/${FILE}.sample" && exit 1
+. if !exists(${CFGDIR}/${FILE}) && !exists(${DCFGDIR}/${FILE}.sample)
+	@echo "Missing ${DCFGDIR}/${FILE}.sample" && exit 1
 . endif
 .endfor
 .if defined(SE)
@@ -343,47 +435,47 @@ ${WRKDIR}/.config_done:
 .endif
 	${_v}${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
 	${_v}if [ -f "${CFGDIR}/boot.config" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/boot.config ${_ROOTDIR}/boot.config; \
-	else \
-		${INSTALL} -m 0644 ${CFGDIR}/boot.config.sample ${_ROOTDIR}/boot.config; \
-	fi
+        	${INSTALL} -m 0644 ${CFGDIR}/boot.config ${_ROOTDIR}/boot.config; \
+        else \
+        	${INSTALL} -m 0644 ${DCFGDIR}/boot.config.sample ${_ROOTDIR}/boot.config; \
+        fi
 	${_v}if [ -f "${CFGDIR}/loader.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${_BOOTDIR}/loader.conf; \
-	else \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${_BOOTDIR}/loader.conf; \
-	fi
+        	${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${_BOOTDIR}/loader.conf; \
+        else \
+        	${INSTALL} -m 0644 ${DCFGDIR}/loader.conf.sample ${_BOOTDIR}/loader.conf; \
+        fi
 	${_v}if [ -f "${CFGDIR}/rc.local" ]; then \
-		${INSTALL} -m 0744 ${CFGDIR}/rc.local ${_DESTDIR}/etc/rc.local; \
+        	${INSTALL} -m 0744 ${CFGDIR}/rc.local ${_DESTDIR}/etc/rc.local; \
    else \
-		${INSTALL} -m 0744 ${CFGDIR}/rc.local.sample ${_DESTDIR}/etc/rc.local; \
+        	${INSTALL} -m 0744 ${DCFGDIR}/rc.local.sample ${_DESTDIR}/etc/rc.local; \
    fi
 .for FILE in rc.conf ttys
 	${_v}if [ -f "${CFGDIR}/${FILE}" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_DESTDIR}/etc/${FILE}; \
-	else \
-		${INSTALL} -m 0644 ${CFGDIR}/${FILE}.sample ${_DESTDIR}/etc/${FILE}; \
-	fi
+        	${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_DESTDIR}/etc/${FILE}; \
+        else \
+        	${INSTALL} -m 0644 ${DCFGDIR}/${FILE}.sample ${_DESTDIR}/etc/${FILE}; \
+        fi
 .endfor
 .if defined(ROOTHACK)
 	@echo 'root_rw_mount="NO"' >> ${_DESTDIR}/etc/rc.conf
 .endif
 	${_v}if [ -f "${CFGDIR}/resolv.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/resolv.conf ${_DESTDIR}/etc/resolv.conf; \
-	fi
+        	${INSTALL} -m 0644 ${CFGDIR}/resolv.conf ${_DESTDIR}/etc/resolv.conf; \
+        fi
 	${_v}if [ -f "${CFGDIR}/interfaces.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/interfaces.conf ${_DESTDIR}/etc/rc.conf.d/interfaces; \
-	fi
+        	${INSTALL} -m 0644 ${CFGDIR}/interfaces.conf ${_DESTDIR}/etc/rc.conf.d/interfaces; \
+        fi
 	${_v}if [ -f "${CFGDIR}/authorized_keys" ]; then \
-		${INSTALL} -d -m 0700 ${_DESTDIR}/root/.ssh; \
-		${INSTALL} ${CFGDIR}/authorized_keys ${_DESTDIR}/root/.ssh/; \
-	fi
+        	${INSTALL} -d -m 0700 ${_DESTDIR}/root/.ssh; \
+        	${INSTALL} ${CFGDIR}/authorized_keys ${_DESTDIR}/root/.ssh/; \
+        fi
 	${_v}${MKDIR} ${_DESTDIR}/root/bin
 	${_v}${INSTALL} ${TOOLSDIR}/zfsinstall ${_DESTDIR}/root/bin
 	${_v}${INSTALL} ${TOOLSDIR}/destroygeom ${_DESTDIR}/root/bin
 	${_v}for SCRIPT in ${SCRIPTS}; do \
-		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${_DESTDIR}/etc/rc.d/; \
-	done
-#	${_v}${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${_DESTDIR}/etc/ttys
+        	${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${_DESTDIR}/etc/rc.d/; \
+        done
+#       ${_v}${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${_DESTDIR}/etc/ttys
 .if !defined(ROOTHACK)
 	${_v}echo "/dev/md0 / ufs rw 0 0" > ${_DESTDIR}/etc/fstab
 	${_v}echo "tmpfs /tmp tmpfs rw,mode=1777 0 0" >> ${_DESTDIR}/etc/fstab
@@ -396,10 +488,10 @@ ${WRKDIR}/.config_done:
 	${_v}echo PermitRootLogin yes >> ${_DESTDIR}/etc/ssh/sshd_config
 .if exists(${CFGDIR}/hosts)
 	${_v}${INSTALL} -m 0644 ${CFGDIR}/hosts ${_DESTDIR}/etc/hosts
-.elif exists(${CFGDIR}/hosts.sample)
-	${_v}${INSTALL} -m 0644 ${CFGDIR}/hosts.sample ${_DESTDIR}/etc/hosts
+.elif exists(${DCFGDIR}/hosts.sample)
+	${_v}${INSTALL} -m 0644 ${DCFGDIR}/hosts.sample ${_DESTDIR}/etc/hosts
 .else
-	@echo "Missing ${CFGDIR}/hosts.sample" && exit 1
+	@echo "Missing ${DCFGDIR}/hosts.sample" && exit 1
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.config_done
 	@echo " done"
@@ -407,7 +499,7 @@ ${WRKDIR}/.config_done:
 genkeys: config ${WRKDIR}/.genkeys_done
 ${WRKDIR}/.genkeys_done:
 	@echo -n "Generating SSH host keys ..."
-	${_v}${SSHKEYGEN} -t rsa1 -b 1024 -f ${_DESTDIR}/etc/ssh/ssh_host_key -N '' > /dev/null
+	${_v}${SSHKEYGEN} -t rsa -b 1024 -f ${_DESTDIR}/etc/ssh/ssh_host_key -N '' > /dev/null
 	${_v}${SSHKEYGEN} -t dsa -f ${_DESTDIR}/etc/ssh/ssh_host_dsa_key -N '' > /dev/null
 	${_v}${SSHKEYGEN} -t rsa -f ${_DESTDIR}/etc/ssh/ssh_host_rsa_key -N '' > /dev/null
 	${_v}${TOUCH} ${WRKDIR}/.genkeys_done
@@ -425,6 +517,12 @@ ${WRKDIR}/.customfiles_done:
 compress-usr: install prune config genkeys customfiles boot packages ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
+	@echo -n "Storing usr/local/etc at etc ..."
+	${_v}${MV} ${_DESTDIR}/usr/local/etc ${_DESTDIR}/etc/local
+	${_v}cd ${_DESTDIR}/usr/local/ && ln -s ../../etc/local etc
+.       if defined(BSDXEN)	
+		${_v}cp ${_DESTDIR}/usr/bin/sed ${_DESTDIR}/bin/sed
+.       endif
 	@echo -n "Compressing usr ..."
 	${_v}${TAR} -c -J -C ${_DESTDIR} -f ${_DESTDIR}/.usr.tar.xz usr 
 	${_v}${RM} -rf ${_DESTDIR}/usr && ${MKDIR} ${_DESTDIR}/usr 
@@ -452,36 +550,71 @@ ${WRKDIR}/.install-roothack_done:
 	${_v}${TOUCH} ${WRKDIR}/.install-roothack_done
 	@echo " done"
 
-boot: install prune ${WRKDIR}/.boot_done
+boot: install prune xenpackage ${WRKDIR}/.boot_done
 ${WRKDIR}/.boot_done:
+	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk/boot
 	@echo -n "Configuring boot environment ..."
-	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
 	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
 	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
+
 .for FILE in boot defaults device.hints loader loader.help *.rc *.4th
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
+
+.if defined(BSDXEN)
+	@echo -n "Checking for Xen environment ..."
+#TODO Configuring boot environment ...Checking for Xen environment ...Missing conf.xen/xen.sample
+. for FILE in permanent sysctl.conf rc.initdiskless
+	${_v}if [ -f "${CFGDIR}/${FILE}" ]; then \
+        	${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_DESTDIR}/etc/${FILE}; \
+        else \
+        	${INSTALL} -m 0644 ${DCFGDIR}/${FILE}.sample ${_DESTDIR}/etc/${FILE}; \
+        fi
+. endfor
+
+. for XFILE in menu.rc.local xen.4th xen
+	${_v}if [ -f "${_BOOTDIR}/${XFILE}" ]; then \
+                echo "Hooking XEN with ${XFILE}"; \
+        	${CP} -rp ${_BOOTDIR}/${XFILE} ${WRKDIR}/disk/boot ; \
+        else \
+                if [ -f "${DCFGDIR}/${XFILE}.sample" ];then  \
+                        echo "Hooking XEN with sample ${XFILE}"; \
+                	${CP} -rp ${DCFGDIR}/${XFILE}.sample ${WRKDIR}/disk/boot/${XFILE} ; \
+                else \
+                	@echo "Missing ${DCFGDIR}/${XFILE}.sample" && exit 1 ;\
+                fi ;\
+        fi
+. endfor
+	${_v}if [ -f "${CFGDIR}/cfgsave" ]; then \
+        	${INSTALL} -m 0644 ${CFGDIR}/cfgsave ${_DESTDIR}/bin/cfgsave; \
+        else \
+        	${INSTALL} -m 0644 ${DCFGDIR}/cfgsave.sample ${_DESTDIR}/bin/cfgsave; \
+        fi; \
+	echo "Hooking XEN with cfgsave"
+	@echo " done"
+#       @sleep 10
+.endif
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
 	${_v}test -f ${_BOOTDIR}/kernel/kernel.symbols \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+        && ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 .endif
 .for FILE in ${BOOTMODULES}
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+        && ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+        && ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
 	${_v}${MKDIR} -p ${_DESTDIR}/boot/modules
 .for FILE in ${MFSMODULES}
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
+        && ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
+        && ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
 .if defined(ROOTHACK)
@@ -495,26 +628,51 @@ ${WRKDIR}/.boot_done:
 	@echo " done"
 
 .if defined(ROOTHACK)
-mfsroot: install prune config genkeys customfiles boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys customfiles xenpackage boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
 .else
-mfsroot: install prune config genkeys customfiles boot compress-usr packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys customfiles xenpackage boot compress-usr packages ${WRKDIR}/.mfsroot_done
 .endif
 ${WRKDIR}/.mfsroot_done:
-	@echo -n "Creating and compressing mfsroot ..."
+	@echo -n "Prepare to creating and compressing mfsroot ..."
 	${_v}${MKDIR} ${WRKDIR}/mnt
+.if  defined(STORECFG)
+	@echo -n "  | Do  split etc and use diskless mode ..."
+	${_v}${MKDIR} -p ${WRKDIR}/conf/base
+	${_v}${MV} ${_ROOTDIR}/etc/ ${WRKDIR}/conf/base/etc
+	${_v}${MKDIR} ${_ROOTDIR}/etc/
+	${_v}${MKDIR} ${_ROOTDIR}/conf
+.       for FILE in master.passwd spwd.db
+	${_v}test -f ${WRKDIR}/conf/base/etc/${FILE} \
+        && ${INSTALL} -m 0500 ${WRKDIR}/conf/base/etc/${FILE} ${_ROOTDIR}/etc >/dev/null 2>/dev/null || exit 0
+.endfor
+.       for FILE in passwd pwd.db rc rc.subr rc.initdiskless fstab login.conf.db login.access login.conf termcap.small
+	${_v}test -f ${WRKDIR}/conf/base/etc/${FILE} \
+        && ${INSTALL} -m 0544 ${WRKDIR}/conf/base/etc/${FILE} ${_ROOTDIR}/etc >/dev/null 2>/dev/null || exit 0
+.endfor
+	@echo "Check defaults."
+	${_v}${CP} -rp ${WRKDIR}/conf/base/etc/defaults ${_ROOTDIR}/etc/defaults
+	${_v}${TOUCH}  ${_ROOTDIR}/etc/diskless
+	${_v}echo ${MFSDISKLABEL} > ${_ROOTDIR}/conf/memdisk_remount
+	${_v}${MKDIR} ${_ROOTDIR}/mnt/${MFSDISKLABEL}
+	@echo -n " done.| "
+	@echo -n " | Creating mfsconf ..."
+	${_v}${MAKEFS} -t ffs -m ${MFSCONF_MAXSIZE} -f ${MFSCONF_FREE_INODES} -b ${MFSCONF_FREE_BLOCKS} ${WRKDIR}/disk/conf ${WRKDIR}/conf > /dev/null
+	@echo -n " done.| "
+.endif
+	@echo -n "Creating and compressing mfsroot ..."
 	${_v}${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
 	${_v}${RM} -rf ${WRKDIR}/mnt
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
 	${_v}if [ -f "${CFGDIR}/loader.conf" ]; then \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/disk/boot/loader.conf; \
-	else \
-		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
-	fi
+        	${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/disk/boot/loader.conf; \
+        else \
+        	${INSTALL} -m 0644 ${DCFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
+        fi
 	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-fbsddist: install prune config genkeys customfiles boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
+fbsddist: install prune config genkeys customfiles xenpackage boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
@@ -523,17 +681,19 @@ ${WRKDIR}/.fbsddist_done:
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.fbsddist_done
 
-image: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${IMAGE}
+image: install prune config genkeys customfiles xenpackage boot compress-usr mfsroot fbsddist ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 .if defined(BSDPART)
+	@echo -n "use BSD PART:: "
 	${_v}${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
 	${_v}${INSTALL} -m 0444 ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
 	${_v}${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
 	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
 .else
-	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${_ROOTDIR}/boot ${VERB}
+	@echo -n "auto:: Creating image file ..."
+	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${_ROOTDIR}/boot ${VERB} ${MFSDISKLABEL}
 .endif
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
@@ -568,7 +728,7 @@ tar: install prune config customfiles boot compress-usr mfsroot fbsddist ${TARFI
 ${TARFILE}:
 	@echo -n "Creating tar file ..."
 	${_v}cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
-		-exec ${TAR} -r -f ${CURDIR}/${TARFILE} {} \;
+                -exec ${TAR} -r -f ${CURDIR}/${TARFILE} {} \;
 	@echo " done"
 	${_v}${LS} -l ${TARFILE}
 
@@ -578,3 +738,5 @@ clean-roothack:
 clean: clean-roothack
 	${_v}if [ -d ${WRKDIR} ]; then ${CHFLAGS} -R noschg ${WRKDIR}; fi
 	${_v}cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done
+                                                                                                                                                                                                                                                                               
+

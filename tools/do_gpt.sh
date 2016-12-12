@@ -8,7 +8,8 @@ FSSIZE=$3
 BOOTDIR=$4
 VERBOSE=$5
 
-FSLABEL="auto"
+#FSLABEL="auto"
+FSLABEL=$6
 
 
 exit_with() {
@@ -31,16 +32,16 @@ trap "exit_with 1 'Received signal SIGHUP'" SIGHUP
 trap "exit_with 1 'Received signal SIGINT'" SIGINT
 trap "exit_with 1 'Received signal SIGTERM'" SIGTERM
 
-if [ ${FSSIZE} -eq 0 -a ${FSLABEL} = "auto" ]; then
+if [ ${FSSIZE} -eq 0 -o ${FSLABEL} = "auto" ]; then
 	roundup() echo $((($1+$2-1)-($1+$2-1)%$2))
 	nf=$(find ${FSPROTO} |wc -l)
 	sk=$(du -skA ${FSPROTO} |cut -f1)
 	FSSIZE=$(roundup $(($sk*12/10)) 1024)
-	IMG_SIZE=$((${FSSIZE}+32))
+	IMG_SIZE=$((${FSSIZE}+40))
 fi
 
 if [ -n "$VERBOSE" ]; then
-  echo "FSIMG ${FSIMG} FSPROTO ${FSPROTO} FSSIZE ${FSSIZE}"
+  echo "FSIMG ${FSIMG} FSPROTO ${FSPROTO} FSSIZE ${FSSIZE} FSLABEL ${FSLABEL}"
 fi
 
 TMPIMG=`env TMPDIR=. mktemp -t ${FSIMG}`
@@ -61,9 +62,13 @@ else
   TIME=
 fi
 gpart create -s gpt ${unit}
-gpart add -t freebsd-boot -b 34 -l boot -s 512K ${unit}
+gpart add -t freebsd-boot -b 40 -l boot -s 512K ${unit}
 gpart bootcode -b ${BOOTDIR}/pmbr -p ${BOOTDIR}/gptboot -i 1 ${unit}
-gpart add -t freebsd-ufs -l rootfs ${unit}
+if [ ${FSLABEL} = "auto" ]; then
+	gpart add -t freebsd-ufs -l rootfs ${unit}
+else
+	gpart add -t freebsd-ufs -l ${FSLABEL} ${unit}
+fi
 
 ${TIME} makefs -B little ${TMPIMG} ${FSPROTO}
 ${TIME} dd if=${TMPIMG} of=/dev/${unit}p2 bs=128k

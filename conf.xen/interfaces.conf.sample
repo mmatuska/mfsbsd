@@ -1,0 +1,16 @@
+# $Id$
+#
+# If you don't know the exact interface names and/or order in which they 
+# appear, you can configure interfaces depending on their MAC addresses here.
+
+# mac_interfaces should be a user-defined list of virtual interface names.
+#mac_interfaces="ext1 ext2"
+
+# ifconfig_FOO_mac should be the MAC address of interface FOO
+#ifconfig_ext1_mac="00:00:00:00:00:00"
+#ifconfig_ext2_mac="ff:ff:ff:ff:ff:ff"
+
+# ifconfig_FOO should be configured like the real interface behind FOO
+# for more information, see ifconfig(8)
+#ifconfig_ext1="inet 192.168.0.1/24"
+#ifconfig_ext2="inet 192.168.1.1/24"

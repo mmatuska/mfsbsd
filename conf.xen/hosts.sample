@@ -1,0 +1,6 @@
+# $Id$
+#
+# The file will be the /etc/hosts file in your image
+#
+::1             localhost localhost.my.domain
+127.0.0.1       localhost localhost.my.domain
