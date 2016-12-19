@@ -168,6 +168,9 @@ ${WRKDIR}/.config_done:
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${_BOOTDIR}/loader.conf; \
 	fi
+	${_v}if [ -f "${CFGDIR}/loader.efi" ]; then \
+		${CP} ${CFGDIR}/loader.efi ${_BOOTDIR}/loader.efi; \
+	fi
 .for FILE in rc hosts ttys resolv.conf rc.local
 	${_v}if [ -f "${CFGDIR}/${FILE}" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_ROOTDIR}/etc/${FILE}; \
@@ -247,6 +250,9 @@ ${WRKDIR}/.mfsroot_done:
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/disk/boot/loader.conf; \
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
+	fi
+	${_v}if [ -f "${CFGDIR}/loader.efi" ]; then \
+		${CP} ${CFGDIR}/loader.efi ${WRKDIR}/disk/boot/loader.efi; \
 	fi
 	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
 	${_v}echo " done"

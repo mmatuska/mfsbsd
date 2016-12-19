@@ -351,6 +351,10 @@ ${WRKDIR}/.config_done:
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${_BOOTDIR}/loader.conf; \
 	fi
+	@echo -n "copying loader.efi to ${_BOOTDIR}"
+	${_v}if [ -f "${CFGDIR}/loader.efi" ]; then \
+		${CP} ${CFGDIR}/loader.efi ${_BOOTDIR}/loader.efi; echo $? ;\
+	fi
 	${_v}if [ -f "${CFGDIR}/rc.local" ]; then \
 		${INSTALL} -m 0744 ${CFGDIR}/rc.local ${_DESTDIR}/etc/rc.local; \
 	else \
@@ -459,7 +463,11 @@ ${WRKDIR}/.boot_done:
 	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
 	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
 	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
+.if defined(ROOTHACK)
+	${_v}${CP} -rp ${_DESTDIR}/../boot.config ${WRKDIR}/disk
+.else
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
+.endif
 .for FILE in boot defaults device.hints loader loader.help *.rc *.4th
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
@@ -511,6 +519,10 @@ ${WRKDIR}/.mfsroot_done:
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf ${WRKDIR}/disk/boot/loader.conf; \
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
+	fi
+	@echo -n "copying loader.efi to ${_WRKDIR}"
+	${_v}if [ -f "${CFGDIR}/loader.efi" ]; then \
+		${CP} ${CFGDIR}/loader.efi ${WRKDIR}/disk/boot/loader.efi; echo $? ; \
 	fi
 	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
