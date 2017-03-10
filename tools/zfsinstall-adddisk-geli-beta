@@ -1,0 +1,291 @@
+#!/bin/sh
+
+##### THESE SETTINGS MUST MATCH WHAT YOU USED ON ZFSINSTALL
+
+
+POOL=rpool
+SWAP=1G
+ZPART=2G
+USEGELI=1
+LEGACY=1
+BOOTSIZE=500M
+
+
+
+##### THE FOLLOWING ARE DEFAULT
+
+startblock=1M
+alignsect=4k
+
+
+
+
+
+
+
+
+
+
+##### CHECK THAT DISK PASSED AS ARGUMENT
+unset DISK
+DISK=${1}
+if [ -z ${DISK} ]; then
+  echo    "usage:    ${0##*/} device"
+  echo -n "devices:  "
+  ls -1 /dev/ | egrep ".{0,1}da[0-9]" | egrep -v "[0-9]p[0-9]" 2>/dev/null | tr "\n" " "
+  echo
+  exit 1
+else
+  diskinfo -v ${DISK} 1>/devnull 2>&1 || exit 1
+fi
+
+DEVS=${DISK}
+lastchr=`echo ${DISK} | tr -d "\n" | tail -c 1`
+
+##### TEST IF DISK HAS PARTITIONS
+test=`gpart show ${DISK} 2> /dev/null`
+if [ ! -z "${test}" ]; then
+  echo " !! Disk ${DISK} has partitions. Consider what files are on it or use"
+  echo "    destroygeom -d ${DISK}"
+  echo "    to delete the partitions and let the script recreate it."
+  exit 1
+fi
+unset test
+
+##### TEST IF POOL EXISTS
+test=`zpool status | egrep "${POOL}"`
+if [ -z "${test}" ]; then
+  echo " !! zpool ${POOL} does not exist."
+  exit 1
+fi
+unset test
+
+##### TEST IF DISK IS USED BY EXPORTED POOL
+test=`zpool import | egrep "${DISK}"`
+if [ ! -z "${test}" ]; then
+  echo " !! Disk ${DISK} is used by exported pool."
+  exit 1
+fi
+unset test
+
+##### TEST IF DISK IS USED BY EXISTING POOL
+test=`zpool status | egrep "${DISK}"`
+if [ ! -z "${test}" ]; then
+  echo " !! Disk ${DISK} is used by existing pool."
+  exit 1
+fi
+unset test
+
+if ! `/sbin/kldstat -m zfs >/dev/null 2>/dev/null`; then
+  /sbin/kldload zfs >/dev/null 2>/dev/null
+fi
+
+if [ "${USEGNOP}" = "1" ]; then
+  echo -n "Loading geom_nop.ko ..."
+	/sbin/kldload geom_nop > /dev/null 2> /dev/null || \
+		/sbin/kldload /root/geom_nop.ko > /dev/null 2> /dev/null || \
+		/sbin/kldload /root/bin/geom_nop.ko > /dev/null 2> /dev/null
+	/sbin/kldstat -v | /usr/bin/grep "geom_nop" > /dev/null 2> /dev/null || exit 1
+	echo " done"
+fi
+
+if [ "${USEGELI}" = "1" ]; then
+  echo -n "Loading zlib.ko ..."
+  /sbin/kldload zlib > /dev/null 2> /dev/null || \
+    /sbin/kldload /root/zlib.ko > /dev/null 2> /dev/null || \
+    /sbin/kldload /root/bin/zlib.ko > /dev/null 2> /dev/null
+  /sbin/kldstat -v | /usr/bin/grep "zlib" > /dev/null 2> /dev/null || exit 1
+  echo " done"
+  echo -n "Loading crypto.ko ..."
+  /sbin/kldload crypto > /dev/null 2> /dev/null || \
+    /sbin/kldload /root/crypto.ko > /dev/null 2> /dev/null || \
+    /sbin/kldload /root/bin/crypto.ko > /dev/null 2> /dev/null
+  /sbin/kldstat -v | /usr/bin/grep "crypto" > /dev/null 2> /dev/null || exit 1
+  echo " done"
+  echo -n "Loading geom_eli.ko ..."
+  /sbin/kldload geom_eli > /dev/null 2> /dev/null || \
+    /sbin/kldload /root/geom_eli.ko > /dev/null 2> /dev/null || \
+    /sbin/kldload /root/bin/geom_eli.ko > /dev/null 2> /dev/null
+  /sbin/kldstat -v | /usr/bin/grep "geom_eli" > /dev/null 2> /dev/null || exit 1
+  echo " done"
+fi
+
+for DEV in ${DEVS}; do
+  if ! [ -c "/dev/${DEV}" ]; then
+    echo "Error: /dev/${DEV} is not a block device"
+    exit 1
+  fi
+  if /sbin/gpart show $DEV > /dev/null 2> /dev/null; then
+    echo "Error: /dev/${DEV} already contains a partition table."
+    echo ""
+    /sbin/gpart show $DEV
+    echo "You may erase the partition table manually with the destroygeom command"
+    exit 1
+  fi
+done
+
+if [ -n "${ZPART}" ]; then
+  SZPART="-s ${ZPART}"
+fi
+
+##### Create GPT
+
+for DEV in ${DEVS}; do
+	echo -n "zpool labelclear ${DEV} ..."
+	zpool labelclear -f /dev/${DEV} > /dev/null 2> /dev/null
+	echo " done"
+  echo -n "Creating GUID partitions on ${DEV} ..."
+  if ! /sbin/gpart create -s GPT /dev/${DEV} > /dev/null; then
+    echo " error"
+    exit 1
+  fi
+  /bin/sleep 1
+  if ! echo "a 1" | /sbin/fdisk -f - ${DEV} > /dev/null 2> /dev/null; then
+    echo " error"
+    exit 1
+  fi
+  if ! /sbin/gpart add -t freebsd-boot -b ${startblock} -a ${alignsect} -s 128 ${DEV} > /dev/null; then
+    echo " error"
+    exit 1
+  fi
+  ##### boot part
+  if ! /sbin/gpart add -t freebsd-ufs -a ${alignsect} -s ${BOOTSIZE} ${DEV} > /dev/null; then
+    echo " error"
+    exit 1
+  fi
+  if [ -n "${SWAP}" ]; then
+    if ! /sbin/gpart add -t freebsd-swap -a ${alignsect} -s "${SWAP}" ${DEV} > /dev/null; then
+      echo " error"
+      exit 1
+    fi
+    SWAPPART=`/sbin/glabel status ${DEV}p3 | /usr/bin/grep gptid | /usr/bin/awk '{ print $1 }'`
+    if [ -z "$SWAPPART" ]; then
+      echo " error determining swap partition"
+    fi
+    if [ -z "$FSWAP" ]; then
+      FSWAP=${SWAPPART}
+    fi
+    ESWAP="${DEV}p3"
+  fi
+  if ! /sbin/gpart add -t freebsd-zfs -a ${alignsect} ${SZPART} ${DEV} > /dev/null; then
+    echo " error"
+    exit 1
+  fi
+  /bin/dd if=/dev/zero of=/dev/${DEV}p3 bs=512 count=560 > /dev/null 2> /dev/null
+	/sbin/zpool labelclear -f /dev/${DEV}p3 > /dev/null 2> /dev/null
+  if [ -n "${SWAP}" ]; then
+    /bin/dd if=/dev/zero of=/dev/${DEV}p4 bs=512 count=560 > /dev/null 2> /dev/null
+		/sbin/zpool labelclear -f /dev/${DEV}p4 > /dev/null 2> /dev/null
+  fi
+  echo " done"
+
+  echo -n "Configuring ZFS bootcode on ${DEV} ..."
+  # if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${DEV} > /dev/null; then
+  if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptboot -i 1 ${DEV} > /dev/null; then
+    echo " error"
+    exit 1
+  fi
+  echo " done"
+  /sbin/gpart show ${DEV}
+done
+
+##### Create zpool and zfs
+for DEV in ${DEVS}; do
+  PART=`/sbin/gpart show ${DEV} | /usr/bin/grep freebsd-zfs | /usr/bin/awk '{ print $3 }'`
+  DISKLABEL=`/sbin/glabel list ${DEV}p${PART} | /usr/bin/grep gptid | /usr/bin/awk -F"gptid/" '{ print $2 }'`
+  if [ "${USEGELI}" = "1" ]; then
+  	##### Create encrypted pool
+	  cat /dev/urandom | strings -1 | grep -o "[[:alnum:]]" | tr -d '\n' | head -c64 > /boot/${POOL}.${DISKLABEL}
+  fi
+  BOOTPART=`/sbin/gpart show ${DEV} | /usr/bin/grep freebsd-ufs | /usr/bin/awk '{ print $3 }'`
+
+
+  if [ -z "${PART}" ]; then
+    echo Error: freebsd-zfs partition not found on /dev/$DEV
+    exit 1
+  fi
+
+  BPART="${DEV}p${BOOTPART}"
+
+	if [ "${USEGNOP}" = "1" ]; then
+  	GPART=`/sbin/glabel list ${DEV}p${PART} | /usr/bin/grep gptid | /usr/bin/awk -F"gptid/" '{ print "gptid/" $2 }'`
+  	# create 4k secttor size with gnop
+  	/sbin/gnop create -S 4096 ${GPART}
+  	GPARTS="${GPARTS}${GPART}.nop "
+  fi
+  if [ "${USEGELI}" = "1" ]; then
+		geli init -b -K /boot/${POOL}.${DISKLABEL} -e AES-XTS -s 4096 /dev/${DEV}p${PART}
+		geli attach -k /boot/${POOL}.${DISKLABEL} /dev/${DEV}p${PART}
+	  EPARTS="${EPARTS}${DEV}p${PART}.eli "
+	fi
+  PARTS="${PARTS}${DEV}p${PART} "
+done
+
+if [ "${USEGELI}" = "1" ]; then
+	##### Create encrypted pool
+	echo -n "Creating ZFS pool ${POOL} on ${PARTS}..."
+	if ! /sbin/zpool attach -f ${POOL} `zpool status | grep "eli.*ONLINE" | tail -1 | awk '{print $1}'` ${EPARTS} > /dev/null 2> /dev/null; then
+		echo " error"
+		exit 1
+	fi
+	echo " done"
+else
+	##### Create pool
+	if [ "${USEGNOP}" = "1" ]; then
+		echo -n "Creating ZFS pool ${POOL} on ${GPARTS}..."
+		if ! /sbin/zpool attach -f ${POOL} `zpool status | grep "ONLINE" | tail -1 | awk '{print $1}'` ${GPARTS} > /dev/null 2> /dev/null; then
+			echo " error"
+			exit 1
+		fi
+		echo " done"
+	else
+		echo -n "Creating ZFS pool ${POOL} on ${PARTS}..."
+		if ! /sbin/zpool attach -f ${POOL} `zpool status | grep "ONLINE" | tail -1 | awk '{print $1}'` ${PARTS} > /dev/null 2> /dev/null; then
+			echo " error"
+			exit 1
+		fi
+		echo " done"
+	fi
+fi
+
+##### Create /bootdir${lastchr}
+echo -n "Creating /bootdir${lastchr} on${BPARTS} ..."
+/sbin/newfs -n /dev/${BPART} > /dev/null 2> /dev/null || exit 1
+if [ ! -e ${MNT}/bootdir${lastchr} ]; then
+  /bin/mkdir ${MNT}/bootdir${lastchr}
+fi
+/sbin/mount /dev/${BPART} ${MNT}/bootdir${lastchr} || exit 1
+echo " done"
+
+##### Adjust configuration files
+
+if [ "${USEGELI}" = "1" ]; then
+for a in ${PARTS}
+do
+cat >>${MNT}/boot/loader.conf <<EOF
+geli_${a}_keyfile0_load="YES"
+geli_${a}_keyfile0_type="${a}:geli_keyfile0"
+geli_${a}_keyfile0_name="/boot/${POOL}.${DISKLABEL}"
+EOF
+done
+fi
+
+##### Write fstab if swap or legacy
+echo -n "Writing /etc/fstab ..."
+touch ${MNT}/etc/fstab
+if [ -n "${FSWAP}" -o "${LEGACY}" = "1" ]; then
+  if [ "${USEGELI}" = "1" ]; then
+    echo "/dev/${ESWAP}.eli none swap sw 0 0" >> ${MNT}/etc/fstab
+  else
+    if [ -n "${FSWAP}" ]; then
+      echo "/dev/${FSWAP} none swap sw 0 0" >> ${MNT}/etc/fstab
+    fi
+  fi
+fi
+echo /dev/${BPART} /bootdir${lastchr} ufs rw 0 0 >> ${MNT}/etc/fstab
+echo " done"
+
+echo ""
+echo "Installation complete."
+echo ""
+echo "WARNING - Don't export ZFS pool \"${POOL}\"!"
