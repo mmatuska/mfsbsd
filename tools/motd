@@ -1,10 +1,25 @@
-Welcome to mfsBSD, the memory based FreeBSD distribution.
+   __        .                   .
+ _|  |_      | .-. .  . .-. :--. |-
+|_    _|     ;|   ||  |(.-' |  | |
+  |__|   `--'  `-' `;-| `-' '  ' `-'
+                   /  ; GPUGPU-FreeBSD
+                   `-'
 
-This is a stripped-down version of FreeBSD without:
-- manual pages, info pages, examples
-- include files, static library files, development tools
-- bind binaries (host, dig, named, etc.)
+bin	- Scripts from standard mfsbsd distribution
+scripts - Scripts to help setup a triton zpool
+  - gpt_format.sh - Format disks for swap & ZFS
+  - zfs_setup.sh - Setup zfs datasets for Triton
 
-Feel free to email me with any bug reports or feature suggestions.
-Martin Matuska <mm@FreeBSD.org>
-http://mfsbsd.vx.sk/
+Notes about this USB image:
+  - If this is your first boot, you'll want to run gpt_format.sh
+    - NOTE: THIS IS A DESTRUCTIVE SCRIPT
+  - Storage is *NOT* persistent except for:
+    - /var
+    - /tmp
+    - /triton
+  - This image does not have many of the dev tools in a normal FreeBSD 
+    image. However, it does have a few extra packages installed:
+    - go 1.9.2
+    - circonus-agent 0.9.1
+    - chyves 0.2.0
+

@@ -75,8 +75,9 @@ BSDLABEL=bsdlabel
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
 BOOTMODULES=acpi ahci
-MFSMODULES=aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop ipmi \
+#MFSMODULES=aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop ipmi \
 	ntfs nullfs opensolaris smbus snp tmpfs zfs
+MFSMODULES=aesni acpi ahci bridgestp coretemp crypto cryptodev cxgb cxgbe dtrace ext2fs geom_eli geom_mirror geom_nop hwpmc i2c if_bridge if_cxgb if_cxgbe if_tap if_vpc if_vpcb if_vpci ipmi iwm iwmfw if_ixgb ixgb if_ixl ixl linprocfs linsysfs linux linux64 linux_common linuxkpi mxge nmdm ntfs nullfs opensolaris sem smbus snp sound tmpfs ums usb vmm zfs t6fw_cfg if_cc if_ccv if_cdce if_cxgbev if_cxl if_cxlv t4_tom t4fw_cfg t5fw_cfg cxgbei
 #
 XZ_FLAGS=
 #
@@ -202,7 +203,7 @@ ${WRKDIR}/.extract_done:
 .if !defined(FREEBSD9)
 	${_v}${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_BOOTDIR}
 	${_v}${MV} ${_BOOTDIR}/${KERNCONF}/* ${_BOOTDIR}/kernel
-	${_v}${RMDIR} ${_BOOTDIR}/${KERNCONF}
+	#${_v}${RMDIR} ${_BOOTDIR}/${KERNCONF}
 .else
 	${_v}${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_ROOTDIR}
 .endif
@@ -479,7 +480,8 @@ ${WRKDIR}/.boot_done:
 	${_v}${MKDIR} -p ${_DESTDIR}/boot/modules
 .for FILE in ${MFSMODULES}
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules || exit 0
+	#&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
@@ -504,7 +506,7 @@ ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	${_v}${MKDIR} ${WRKDIR}/mnt
 	${_v}${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
-	${_v}${RM} -rf ${WRKDIR}/mnt
+	#${_v}${RM} -rf ${WRKDIR}/mnt
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
 	${_v}if [ -f "${CFGDIR}/loader.conf" ]; then \
@@ -531,7 +533,7 @@ ${IMAGE}:
 	${_v}${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
 	${_v}${INSTALL} -m 0444 ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
 	${_v}${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
-	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
+	#${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
 .else
 	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${WRKDIR}/boot ${VERB}
@@ -578,4 +580,4 @@ clean-roothack:
 
 clean: clean-roothack
 	${_v}if [ -d ${WRKDIR} ]; then ${CHFLAGS} -R noschg ${WRKDIR}; fi
-	${_v}cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done
+	${_v}cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done tmp/* *.img *.tar *.iso

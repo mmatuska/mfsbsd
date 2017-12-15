@@ -47,10 +47,6 @@ usr/libexec/cc1plus
 usr/libexec/f771
 usr/sbin/unbound*
 usr/share/dict
-usr/share/doc
-usr/share/examples
-usr/share/info
 usr/share/games
-usr/share/man
 usr/share/openssl
 usr/share/nls
