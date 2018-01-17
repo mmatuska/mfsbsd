@@ -1,0 +1,5 @@
+ftp/curl
+net/rsync
+shells/bash-static
+sysutils/dmidecode
+www/node4
