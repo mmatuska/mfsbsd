@@ -11,6 +11,7 @@ KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=10%
 MFSROOT_FREE_BLOCKS?=10%
 MFSROOT_MAXSIZE?=80m
+PKG_OSVERSION?=1200055
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -319,7 +320,7 @@ ${WRKDIR}/.packages_done:
                 cd ${_DESTDIR}/packages && for _FILE in *; do \
                         _FILES="$${_FILES} /packages/$${_FILE}"; \
                 done; \
-                ${PKG} -c ${_DESTDIR} add -M $${_FILES}; \
+                ${PKG} -o OSVERSION=1200055 -c ${_DESTDIR} add -M $${_FILES}; \
 	fi
 	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
 		${RM} -rf ${_DESTDIR}/packages; \
