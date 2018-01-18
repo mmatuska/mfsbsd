@@ -1,5 +1,7 @@
 ftp/curl
 net/rsync
+security/doas
+security/sudo
 shells/bash-static
 sysutils/dmidecode
 www/node4
