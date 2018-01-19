@@ -10,7 +10,7 @@
 while getopts ":n:d" opt; do
   case ${opt} in
     n )
-      ZPOOL=${OPTARG:-zroot}
+      ZPOOL=${OPTARG:-zones}
       ;;
     d )
       break
@@ -34,9 +34,10 @@ if [ $(zpool list -o name | awk 'NR != 1 { print $1 }') == ${ZPOOL} ]; then
 fi
 
 zpool create ${ZPOOL} ${DEVICES}
-zfs create -o mountpoint=/triton ${ZPOOL}/triton
+zfs create -o mountpoint=/zones ${ZPOOL}/zones
 zfs create -o mountpoint=/tmp ${ZPOOL}/tmp
 zfs create -o mountpoint=/var ${ZPOOL}/var
-
+zfs create -o mountpoint=/opt ${ZPOOL}/opt
+zfs create -o mountpoint=/usbkey ${ZPOOL}/usbkey
 
 exit 0
