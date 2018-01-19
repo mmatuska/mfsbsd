@@ -2,7 +2,7 @@
  _|  |_      | .-. .  . .-. :--. |-
 |_    _|     ;|   ||  |(.-' |  | |
   |__|   `--'  `-' `;-| `-' '  ' `-'
-                   /  ; GPUGPU-FreeBSD
+                   /  ; GPGPU-FreeBSD
                    `-'
 
 bin	- Scripts from standard mfsbsd distribution
