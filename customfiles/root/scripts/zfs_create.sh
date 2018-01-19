@@ -2,10 +2,16 @@
 #
 # Create zfs datasets for triton
 #
-# zfs_create.sh [-n poolname] -d devices 
+# zfs_create.sh [-n poolname] -d devices/partition
 # 
 # example: zfs_create.sh -n zroot -d da0p2 da1p2
 #
+
+usage() {
+    printf "Usage: $0 -n zroot -d da0p2 da1p2\n"
+    printf "Example: $0 -n zroot -d da0p2 da1p2\n"
+    exit 2
+}
 
 while getopts ":n:d" opt; do
   case ${opt} in
@@ -20,6 +26,9 @@ while getopts ":n:d" opt; do
       ;;
     : )
       echo "Invalid option: $OPTARG requires an argument" 1>&2
+      ;;
+    *)
+      usage
       ;;
   esac
 done
