@@ -8,37 +8,47 @@
 #
 
 usage() {
-    printf "Usage: $0 -s swap_size -d disk1 disk2...\n"
-    printf "Example: $0 -s 16G -d da0 da1 da2 da3\n"
-    exit 2
+	printf "Usage: $0 -s swap_size -d disk1 disk2...\n" 1>&2
+	printf "Example: $0 -s 16G -d da0 da1 da2 da3\n" 1>&2
 }
 
-DEVICES=
-SWAPSIZE=
+if [ $# -eq 0 ]; then
+	usage
+	exit 2
+fi
 
-while getopts ":ds:" opt; do
-    case $opt in
-        d)
-	    break
-            ;;
-        s)
-            SWAPSIZE=$OPTARG
-            ;;
-        : )
-            echo "Invalid option: $OPTARG requires an argument" 1>&2
-            ;;
-        *)
-            usage
-            ;;
-    esac
+DEVICES=""
+SWAPSIZE=""
+
+while getopts ":s:h" opt; do
+	case $opt in
+		h)
+			usage
+			exit 1
+			;;
+		s)
+			SWAPSIZE=$OPTARG
+			;;
+		\? )
+			usage
+			exit 1
+			;;
+		: )
+			echo "Invalid option: $OPTARG requires an argument" 1>&2
+			;;
+		*)
+			usage
+			exit 1
+			;;
+	esac
 done
 if [ -z ${SWAPSIZE} ]; then
-    printf "Invalid Input: Must set swapsize\n"
-    exit 2
+	printf "Invalid Input: Must set swapsize\n"
+	exit 2
 fi
 shift $(($OPTIND - 1))
 
-# The rest of the options are devices
+# The rest of the arguments are devices
 DEVICES=${@}
 
 for DEV in ${DEVICES}; do

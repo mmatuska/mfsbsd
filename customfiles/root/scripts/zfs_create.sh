@@ -8,33 +8,38 @@
 #
 
 usage() {
-    printf "Usage: $0 -n zroot -d da0p2 da1p2\n"
-    printf "Example: $0 -n zroot -d da0p2 da1p2\n"
-    exit 2
+	printf "Usage: $0 -n zroot da0p2 da1p2\n" 1>&2
+	printf "Example: $0 -n zroot da0p2 da1p2\n" 1>&2
+	exit 2
 }
 
-while getopts ":n:d" opt; do
-  case ${opt} in
-    n )
-      ZPOOL=${OPTARG:-zones}
-      ;;
-    d )
-      break
-      ;;
-    \? )
-      echo "Invalid option: $OPTARG" 1>&2
-      ;;
-    : )
-      echo "Invalid option: $OPTARG requires an argument" 1>&2
-      ;;
-    *)
-      usage
-      ;;
-  esac
+if [ $# -eq 0 ]; then
+	usage
+	exit 2
+fi
+
+while getopts ":n:h" opt; do
+	case ${opt} in
+		h )
+			usage
+			;;
+		n )
+			ZPOOL=${OPTARG:-zones}
+			;;
+		\? )
+			echo "Invalid option: $OPTARG" 1>&2
+			;;
+		: )
+			echo "Invalid option: $OPTARG requires an argument" 1>&2
+			;;
+		*)
+			usage
+			;;
+	esac
 done
 shift $((OPTIND -1))
 
-# The rest of the options are devices
+# The rest of the arguments are devices
 DEVICES=${@}
 
 if [ $(zpool list -o name | awk 'NR != 1 { print $1 }') == ${ZPOOL} ]; then
