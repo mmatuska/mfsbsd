@@ -4,4 +4,5 @@ security/doas
 security/sudo
 shells/bash-static
 sysutils/dmidecode
+sysutils/grub2-bhyve
 www/node4
