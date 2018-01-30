@@ -310,7 +310,7 @@ ${WRKDIR}/.packages_done:
 	@echo " done"
 	${_v}if [ -d "${PACKAGESDIR}" ]; then \
 		echo -n "Copying user packages ..."; \
-		${CP} -rf ${PACKAGESDIR}/*.txz ${_DESTDIR}; \
+		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}; \
 		echo " done"; \
 	fi
 	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
