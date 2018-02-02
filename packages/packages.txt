@@ -1,9 +1,0 @@
-ftp/curl
-net/rsync
-security/doas
-security/sudo
-shells/bash-static
-sysutils/dmidecode
-sysutils/bhyve-firmware
-sysutils/grub2-bhyve
-www/node4
