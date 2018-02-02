@@ -75,10 +75,10 @@ BSDLABEL=bsdlabel
 #
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi ahci
+BOOTMODULES=acpi ahci vmm
 #MFSMODULES=aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop ipmi \
 	ntfs nullfs opensolaris smbus snp tmpfs zfs
-MFSMODULES=aesni acpi ahci bridgestp coretemp crypto cryptodev cxgb cxgbe dtrace ext2fs geom_eli geom_mirror geom_nop hwpmc i2c if_bridge if_cxgb if_cxgbe if_tap if_vpc if_vpcb if_vpci ipmi iwm iwmfw if_ixgb ixgb if_ixl ixl linprocfs linsysfs linux linux64 linux_common linuxkpi mxge nmdm ntfs nullfs opensolaris sem smbus snp sound tmpfs ums usb vmm zfs t6fw_cfg if_cc if_ccv if_cdce if_cxgbev if_cxl if_cxlv t4_tom t4fw_cfg t5fw_cfg cxgbei
+MFSMODULES=aesni acpi ahci bridgestp coretemp crypto cryptodev cxgb cxgbe dtrace ext2fs geom_eli geom_mirror geom_nop hwpmc i2c if_bridge if_cxgb if_cxgbe if_tap if_vpc if_vpcb if_vpci ipmi iwm iwmfw if_ixgb ixgb if_ixl ixl linprocfs linsysfs linux linux64 linux_common linuxkpi mxge nmdm ntfs nullfs opensolaris sem smbus snp sound tmpfs ums usb vmm zfs t6fw_cfg if_cc if_ccv if_cdce if_cxgbev if_cxl if_cxlv t4_tom t4fw_cfg t5fw_cfg cxgbei cpuctl
 #
 XZ_FLAGS=
 #
