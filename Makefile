@@ -11,7 +11,7 @@ KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=10%
 MFSROOT_FREE_BLOCKS?=10%
 MFSROOT_MAXSIZE?=80m
-PKG_OSVERSION?=1200055
+PKG_OSVERSION?=1200056
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
