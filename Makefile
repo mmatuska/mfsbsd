@@ -13,6 +13,7 @@ MFSROOT_FREE_BLOCKS?=10%
 MFSROOT_MAXSIZE?=80m
 PKG_OSVERSION?=1200056
 MAKEOBJDIRPREFIX?=/usr/obj
+SRCCONF?=/etc/src.conf
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -165,7 +166,8 @@ BUILDENV?= env \
 # Environment for custom install
 INSTALLENV?= ${BUILDENV} \
 	WITHOUT_TOOLCHAIN=1 \
-	MAKEOBJDIRPREFIX=${MAKEOBJDIRPREFIX}
+	MAKEOBJDIRPREFIX=${MAKEOBJDIRPREFIX} \
+	SRCCONF=${SRCCONF}
 .endif
 
 .if defined(FULLDIST)
