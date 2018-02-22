@@ -463,13 +463,18 @@ boot: install prune ${WRKDIR}/.boot_done
 ${WRKDIR}/.boot_done:
 	@echo -n "Configuring boot environment ..."
 	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
-	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
-	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
+	${_v}${CP} -frp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
 .for FILE in boot defaults device.hints loader loader.help *.rc *.4th
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
-	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
+.if defined(DEBUG)
+	@echo -n "debug set...installing symbols..."
+.endif
+.if defined(DEBUG)
+	${_v}test -f ${_BOOTDIR}/kernel/kernel.symbols \
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+.endif
 .if defined(DEBUG)
 	${_v}test -f ${_BOOTDIR}/kernel/kernel.symbols \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
@@ -486,7 +491,6 @@ ${WRKDIR}/.boot_done:
 .for FILE in ${MFSMODULES}
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules || exit 0
-	#&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
@@ -496,7 +500,6 @@ ${WRKDIR}/.boot_done:
 	${_v}${MKDIR} -p ${_ROOTDIR}/boot/modules
 	${_v}${INSTALL} -m 0666 ${_BOOTDIR}/kernel/tmpfs.ko ${_ROOTDIR}/boot/modules
 .endif
-	${_v}${RM} -rf ${_BOOTDIR}/kernel ${_BOOTDIR}/*.symbols
 	${_v}${MKDIR} -p ${WRKDIR}/boot
 	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot	
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
