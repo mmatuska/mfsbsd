@@ -5,11 +5,20 @@
 
 #set -x
 
+# Check if you're root
+if [ "$(id -u)" != "0" ]; then
+	echo "This script must be run as root" 1>&2
+	exit 1
+fi
+
+# Load Modules
+kldload vmm nmdm > /dev/null 2>&1 || true
+
 usage() {
-        printf "Install: $0 -I [-F] -n vmname [-c numcpu] [-m ramsize] [-s disksize] \n\t\t[-i extnic] [-t tap] [-z zpool] [-f isopath]\n" 1>&2
-        printf "Example: $0 -n ubuntu0 -c 2 -m 1024M -s 16G -i em0 -t tap0 -z zones \n\t\t-f ubuntu-16.04.3-server-amd64.iso\n" 1>&2
-        printf "Run: $0 -R -n vmname [-c numcpu] [-m ramsize] [-s disksize] \n\t\t[-i extnic] [-t tap] [-z zpool] [-f isopath]\n" 1>&2
-        printf "Example: $0 -R -n ubuntu0 -c 2 -m 1024M -s 16G -i em0 -t tap0 -z zones\n" 1>&2
+        printf "Install: $0 -I [-F] -n vmname [-c numcpu] [-m ramsize] [-s disksize] \n\t\t[-i extnic] [-z zpool] [-f isopath] [-u num console]\n" 1>&2
+        printf "Example: $0 -n ubuntu0 -c 2 -m 1024M -s 16G -i em0 -z zones \n\t\t-f ubuntu-16.04.3-server-amd64.iso\n" 1>&2
+        printf "Run: $0 -R -n vmname [-c numcpu] [-m ramsize] [-s disksize] \n\t\t[-i extnic] [-z zpool] [-f isopath]\n" 1>&2
+        printf "Example: $0 -R -n ubuntu0 -c 2 -m 1024M -s 16G -i em0 -z zones\n" 1>&2
         printf "Console: $0 -C -n vmname\n" 1>&2
         printf "Example: $0 -C -n ubuntu0 \n" 1>&2
         printf "Kill: $0 -K -n vmname\n" 1>&2
@@ -40,8 +49,8 @@ plan() {
 	printf "\nNetworking\n"
 	echo "----------"
 	printf "External NIC: \t%s\n" $IFNET
-	printf "Bridge: \t%s\n" $BRIDGE
-	printf "Tap: \t\t%s\n" $TAP
+	#printf "Bridge: \t%s\n" $BRIDGE
+	#printf "Tap: \t\t%s\n" $TAP
 
 	printf "\nResources\n"
 	echo "---------"
@@ -79,8 +88,6 @@ SERIAL_CONSOLE2="${SERIAL_CONSOLE}${COM_NUM2}A"
 
 # Networking
 IFNET="em0"
-BRIDGE="bridge0"
-TAP="tap0"
 
 # Disk
 POOL_NAME="zroot"
@@ -137,9 +144,6 @@ while getopts ":c:Cf:Fhi:IKm:n:Rs:u:z:" opt; do
                 s)
                         VM_DISK_SIZE=$OPTARG
                         ;;
-                t)
-                        TAP=$OPTARG
-                        ;;
                 u)
                         COM_NUM1=$OPTARG
 			COM_NUM2=$(($COM_NUM1 + 1))
@@ -162,95 +166,90 @@ while getopts ":c:Cf:Fhi:IKm:n:Rs:u:z:" opt; do
                         ;;
         esac
 done
-if [ $INSTALL == 1 || $RUN == 1 || $KILL == 1 ]; then
+if [ "${INSTALL}" = 0 ] && [ "${RUN}" = 0 ] && [ "${KILL}" = 0 ]; then
 	printf "Invalid Input: Must set -I, -R or -K\n"
 	exit 2
 fi
-if [ -z ${VM_NAME} ]; then
+if [ -z "${VM_NAME}" ]; then
 	printf "Invalid Input: Must set vm name\n"
 	exit 2
 fi
 shift $(($OPTIND - 1))
 
 ################################################################################
-if [ $FORCE != 1 || $KILL == 1 ]; then
+if [ "${FORCE}" != 1 ] && [ "${KILL}" != 1 ]; then
 	plan # Print plan for user and ask for confirmation
 fi
 
 ################################################################################
-if [ $INSTALL == 1 ]; then
-	## Set up bridge
-	ifconfig ${TAP} create
-	sysctl net.link.tap.up_on_open=1
-	ifconfig ${BRIDGE} create
-	ifconfig ${BRIDGE} addm ${IFNET} addm ${TAP}
-	ifconfig ${BRIDGE} up
-
+if [ "${INSTALL}" = 1 ]; then
 	## Download Image
-	if [ ! -f ${ISO_PATH}/${ISO_NAME} ]; then
-		fetch -am ${ISO_URL}
+	if [ ! -f "${ISO_PATH}/${ISO_NAME}" ]; then
+		fetch -am "${ISO_URL}"
 	fi
 
 	## Setup VM zvol
-	zfs create -V${VM_DISK_SIZE} -o volmode=dev ${POOL_NAME}/${VM_NAME}
+	zfs create -p "-V${VM_DISK_SIZE}" -o volmode=dev "${POOL_NAME}/${VM_NAME}/disk0"
 
 	## Write out device.map
-	if [ ! -f ${VM_NAME}-${DEVICE_MAP} ]; then
-		cat > ${VM_NAME}-${DEVICE_MAP} <<EOF
-(hd0) ./${IMG_NAME}
+	if [ ! -f "${VM_NAME}-${DEVICE_MAP}" ]; then
+		cat > "/${POOL_NAME}/${VM_NAME}/${DEVICE_MAP}" <<EOF
+(hd0) /dev/zvol/${POOL_NAME}/${VM_NAME}/disk0
 (cd0) ${ISO_PATH}/${ISO_NAME}
 EOF
 	fi
 
 	## Load Linux Kernel 
-	# 	Note: We're assuming we're booting from an ISO,
-	# 	change cd0 here and above to change that.
-	grub-bhyve -m ${DEVICE_MAP} -r cd0 -M ${VM_MEM} ${VM_NAME}
+	grub-bhyve -S -m "/${POOL_NAME}/${VM_NAME}/${DEVICE_MAP}" -r cd0 -M "${VM_MEM}" "${VM_NAME}"
 
 	## Start bhyve for install
 	# 	Serial Consoles
 	# 	One can connect to these at /dev/nmdm{0,1}B
 	# 	ex: `sudo cu -l /dev/nmdm0B`
-	bhyve -A -H -P \
-		-s 0:0,hostbridge \
-		-s 1:0,lpc \
-		-s 2:0,virtio-net,${TAP} \
-		-s 3:0,virtio-blk,/dev/zvol/zroot/${VM_NAME} \
-		-s 4:0,ahci-cd,${ISO_PATH}/${ISO_NAME} \
-		-l com1,${SERIAL_CONSOLE1} \
-		-l com2,${SERIAL_CONSOLE2} \
-		-c ${VM_NUM_CPU} \
-		-m ${VM_MEM} \
-		${VM_NAME} &
+	IFNET_MAC=$(ifconfig ${IFNET} | grep ether | awk '{ print $2 }')
+	bhyve -A -H -P -S \
+		-s 0,hostbridge \
+		-s 1,lpc \
+		-s "2,kvirtio-net,${IFNET},mtu=1500,queues=4,intf=cc1,mac=${IFNET_MAC}" \
+		-s "3,virtio-blk,/dev/zvol/${POOL_NAME}/${VM_NAME}/disk0" \
+		-s "4,ahci-cd,${ISO_PATH}/${ISO_NAME}" \
+		-l "com1,${SERIAL_CONSOLE1}" \
+		-l "com2,${SERIAL_CONSOLE2}" \
+		-c "${VM_NUM_CPU}" \
+		-m "${VM_MEM}" \
+		"${VM_NAME}" &
 fi
 
 # Run VM from disk
-if [ $RUN == 1 ]; then
+if [ $RUN = 1 ]; then
 	## Load Linux Kernel 
 	# 	Note: We're assuming we're booting from an ISO,
 	# 	change cd0 here and above to change that.
-	grub-bhyve -m ${DEVICE_MAP} -r hd0,msdos1 -M ${VM_MEM} ${VM_NAME}
+#grub-bhyve -S -m /chyves/zones/guests/transcode/device.map -r hd0,msdos1 -c /dev/nmdm50A -M 1G chy-transcode && bhyve -A -H -P -S -c 16 -p 0:36 -p 1:37 -p 2:38 -p 3:39 -p 4:40 -p 5:41 -p 6:42 -p 7:43 -p 8:44 -p 9:45 -p 10:46 -p 11:47 -p 12:48 -p 13:49 -p 14:50 -p 15:51 -U c129e601-06e7-11e8-81e3-0cc47a17e9f8 -m 1G -s 0,hostbridge -s 4,ahci-hd,/dev/zvol/zones/chyves/guests/transcode/disk0 -s 5,virtio-net,tap50,mac=00:a0:98:49:fb:0b -s 6,kvirtio-net,mtu=1500,queues=4,intf=cc1,mac=00:07:43:40:5f:38 -l com1,/dev/nmdm50A -s 31,lpc chy-transcode	
+	grub-bhyve -S -m "/${POOL_NAME}/${VM_NAME}/${DEVICE_MAP}" -r hd0,msdos1 -c "${SERIAL_CONSOLE1}" -M "${VM_MEM}" "${VM_NAME}"
 
 	## Start bhyve for install
-	bhyve -A -H -P \
-		-s 0:0,hostbridge \
-		-s 1:0,lpc \
-		-s 2:0,virtio-net,${TAP} \
-		-s 3:0,virtio-blk,/dev/zvol/zroot/${VM_NAME} \
-		-l com1,${SERIAL_CONSOLE1} \
-		-l com2,${SERIAL_CONSOLE2} \
-		-c ${VM_NUM_CPU} \
-		-m ${VM_MEM} \
-		${VM_NAME} &
+	IFNET_MAC=$(ifconfig ${IFNET} | grep ether | awk '{ print $2 }')
+	bhyve -A -H -P -S \
+		-s 0,hostbridge \
+		-s 1,lpc \
+		-s "2,kvirtio-net,${IFNET},mtu=1500,queues=4,intf=cc1,mac=${IFNET_MAC}" \
+		-s "3,virtio-blk,/dev/zvol/${POOL_NAME}/${VM_NAME}/disk0" \
+		-l "com1,${SERIAL_CONSOLE1}" \
+		-l "com2,${SERIAL_CONSOLE2}" \
+		-c "${VM_NUM_CPU}" \
+		-m "${VM_MEM}" \
+		"${VM_NAME}" &
 fi
 
 # Attach to first serial console
-if [ $CONSOLE == 1 ]; then
-	cu -l ${SERIAL_CONSOLE}${COM_NUM1}B
+if [ $CONSOLE = 1 ]; then
+	cu -l "${SERIAL_CONSOLE}${COM_NUM1}B"
 fi
 
 # Kill VM named by -n VM
-if [ $KILL == 1 ]; then
+if [ $KILL = 1 ]; then
 	# https://www.youtube.com/watch?v=wQMMYSS14yM
-	bhyvectl --destroy --vm=${VM_NAME}
+	bhyvectl --destroy --vm="${VM_NAME}"
 fi
+
