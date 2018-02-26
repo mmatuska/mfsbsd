@@ -54,7 +54,7 @@ Since VM configuration is not currently persisted, most configuration parameters
 be manually specified each time you run a virtual machine.
 
 ```
-sh bhyve.sh -I -n joe-test -c 16 -m 16G -i cc1 -z zones
+sh bhyve.sh -R -n joe-test -c 16 -m 16G -i cc1 -z zones
 ```
 
 ## Using the VM Console
