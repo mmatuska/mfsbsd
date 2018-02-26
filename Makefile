@@ -433,7 +433,7 @@ compress-usr: install prune config genkeys customfiles boot packages ${WRKDIR}/.
 ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
-	${_v}${TAR} -c -J -C ${_DESTDIR} -f ${_DESTDIR}/.usr.tar.xz usr 
+	${_v}${TAR} -c -p -C ${_DESTDIR} -f  - usr | xz -T 0 -c -3 - > ${_DESTDIR}/.usr.tar.xz 
 	${_v}${RM} -rf ${_DESTDIR}/usr && ${MKDIR} ${_DESTDIR}/usr 
 .else
 	@echo -n "Compressing root ..."
