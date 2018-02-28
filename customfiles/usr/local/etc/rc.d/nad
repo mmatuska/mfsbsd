@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# $FreeBSD$
+#
+# PROVIDE: nad
+# REQUIRE: DAEMON
+#
+
+. /etc/rc.subr
+
+name=nad
+rcvar=nad_enable
+command="/usr/sbin/daemon"
+command_args="-f /opt/circonus/nad/sbin/nad"
+rc_flags="${nad_flags}"
+
+load_rc_config ${name}
+
+: ${nad_enable="NO"}
+
+run_rc_command "$1"
