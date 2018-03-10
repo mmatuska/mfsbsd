@@ -406,11 +406,11 @@ ${WRKDIR}/.config_done:
 genkeys: config ${WRKDIR}/.genkeys_done
 ${WRKDIR}/.genkeys_done:
 	@echo -n "Generating SSH host keys ..."
-	${_v}${SSHKEYGEN} -t rsa1 -b 1024 -f ${_DESTDIR}/etc/ssh/ssh_host_key -N '' > /dev/null 2> /dev/null || true
-	${_v}${SSHKEYGEN} -t dsa -f ${_DESTDIR}/etc/ssh/ssh_host_dsa_key -N '' > /dev/null 2> /dev/null || true
-	${_v}${SSHKEYGEN} -t rsa -f ${_DESTDIR}/etc/ssh/ssh_host_rsa_key -N '' > /dev/null
-	${_v}${SSHKEYGEN} -t ecdsa -f ${_DESTDIR}/etc/ssh/ssh_host_ecdsa_key -N '' > /dev/null
-	${_v}${SSHKEYGEN} -t ed25519 -f ${_DESTDIR}/etc/ssh/ssh_host_ed25519_key -N '' > /dev/null
+	${_v}test -f ${_DESTDIR}/etc/ssh/ssh_host_key || ${SSHKEYGEN} -t rsa1 -b 1024 -f ${_DESTDIR}/etc/ssh/ssh_host_key -N '' > /dev/null 2> /dev/null || true
+	${_v}test -f ${_DESTDIR}/etc/ssh/ssh_host_dsa_key || ${SSHKEYGEN} -t dsa -f ${_DESTDIR}/etc/ssh/ssh_host_dsa_key -N '' > /dev/null 2> /dev/null || true
+	${_v}test -f ${_DESTDIR}/etc/ssh/ssh_host_rsa_key || ${SSHKEYGEN} -t rsa -f ${_DESTDIR}/etc/ssh/ssh_host_rsa_key -N '' > /dev/null
+	${_v}test -f ${_DESTDIR}/etc/ssh/ssh_host_ecdsa_key || ${SSHKEYGEN} -t ecdsa -f ${_DESTDIR}/etc/ssh/ssh_host_ecdsa_key -N '' > /dev/null
+	${_v}test -f ${_DESTDIR}/etc/ssh/ssh_host_ed25519_key || ${SSHKEYGEN} -t ed25519 -f ${_DESTDIR}/etc/ssh/ssh_host_ed25519_key -N '' > /dev/null
 	${_v}${TOUCH} ${WRKDIR}/.genkeys_done
 	@echo " done"
 
