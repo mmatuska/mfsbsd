@@ -2,9 +2,9 @@
 #
 # Create zfs datasets for triton
 #
-# zfs_create.sh [-n poolname] -d devices/partition
+# zfs_create.sh [-n poolname] devices/partition
 # 
-# example: zfs_create.sh -n zroot -d da0p2 da1p2
+# example: zfs_create.sh -n zroot da0p2 da1p2
 #
 
 usage() {
@@ -42,10 +42,21 @@ shift $((OPTIND -1))
 # The rest of the arguments are devices
 DEVICES=${@}
 
-if [ $(zpool list -o name | awk 'NR != 1 { print $1 }') == ${ZPOOL} ]; then
-	echo "zpool with name ${ZPOOL} already exists." 1>&2
+#
+# List pools so that we can abort if a pool with the provided name exists
+# already.
+#
+if ! pools="$(zpool list -Ho name)"; then
+	echo "could not list ZFS pools." 1>&2
 	exit 1
 fi
+
+for pool in $pools; do
+	if [ "$pool" == "$ZPOOL" ]; then
+		echo "zpool with name ${ZPOOL} already exists." 1>&2
+		exit 1
+	fi
+done
 
 zpool create ${ZPOOL} ${DEVICES}
 zfs create -o mountpoint=/zones ${ZPOOL}/zones
