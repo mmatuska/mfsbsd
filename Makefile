@@ -11,6 +11,9 @@ KERNCONF?= GENERIC
 MFSROOT_FREE_INODES?=10%
 MFSROOT_FREE_BLOCKS?=10%
 MFSROOT_MAXSIZE?=80m
+PKG_OSVERSION?=1200056
+MAKEOBJDIRPREFIX?=/usr/obj
+SRCCONF?=/etc/src.conf
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -74,9 +77,10 @@ BSDLABEL=bsdlabel
 #
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
-BOOTMODULES=acpi ahci
-MFSMODULES=aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop ipmi \
+BOOTMODULES=acpi ahci vmm
+#MFSMODULES=aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop ipmi \
 	ntfs nullfs opensolaris smbus snp tmpfs zfs
+MFSMODULES=aesni acpi ahci bridgestp coretemp crypto cryptodev cxgb cxgbe dtrace ext2fs geom_eli geom_mirror geom_nop hwpmc i2c if_bridge if_cxgb if_cxgbe if_tap if_vpc if_vpcb if_vpci ipmi iwm iwmfw if_ixgb ixgb if_ixl ixl linprocfs linsysfs linux linux64 linux_common linuxkpi mxge nmdm ntfs nullfs opensolaris sem smbus snp sound tmpfs ums usb vmm zfs t6fw_cfg if_cc if_ccv if_cdce if_cxgbev if_cxl if_cxlv t4_tom t4fw_cfg t5fw_cfg cxgbei cpuctl fdescfs vmmnet
 #
 XZ_FLAGS=
 #
@@ -161,7 +165,9 @@ BUILDENV?= env \
 
 # Environment for custom install
 INSTALLENV?= ${BUILDENV} \
-	WITHOUT_TOOLCHAIN=1
+	WITHOUT_TOOLCHAIN=1 \
+	MAKEOBJDIRPREFIX=${MAKEOBJDIRPREFIX} \
+	SRCCONF=${SRCCONF}
 .endif
 
 .if defined(FULLDIST)
@@ -202,7 +208,7 @@ ${WRKDIR}/.extract_done:
 .if !defined(FREEBSD9)
 	${_v}${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_BOOTDIR}
 	${_v}${MV} ${_BOOTDIR}/${KERNCONF}/* ${_BOOTDIR}/kernel
-	${_v}${RMDIR} ${_BOOTDIR}/${KERNCONF}
+	#${_v}${RMDIR} ${_BOOTDIR}/${KERNCONF}
 .else
 	${_v}${CAT} ${KERNELFILE} | ${TAR} --unlink -xpzf - -C ${_ROOTDIR}
 .endif
@@ -318,7 +324,7 @@ ${WRKDIR}/.packages_done:
                 cd ${_DESTDIR}/packages && for _FILE in *; do \
                         _FILES="$${_FILES} /packages/$${_FILE}"; \
                 done; \
-                ${PKG} -c ${_DESTDIR} add -M $${_FILES}; \
+                ${PKG} -o OSVERSION=1200055 -c ${_DESTDIR} add -M $${_FILES}; \
 	fi
 	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
 		${RM} -rf ${_DESTDIR}/packages; \
@@ -427,7 +433,7 @@ compress-usr: install prune config genkeys customfiles boot packages ${WRKDIR}/.
 ${WRKDIR}/.compress-usr_done:
 .if !defined(ROOTHACK)
 	@echo -n "Compressing usr ..."
-	${_v}${TAR} -c -J -C ${_DESTDIR} -f ${_DESTDIR}/.usr.tar.xz usr 
+	${_v}${TAR} -c -p -C ${_DESTDIR} -f  - usr | xz -T 0 -c -3 - > ${_DESTDIR}/.usr.tar.xz 
 	${_v}${RM} -rf ${_DESTDIR}/usr && ${MKDIR} ${_DESTDIR}/usr 
 .else
 	@echo -n "Compressing root ..."
@@ -457,13 +463,18 @@ boot: install prune ${WRKDIR}/.boot_done
 ${WRKDIR}/.boot_done:
 	@echo -n "Configuring boot environment ..."
 	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
-	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
-	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
+	${_v}${CP} -frp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
 .for FILE in boot defaults device.hints loader loader.help *.rc *.4th
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
-	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
+.if defined(DEBUG)
+	@echo -n "debug set...installing symbols..."
+.endif
+.if defined(DEBUG)
+	${_v}test -f ${_BOOTDIR}/kernel/kernel.symbols \
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
+.endif
 .if defined(DEBUG)
 	${_v}test -f ${_BOOTDIR}/kernel/kernel.symbols \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/kernel.symbols ${WRKDIR}/disk/boot/kernel >/dev/null 2>/dev/null || exit 0
@@ -479,7 +490,7 @@ ${WRKDIR}/.boot_done:
 	${_v}${MKDIR} -p ${_DESTDIR}/boot/modules
 .for FILE in ${MFSMODULES}
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
+	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_DESTDIR}/boot/modules || exit 0
 . if defined(DEBUG)
 	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
 	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_DESTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
@@ -489,7 +500,6 @@ ${WRKDIR}/.boot_done:
 	${_v}${MKDIR} -p ${_ROOTDIR}/boot/modules
 	${_v}${INSTALL} -m 0666 ${_BOOTDIR}/kernel/tmpfs.ko ${_ROOTDIR}/boot/modules
 .endif
-	${_v}${RM} -rf ${_BOOTDIR}/kernel ${_BOOTDIR}/*.symbols
 	${_v}${MKDIR} -p ${WRKDIR}/boot
 	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot	
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
@@ -504,7 +514,7 @@ ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	${_v}${MKDIR} ${WRKDIR}/mnt
 	${_v}${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
-	${_v}${RM} -rf ${WRKDIR}/mnt
+	#${_v}${RM} -rf ${WRKDIR}/mnt
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel
 	${_v}if [ -f "${CFGDIR}/loader.conf" ]; then \
@@ -531,7 +541,7 @@ ${IMAGE}:
 	${_v}${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
 	${_v}${INSTALL} -m 0444 ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
 	${_v}${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
-	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
+	#${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
 .else
 	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${WRKDIR}/boot ${VERB}
@@ -578,4 +588,4 @@ clean-roothack:
 
 clean: clean-roothack
 	${_v}if [ -d ${WRKDIR} ]; then ${CHFLAGS} -R noschg ${WRKDIR}; fi
-	${_v}cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done
+	${_v}cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done tmp/* *.img *.tar *.iso

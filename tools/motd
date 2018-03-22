@@ -1,10 +1,7 @@
-Welcome to mfsBSD, the memory based FreeBSD distribution.
+   __        .                   .
+ _|  |_      | .-. .  . .-. :--. |-
+|_    _|     ;|   ||  |(.-' |  | |
+  |__|   `--'  `-' `;-| `-' '  ' `-'
+                   /  ; GPGPU-FreeBSD
+                   `-'
 
-This is a stripped-down version of FreeBSD without:
-- manual pages, info pages, examples
-- include files, static library files, development tools
-- bind binaries (host, dig, named, etc.)
-
-Feel free to email me with any bug reports or feature suggestions.
-Martin Matuska <mm@FreeBSD.org>
-http://mfsbsd.vx.sk/
