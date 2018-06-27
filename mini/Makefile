@@ -1,7 +1,7 @@
 # $Id$
 #
 # mfsBSD-mini
-# Copyright (c) 2015 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2017 Martin Matuska <mm at FreeBSD.org>
 #
 # Version 0.1
 #

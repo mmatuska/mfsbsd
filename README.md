@@ -1,6 +1,6 @@
 # mfsBSD
 
-Copyright (c) 2007-2016 Martin Matuska <mm at FreeBSD.org>
+Copyright (c) 2018 Martin Matuska <mm at FreeBSD.org>
 
 Version 2.3
 

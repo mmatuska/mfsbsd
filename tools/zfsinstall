@@ -2,7 +2,7 @@
 # $Id$
 #
 # mfsBSD ZFS install script
-# Copyright (c) 2011-2016 Martin Matuska <mm at FreeBSD.org>
+# Copyright (c) 2018 Martin Matuska <mm at FreeBSD.org>
 #
 FREEBSD_MIRROR="${FREEBSD_MIRROR:-ftp://ftp.freebsd.org/pub/FreeBSD}"
 FS_LIST="var tmp"
