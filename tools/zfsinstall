@@ -8,7 +8,7 @@ FREEBSD_MIRROR="${FREEBSD_MIRROR:-ftp://ftp.freebsd.org/pub/FreeBSD}"
 FS_LIST="var tmp"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] [ -u dist_url ] [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] [ -u dist_url ] [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4] [-A]"
 }
 
 osarch() {
@@ -36,6 +36,7 @@ help() {
 	echo "-c                : enable lzjb compression for all datasets"
 	echo "-l                : use legacy mounts (via fstab) instead of ZFS mounts"
 	echo "-4                : use fletcher4 as default checksum algorithm"
+	echo "-A                : align partitions to 4K blocks"
 	echo; echo "Examples:"
 	echo "Install on a single drive with 2GB swap:"
 	echo "$0 -u /path/to/release -d da0 -s 2G"
@@ -47,7 +48,7 @@ help() {
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:u:t:r:p:s:z:m:V:Chcl4 o; do
+while getopts d:u:t:r:p:s:z:m:V:Chcl4A o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
 		u) URL="${OPTARG}" ;;
@@ -62,6 +63,7 @@ while getopts d:u:t:r:p:s:z:m:V:Chcl4 o; do
 		c) LZJB=1 ;;
 		l) LEGACY=1 ;;
 		4) FLETCHER=1 ;;
+		A) ALIGN=1 ;;
 		h) help; exit 1;;
 		[?]) usage; exit 1;;
 esac
@@ -109,6 +111,10 @@ if [ "$COMPAT" = "1" ]; then
 		exit 1
 	fi
 	COMPATFLAGS="-d -o feature@async_destroy=enabled -o feature@empty_bpobj=enabled -o feature@lz4_compress=enabled"
+fi
+
+if [ "$ALIGN" = "1" ]; then
+	ALIGNMENT="-a 4096"
 fi
 
 if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
@@ -233,7 +239,7 @@ for DEV in ${DEVS}; do
 		exit 1
 	fi
 	if [ -n "${SWAP}" ]; then
-		if ! /sbin/gpart add -t freebsd-swap -a 4096 -s "${SWAP}" ${DEV} > /dev/null; then
+		if ! /sbin/gpart add -t freebsd-swap ${ALIGNMENT} -s "${SWAP}" ${DEV} > /dev/null; then
 			echo " error"
 			exit 1
 		fi
@@ -245,7 +251,7 @@ for DEV in ${DEVS}; do
 			FSWAP=${SWAPPART}
 		fi
 	fi
-	if ! /sbin/gpart add -t freebsd-zfs -a 4096 ${SZPART} ${DEV} > /dev/null; then
+	if ! /sbin/gpart add -t freebsd-zfs ${ALIGNMENT} ${SZPART} ${DEV} > /dev/null; then
 		echo " error"
 		exit 1
 	fi
