@@ -60,6 +60,7 @@ if [ -n "$VERBOSE" ]; then
 else
   TIME=
 fi
+
 gpart create -s gpt ${unit}
 gpart add -t freebsd-boot -b 40 -l boot -s 472 ${unit}
 gpart bootcode -b ${BOOTDIR}/pmbr -p ${BOOTDIR}/gptboot -i 1 ${unit}
