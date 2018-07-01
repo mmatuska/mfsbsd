@@ -244,7 +244,10 @@ ${WRKDIR}/.install_done:
 . endif
 	${_v}${MKDIR} ${_DISTDIR}
 . if defined(ROOTHACK)
-	${_v}${CP} -rp ${_BOOTDIR}/${KERNDIR}/* ${_DESTDIR}/boot/kernel/*
+	${_v}${CP} -rp ${_BOOTDIR}/${KERNDIR} ${_DESTDIR}/boot
+.  if "${KERNDIR}" != "kernel"
+	${_v}${MV} -f ${_DESTDIR}/boot/${KERNDIR} ${_DESTDIR}/boot/kernel
+.  endif
 . endif
 . if !defined(CUSTOM) && exists(${BASE}/base.txz) && exists(${BASE}/kernel.txz)
 	${_v}${CP} ${BASE}/base.txz ${_DISTDIR}/base.txz
@@ -461,7 +464,7 @@ ${WRKDIR}/.boot_done:
 	@echo -n "Configuring boot environment ..."
 	${_v}${MKDIR} -p ${WRKDIR}/disk/boot/kernel
 	${_v}${CHOWN} root:wheel ${WRKDIR}/disk
-	${_v}${TAR} -cf -  -X ${KERN_EXCLUDE} -C ${_BOOTDIR}/${KERNDIR} . | ${TAR} -xvf - -C ${WRKDIR}/disk/boot/kernel
+	${_v}${TAR} -c -X ${KERN_EXCLUDE} -C ${_BOOTDIR}/${KERNDIR} -f - . | ${TAR} -xv -C ${WRKDIR}/disk/boot/kernel -f -
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
 .for FILE in ${BOOTFILES}
 	${_v}-${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
@@ -491,7 +494,7 @@ ${WRKDIR}/.boot_done:
 .endfor
 .if defined(ROOTHACK)
 	${_v}${MKDIR} -p ${_ROOTDIR}/boot/modules
-	${_v}${INSTALL} -m 0666 ${_BOOTDIR}/${KERNDIR}/kernel/tmpfs.ko ${_ROOTDIR}/boot/modules
+	${_v}${INSTALL} -m 0666 ${_BOOTDIR}/${KERNDIR}/tmpfs.ko ${_ROOTDIR}/boot/modules
 .endif
 	${_v}${RM} -rf ${_BOOTDIR}/${KERNDIR} ${_BOOTDIR}/*.symbols
 	${_v}${MKDIR} -p ${WRKDIR}/boot

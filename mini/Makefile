@@ -9,7 +9,7 @@
 #
 # User-defined variables
 #
-BASEDIR?=${CURDIR}/../tmp/mfs
+BASEDIR?=${CURDIR}/../work/mfs
 CFGDIR?=${CURDIR}/conf
 MFSROOT_FREE_INODES?=5000
 MFSROOT_FREE_BLOCKS?=10%
