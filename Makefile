@@ -37,6 +37,7 @@ TOOLSDIR?=		tools
 PRUNELIST?=		${TOOLSDIR}/prunelist
 KERN_EXCLUDE?=		${TOOLSDIR}/kern_exclude
 PKG_STATIC?=		/usr/local/sbin/pkg-static
+BOOTDIR_LUA?=       /cdrom/boot/lua
 #
 # Program defaults
 #
@@ -75,7 +76,14 @@ BSDLABEL?=	bsdlabel
 DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
+
+# Check if loader.lua available
+.if exists(${BOOTDIR_LUA}/loader.lua)
+BOOTFILES?=	boot defaults device.hints loader loader.help *.rc *.4th lua
+.else
 BOOTFILES?=	boot defaults device.hints loader loader.help *.rc *.4th
+.endif
+
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
 		ipmi ntfs nullfs opensolaris smbus snp tmpfs zfs
 # Sometimes the kernel is compiled with a different destination.
