@@ -75,7 +75,7 @@ BSDLABEL?=	bsdlabel
 DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
-BOOTFILES?=	boot defaults device.hints loader loader.help *.rc *.4th
+BOOTFILES?=	boot defaults device.hints loader loader.help *.rc *.4th lua
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
 		ipmi ntfs nullfs opensolaris smbus snp tmpfs zfs
 # Sometimes the kernel is compiled with a different destination.
