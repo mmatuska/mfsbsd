@@ -63,7 +63,6 @@ UNAME?=		/usr/bin/uname
 BZIP2?=		/usr/bin/bzip2
 XZ?=		/usr/bin/xz
 MAKEFS?=	/usr/sbin/makefs
-MKISOFS?=	/usr/local/bin/mkisofs
 SSHKEYGEN?=	/usr/bin/ssh-keygen
 SYSCTL?=	/sbin/sysctl
 PKG?=		/usr/local/sbin/pkg
@@ -75,7 +74,7 @@ BSDLABEL?=	bsdlabel
 DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
-BOOTFILES?=	boot defaults device.hints loader loader.help *.rc *.4th lua
+BOOTFILES?=	boot cdboot defaults device.hints isoboot loader *.rc *.4th lua
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
 		ipmi ntfs nullfs opensolaris smbus snp tmpfs zfs
 # Sometimes the kernel is compiled with a different destination.
@@ -498,7 +497,7 @@ ${WRKDIR}/.boot_done:
 .endif
 	${_v}${RM} -rf ${_BOOTDIR}/${KERNDIR} ${_BOOTDIR}/*.symbols
 	${_v}${MKDIR} -p ${WRKDIR}/boot
-	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot
+	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${_DESTDIR}/boot/isoboot ${WRKDIR}/boot
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
@@ -560,15 +559,13 @@ ${GCEFILE}:
 iso: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
-.if defined(USE_MKISOFS)
-. if !exists(${MKISOFS})
-	@echo "${MKISOFS} is missing, please install sysutils/cdrtools first"; exit 1
-. else
-	${_v}${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk > /dev/null 2> /dev/null
-. endif
-.else
-	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
-.endif
+	# Generate EFI image for CD image
+	${_v}${CP} ${.CURDIR}/loader.efi ${WRKDIR}/disk/boot
+	${_v}${TOOLSDIR}/do_efi.sh ${WRKDIR}
+	${_v}${CP} ${WRKDIR}/efiboot.img ${WRKDIR}/disk/boot
+	${_v}${MAKEFS} -t cd9660 -o 'bootimage=i386;${WRKDIR}/disk/boot/cdboot' -o no-emul-boot -o 'bootimage=i386;${WRKDIR}/disk/boot/efiboot.img' -o no-emul-boot -o platformid=efi -o rockridge -o label="mfsBSD" -o publisher="mfsBSD" ${ISOIMAGE} ${WRKDIR}/disk
+	${_v}${TOOLSDIR}/do_hybridboot.sh ${ISOIMAGE} ${WRKDIR}
+	${_v}${RM} -f ${WRKDIR}/efiboot.img
 	@echo " done"
 	${_v}${LS} -l ${ISOIMAGE}
 
