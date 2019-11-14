@@ -1,4 +1,5 @@
 #!/bin/sh
+ldconfig /usr/local/lib
 ln -s /usr/local/bin/dbclient /usr/bin/dbclient
 ln -s /usr/local/bin/dbclient /usr/local/bin/ssh
 mkdir -p /usr/local/etc/dropbear
