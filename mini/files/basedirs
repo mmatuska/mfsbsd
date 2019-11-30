@@ -3,6 +3,7 @@ libexec
 usr/libexec/bsdconfig
 usr/libexec/bsdinstall
 usr/share/bsdconfig
+usr/share/locale/C.UTF-8
 usr/share/locale/en_US.UTF-8
 usr/share/syscons
 usr/share/zoneinfo

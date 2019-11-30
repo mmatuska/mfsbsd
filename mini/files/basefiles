@@ -115,3 +115,4 @@ usr/sbin/syslogd
 usr/sbin/tcpdump
 usr/sbin/tzsetup
 usr/share/misc/iso3166
+usr/share/misc/termcap
