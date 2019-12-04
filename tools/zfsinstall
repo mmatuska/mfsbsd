@@ -33,7 +33,7 @@ help() {
 	echo "-C                : compatibility mode with limited feature flags"
 	echo "                    (enable only async_destroy, empty_bpobj and lz4_compress)"
 	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
-	echo "-c                : enable lzjb compression for all datasets"
+	echo "-c                : enable compression for all datasets"
 	echo "-l                : use legacy mounts (via fstab) instead of ZFS mounts"
 	echo "-4                : use fletcher4 as default checksum algorithm"
 	echo "-A                : align partitions to 4K blocks"
@@ -60,7 +60,7 @@ while getopts d:u:t:r:p:s:z:m:V:Chcl4A o; do
 		z) ZPART="${OPTARG}" ;;
 		V) VERSION="${OPTARG}" ;;
 		C) COMPAT=1 ;;
-		c) LZJB=1 ;;
+		c) COMPRESS=1 ;;
 		l) LEGACY=1 ;;
 		4) FLETCHER=1 ;;
 		A) ALIGN=1 ;;
@@ -302,9 +302,9 @@ if [ "${FLETCHER}" = "1" ]; then
 	echo " done"
 fi
 
-if [ "${LZJB}" = "1" ]; then
-	echo -n "Setting default compression to lzjb for ${POOL} ..."
-	if ! /sbin/zfs set compression=lzjb ${POOL} > /dev/null 2> /dev/null; then
+if [ "${COMPRESS}" = "1" ]; then
+	echo -n "Enabling default compression on ${POOL} ..."
+	if ! /sbin/zfs set compression=on ${POOL} > /dev/null 2> /dev/null; then
 		echo " error"
 		exit 1
 	fi
