@@ -9,14 +9,21 @@
 #
 # User-defined variables
 #
-BASEDIR?=${CURDIR}/../work/mfs
+BASEDIR?=${CURDIR}/../work/mfs/rw
+BOOTBASE?=${CURDIR}/../work/disk/boot
 CFGDIR?=${CURDIR}/conf
 MFSROOT_FREE_INODES?=5000
 MFSROOT_FREE_BLOCKS?=10%
 MFSROOT_MINSIZE?=64m
 MFSROOT_MAXSIZE?=64m
-ROOTPW?=mfsroot
-LOCALBASEDIR?=/
+ROOTPW_HASH?=$$6$$051DdQA7fTvLymkY$$Z5f6snVFQJKugWmGi8y0motBNaKn9em0y2K0ZsJMku3v9gkiYh8M.OTIIie3RvHpzT6udumtZUtc0kXwJcCMR1
+LOCALBASEDIR?=${BASEDIR}
+
+.if defined(LOADER_4TH)
+BOOTFILES?=     defaults device.hints loader *.rc *.4th
+.else
+BOOTFILES?=     defaults device.hints loader lua
+.endif
 
 #
 # Program defaults
@@ -93,6 +100,7 @@ EXCLUDE=
 
 _ROOTDIR=	${WRKDIR}/mfs
 _BOOTDIR=	${_ROOTDIR}/boot
+_MODULESDIR=	${BASEDIR}/boot/modules
 
 all: image
 
@@ -114,7 +122,7 @@ ${WRKDIR}/.hierarchy_done:
 installkernel: ${_BOOTDIR} ${WRKDIR}/.installkernel_done
 ${WRKDIR}/.installkernel_done:
 	${_v}echo -n "Installing kernel ..."
-	${_v}${CP} -a ${BASEDIR}/boot/ ${_BOOTDIR}
+	${_v}${CP} -a ${BOOTBASE}/ ${_BOOTDIR}
 	${_v}${TOUCH} ${WRKDIR}/.installkernel_done
 	${_v}echo " done"
 
@@ -187,10 +195,13 @@ ${WRKDIR}/.config_done:
 	${_v}${INSTALL} ${TOOLSDIR}/destroygeom ${_ROOTDIR}/root/bin
 	${_v}echo "/dev/md0 / ufs rw 0 0" > ${_ROOTDIR}/etc/fstab
 	${_v}echo "tmpfs /tmp tmpfs rw,mode=1777 0 0" >> ${_ROOTDIR}/etc/fstab
-	${_v}echo ${ROOTPW} | ${PW} -V ${_ROOTDIR}/etc usermod root -h 0
+.if defined(ROOTPW)
+	${_v}echo '${ROOTPW}'| ${OPENSSL} -6 -stdin | ${PW} -V ${_ROOTDIR}/etc usermod root -H 0
+.elif !empty(ROOTPW_HASH)
+	${_v}echo '${ROOTPW_HASH}'| ${PW} -V ${_ROOTDIR}/etc usermod root -H 0
+.endif
 	${_v}${TOUCH} ${WRKDIR}/.config_done
 	${_v}echo " done"
-
 
 boot: installkernel install ${WRKDIR}/.boot_done
 ${WRKDIR}/.boot_done:
@@ -198,8 +209,8 @@ ${WRKDIR}/.boot_done:
 	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
 	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
 	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
-.for FILE in boot defaults device.hints loader loader.help *.rc *.4th lua
-	${_v}-${CP} -rp ${_ROOTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
+.for FILE in ${BOOTFILES}
+	${_v}${CP} -rp ${_ROOTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
@@ -216,11 +227,11 @@ ${WRKDIR}/.boot_done:
 .endfor
 	${_v}${MKDIR} ${_ROOTDIR}/boot/modules
 .for FILE in ${MFSMODULES}
-	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko ${_ROOTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
+	${_v}test -f ${_MODULESDIR}/${FILE}.ko \
+	&& ${INSTALL} -m 0555 ${_MODULESDIR}/${FILE}.ko ${_ROOTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . if defined(DEBUG)
-	${_v}test -f ${_BOOTDIR}/kernel/${FILE}.ko.symbols \
-	&& ${INSTALL} -m 0555 ${_BOOTDIR}/kernel/${FILE}.ko.symbols ${_ROOTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
+	${_v}test -f ${_MODULESDIR}/${FILE}.ko.symbols \
+	&& ${INSTALL} -m 0555 ${_MODULESDIR}/${FILE}.ko.symbols ${_ROOTDIR}/boot/modules >/dev/null 2>/dev/null || exit 0
 . endif
 .endfor
 	${_v}${RM} -rf ${_BOOTDIR}/kernel ${_BOOTDIR}/*.symbols

@@ -1,0 +1,12 @@
+cpdup
+dmidecode
+indexinfo
+ipmitool
+libevent
+libiconv
+nano
+readline
+rsync
+smartmontools
+tmux
+utf8proc

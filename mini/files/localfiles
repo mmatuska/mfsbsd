@@ -1,6 +1,5 @@
 bin/cpdup
 bin/dbclient
-bin/scp
 bin/dropbearconvert
 bin/dropbearkey
 bin/ipmitool

@@ -15,9 +15,8 @@ e.g. a hard disk or a USB stick e.g. /dev/da0, or a bootable slice only,
 e.g. /dev/ada0s1
 
 ## Build-time requirements
- - FreeBSD 10 or higher installed, tested on i386 or amd64
- - Base and kernel from a FreeBSD 10 or higher distribution
-   (release or snapshots, e.g mounted CDROM disc1 or ISO file)
+ - FreeBSD 11 or higher installed, tested on i386 or amd64
+ - base.txz and kernel.txz from a FreeBSD 11 or higher distribution
 
 ## Runtime requirements
  - a minimum of 512MB system memory

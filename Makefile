@@ -11,6 +11,7 @@ KERNCONF?=		GENERIC
 MFSROOT_FREE_INODES?=	10%
 MFSROOT_FREE_BLOCKS?=	10%
 MFSROOT_MAXSIZE?=	100m
+ROOTPW_HASH?=		$$6$$051DdQA7fTvLymkY$$Z5f6snVFQJKugWmGi8y0motBNaKn9em0y2K0ZsJMku3v9gkiYh8M.OTIIie3RvHpzT6udumtZUtc0kXwJcCMR1
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -67,6 +68,8 @@ MKISOFS?=	/usr/local/bin/mkisofs
 SSHKEYGEN?=	/usr/bin/ssh-keygen
 SYSCTL?=	/sbin/sysctl
 PKG?=		/usr/local/sbin/pkg
+OPENSSL?=	/usr/bin/openssl
+CUT?=		/usr/bin/cut
 #
 WRKDIR?=	${.CURDIR}/work
 #
@@ -75,7 +78,11 @@ BSDLABEL?=	bsdlabel
 DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
-BOOTFILES?=	boot defaults device.hints loader loader.help *.rc *.4th lua
+.if defined(LOADER_4TH)
+BOOTFILES?=	defaults device.hints loader_4th *.rc *.4th
+.else
+BOOTFILES?=	defaults device.hints loader_lua lua
+.endif
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
 		ipmi ntfs nullfs opensolaris smbus snp tmpfs zfs
 # Sometimes the kernel is compiled with a different destination.
@@ -102,6 +109,10 @@ TARGET=		${ARCH}
 RELEASE!=	${UNAME} -r
 .endif
 
+.if !defined(PKG_ABI)
+PKG_ABI!=	echo "FreeBSD:`${UNAME} -U | ${CUT} -c 1-2`:`${UNAME} -m`"
+.endif
+
 .if !defined(SE)
 IMAGE_PREFIX?=	mfsbsd
 .else
@@ -121,12 +132,12 @@ EXCLUDE=
 .endif
 
 # Roothack stuff
-.if defined(ROOTHACK_FILE) && exists(${ROOTHACK_FILE})
-ROOTHACK=	1
+.if !defined(NO_ROOTHACK)
+. if defined(ROOTHACK_FILE) && exists(${ROOTHACK_FILE})
 ROOTHACK_PREBUILT=1
-_ROOTHACK_FILE=	${ROOTHACK_FILE}
-.else
-_ROOTHACK_FILE=	${WRKDIR}/roothack/roothack
+. else
+ROOTHACK_FILE=	${WRKDIR}/roothack/roothack
+. endif
 .endif
 
 # Check if we are installing FreeBSD 9 or higher
@@ -145,7 +156,7 @@ _MAKEJOBS=	-j${MAKEJOBS}
 
 _ROOTDIR=	${WRKDIR}/mfs
 _BOOTDIR=	${_ROOTDIR}/boot
-.if defined(ROOTHACK)
+.if !defined(NO_ROOTHACK)
 _DESTDIR=	${_ROOTDIR}/rw
 MFSROOT_FREE_INODES?=1%
 MFSROOT_FREE_BLOCKS?=1%
@@ -243,7 +254,7 @@ ${WRKDIR}/.install_done:
 	@echo -n "Creating base.txz and kernel.txz ..."
 . endif
 	${_v}${MKDIR} ${_DISTDIR}
-. if defined(ROOTHACK)
+. if !defined(NO_ROOTHACK)
 	${_v}${CP} -rp ${_BOOTDIR}/${KERNDIR} ${_DESTDIR}/boot
 .  if "${KERNDIR}" != "kernel"
 	${_v}${MV} -f ${_DESTDIR}/boot/${KERNDIR} ${_DESTDIR}/boot/kernel
@@ -257,7 +268,7 @@ ${WRKDIR}/.install_done:
 	${_v}${TAR} -c -C ${_DESTDIR} -J ${EXCLUDE} -f ${_DISTDIR}/kernel.txz boot/kernel
 . endif
 	@echo " done"
-. if defined(ROOTHACK)
+. if !defined(NO_ROOTHACK)
 	${_v}${RM} -rf ${_DESTDIR}/boot/${KERNDIR}
 . endif
 .endif
@@ -291,7 +302,7 @@ ${WRKDIR}/.prune_done:
 .if !defined(NO_PRUNE)
 	@echo -n "Removing selected files from distribution ..."
 	${_v}if [ -f "${PRUNELIST}" ]; then \
-		for FILE in `cat ${PRUNELIST}`; do \
+		for FILE in `${CAT} ${PRUNELIST}`; do \
 			if [ -n "$${FILE}" ]; then \
 				${RM} -rf ${_DESTDIR}/$${FILE}; \
 			fi; \
@@ -312,25 +323,35 @@ ${WRKDIR}/.packages_done:
 	${_v}${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
 	${_v}${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
 	@echo " done"
-	${_v}if [ -d "${PACKAGESDIR}" ]; then \
-		echo -n "Copying user packages ..."; \
-		${CP} -rf ${PACKAGESDIR} ${_DESTDIR}; \
-		echo " done"; \
-	fi
-	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
-		echo -n "Installing user packages ..."; \
-	fi
-	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
-                cd ${_DESTDIR}/packages && for _FILE in *; do \
-                        _FILES="$${_FILES} /packages/$${_FILE}"; \
-                done; \
-                ${PKG} -c ${_DESTDIR} add -M $${_FILES}; \
-	fi
-	${_v}if [ -d "${_DESTDIR}/packages" ]; then \
-		${RM} -rf ${_DESTDIR}/packages; \
-		echo " done"; \
-	fi
+	@echo  "Installing user packages ..."
+	${_v}if [ -f "${TOOLSDIR}/packages" ]; then \
+		_PKGS="${TOOLSDIR}/packages"; \
+		elif [ -f "${TOOLSDIR}/packages.sample" ]; then \
+		_PKGS="${TOOLSDIR}/packages.sample"; \
+		fi; \
+		if [ -n "$${_PKGS}" ]; then \
+		env ASSUME_ALWAYS_YES=yes \
+		PKG_ABI="${PKG_ABI}" \
+		PKG_CACHEDIR=${WRKDIR}/pkgcache \
+		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
+		fi;
 	${_v}${TOUCH} ${WRKDIR}/.packages_done
+
+packages-mini: packages ${WRKDIR}/.packages_mini_done
+${WRKDIR}/.packages_mini_done:
+	@echo  "Installing additional mini packages ..."
+	${_v}if [ -f "${TOOLSDIR}/packages-mini" ]; then \
+		_PKGS="${TOOLSDIR}/packages-mini"; \
+		elif [ -f "${TOOLSDIR}/packages-mini.sample" ]; then \
+		_PKGS="${TOOLSDIR}/packages-mini.sample"; \
+		fi; \
+		if [ -n "$${_PKGS}" ]; then \
+		env ASSUME_ALWAYS_YES=yes \
+		PKG_ABI="${PKG_ABI}" \
+		PKG_CACHEDIR=${WRKDIR}/pkgcache \
+		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
+		fi;
+	${_v}${TOUCH} ${WRKDIR}/.packages_mini_done
 
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
@@ -369,7 +390,7 @@ ${WRKDIR}/.config_done:
 		${INSTALL} -m 0644 ${CFGDIR}/${FILE}.sample ${_DESTDIR}/etc/${FILE}; \
 	fi
 .endfor
-.if defined(ROOTHACK)
+.if !defined(NO_ROOTHACK)
 	@echo 'root_rw_mount="NO"' >> ${_DESTDIR}/etc/rc.conf
 .endif
 	${_v}if [ -f "${CFGDIR}/resolv.conf" ]; then \
@@ -389,14 +410,16 @@ ${WRKDIR}/.config_done:
 		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${_DESTDIR}/etc/rc.d/; \
 	done
 #	${_v}${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${_DESTDIR}/etc/ttys
-.if !defined(ROOTHACK)
+.if defined(NO_ROOTHACK)
 	${_v}echo "/dev/md0 / ufs rw 0 0" > ${_DESTDIR}/etc/fstab
 	${_v}echo "tmpfs /tmp tmpfs rw,mode=1777 0 0" >> ${_DESTDIR}/etc/fstab
 .else
 	${_v}${TOUCH} ${_DESTDIR}/etc/fstab
 .endif
 .if defined(ROOTPW)
-	${_v}echo ${ROOTPW} | ${PW} -V ${_DESTDIR}/etc usermod root -h 0
+	${_v}echo '${ROOTPW}'| ${OPENSSL} -6 -stdin | ${PW} -V ${_DESTDIR}/etc usermod root -H 0
+.elif !empty(ROOTPW_HASH)
+	${_v}echo '${ROOTPW_HASH}'| ${PW} -V ${_DESTDIR}/etc usermod root -H 0
 .endif
 	${_v}echo PermitRootLogin yes >> ${_DESTDIR}/etc/ssh/sshd_config
 .if exists(${CFGDIR}/hosts)
@@ -431,7 +454,7 @@ ${WRKDIR}/.customfiles_done:
 
 compress-usr: install prune config genkeys customfiles boot packages ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
-.if !defined(ROOTHACK)
+.if defined(NO_ROOTHACK)
 	@echo -n "Compressing usr ..."
 	${_v}${TAR} -c -J -C ${_DESTDIR} -f ${_DESTDIR}/.usr.tar.xz usr 
 	${_v}${RM} -rf ${_DESTDIR}/usr && ${MKDIR} ${_DESTDIR}/usr 
@@ -455,7 +478,7 @@ install-roothack: compress-usr roothack ${WRKDIR}/.install-roothack_done
 ${WRKDIR}/.install-roothack_done:
 	@echo -n "Installing roothack ..."
 	${_v}${MKDIR} -p ${_ROOTDIR}/dev ${_ROOTDIR}/sbin
-	${_v}${INSTALL} -m 555 ${_ROOTHACK_FILE} ${_ROOTDIR}/sbin/init
+	${_v}${INSTALL} -m 555 ${ROOTHACK_FILE} ${_ROOTDIR}/sbin/init
 	${_v}${TOUCH} ${WRKDIR}/.install-roothack_done
 	@echo " done"
 
@@ -467,8 +490,13 @@ ${WRKDIR}/.boot_done:
 	${_v}${TAR} -c -X ${KERN_EXCLUDE} -C ${_BOOTDIR}/${KERNDIR} -f - . | ${TAR} -xv -C ${WRKDIR}/disk/boot/kernel -f -
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
 .for FILE in ${BOOTFILES}
-	${_v}-${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
+	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
+.if defined(LOADER_4TH)
+	${_v}${MV} -f ${WRKDIR}/disk/boot/loader_4th ${WRKDIR}/disk/boot/loader
+.else
+	${_v}${MV} -f ${WRKDIR}/disk/boot/loader_lua ${WRKDIR}/disk/boot/loader
+.endif
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
 	${_v}-${INSTALL} -m 0555 ${_BOOTDIR}/${KERNDIR}/kernel.symbols ${WRKDIR}/disk/boot/kernel
@@ -492,7 +520,7 @@ ${WRKDIR}/.boot_done:
 		${INSTALL} -m 0555 ${_BOOTDIR}/${KERNDIR}/${FILE}.ko.symbols ${_DESTDIR}/boot/modules
 . endif
 .endfor
-.if defined(ROOTHACK)
+.if !defined(NO_ROOTHACK)
 	${_v}${MKDIR} -p ${_ROOTDIR}/boot/modules
 	${_v}${INSTALL} -m 0666 ${_BOOTDIR}/${KERNDIR}/tmpfs.ko ${_ROOTDIR}/boot/modules
 .endif
@@ -502,7 +530,7 @@ ${WRKDIR}/.boot_done:
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
-.if defined(ROOTHACK)
+.if !defined(NO_ROOTHACK)
 mfsroot: install prune config genkeys customfiles boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
 .else
 mfsroot: install prune config genkeys customfiles boot compress-usr packages ${WRKDIR}/.mfsroot_done
@@ -580,9 +608,16 @@ ${TARFILE}:
 	@echo " done"
 	${_v}${LS} -l ${TARFILE}
 
+prepare-mini: packages-mini config boot
+
 clean-roothack:
 	${_v}${RM} -rf ${WRKDIR}/roothack
 
-clean: clean-roothack
+clean-pkgcache:
+	${_v}${RM} -rf ${WRKDIR}/cache
+
+clean:
 	${_v}if [ -d ${WRKDIR} ]; then ${CHFLAGS} -R noschg ${WRKDIR}; fi
 	${_v}cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done
+
+clean-all: clean clean-roothack clean-pkgcache

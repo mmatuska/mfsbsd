@@ -7,6 +7,9 @@ Read hints in the sample configuration files in the conf/ directory, copy
 these files to files without .sample ending and make modifications to suit 
 your needs.
 
+The default root password is "mfsroot". You can pick a difrerent password
+with the ROOTPW or ROOTPW_HASH make variables.
+
 ## Additional packages and files
 If you want any packages installed, copy the .tbz files that should be 
 automatically installed into the packages/ directory.
