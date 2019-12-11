@@ -17,20 +17,24 @@ then
 	fetch -o ${BASE}/kernel.txz ${DOWNLOAD_URL}/kernel.txz
 elif [ "${ACTION}" = "build-std" ]
 then
-	make clean
-	make iso RELEASE=${RELEASE} BASE=${BASE}
-	make RELEASE=${RELEASE} BASE=${BASE}
+	make clean V=1
+	make iso V=1 RELEASE=${RELEASE} BASE=${BASE}
+	make V=1 RELEASE=${RELEASE} BASE=${BASE}
 elif [ "${ACTION}" = "build-se" ]
 then
-	make clean
-	make iso RELEASE=${RELEASE} BASE=${BASE} SE=1
-	make RELEASE=${RELEASE} BASE=${BASE} SE=1
+	make clean V=1
+	make iso V=1 RELEASE=${RELEASE} BASE=${BASE} SE=1
+	make V=1 RELEASE=${RELEASE} BASE=${BASE} SE=1
 elif [ "${ACTION}" = "build-mini" ]
 then
-	make clean
-	make prepare-mini
-	cd mini && make clean && make iso RELEASE=${RELEASE} && make clean && cd ..
-	make clean
+	make clean V=1
+	make prepare-mini V=1 RELEASE=${RELEASE} BASE=${BASE}
+	cd mini
+	make clean V=1
+	make iso V=1 RELEASE=${RELEASE}
+	make clean V=1
+	cd ..
+	make clean V=1
 	mv mini/*.iso .
 else
 	echo "Unknown build step"

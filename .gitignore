@@ -13,4 +13,4 @@ tools/roothack/.depend
 tools/roothack/.depend.roothack.o
 tools/roothack/roothack
 tools/roothack/roothack.o
-work/*
+work
