@@ -196,7 +196,7 @@ ${WRKDIR}/.config_done:
 	${_v}echo "/dev/md0 / ufs rw 0 0" > ${_ROOTDIR}/etc/fstab
 	${_v}echo "tmpfs /tmp tmpfs rw,mode=1777 0 0" >> ${_ROOTDIR}/etc/fstab
 .if defined(ROOTPW)
-	${_v}echo '${ROOTPW}'| ${OPENSSL} -6 -stdin | ${PW} -V ${_ROOTDIR}/etc usermod root -H 0
+	${_v}echo '${ROOTPW}'| ${OPENSSL} passwd -6 -stdin | ${PW} -V ${_ROOTDIR}/etc usermod root -H 0
 .elif !empty(ROOTPW_HASH)
 	${_v}echo '${ROOTPW_HASH}'| ${PW} -V ${_ROOTDIR}/etc usermod root -H 0
 .endif
