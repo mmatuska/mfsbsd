@@ -34,6 +34,7 @@ CFGDIR?=		conf
 SCRIPTSDIR?=		scripts
 PACKAGESDIR?=		packages
 CUSTOMFILESDIR?=	customfiles
+CUSTOMSCRIPTSDIR?=	customscripts
 TOOLSDIR?=		tools
 PRUNELIST?=		${TOOLSDIR}/prunelist
 KERN_EXCLUDE?=		${TOOLSDIR}/kern_exclude
@@ -177,6 +178,13 @@ BUILDENV?= env \
 INSTALLENV?= ${BUILDENV} \
 	WITHOUT_TOOLCHAIN=1
 .endif
+
+# Environment for custom scripts
+CUSTOMSCRIPTENV?= env \
+	WRKDIR=${WRKDIR} \
+	DESTDIR=${_DESTDIR} \
+	DISTDIR=${_DISTDIR} \
+	BASE=${BASE}
 
 .if defined(FULLDIST)
 NO_PRUNE=1
@@ -452,7 +460,19 @@ ${WRKDIR}/.customfiles_done:
 	@echo " done"
 .endif
 
-compress-usr: install prune config genkeys customfiles boot packages ${WRKDIR}/.compress-usr_done
+customscripts: config ${WRKDIR}/.customscripts_done
+${WRKDIR}/.customscripts_done:
+.if exists(${CUSTOMSCRIPTSDIR})
+	@echo -n "Running user scripts ..."
+	@for SCRIPT in `find ${CUSTOMSCRIPTSDIR} -type f`; do \
+		chmod +x $$SCRIPT; \
+		${CUSTOMSCRIPTENV} $$SCRIPT; \
+	done
+	${_v}${TOUCH} ${WRKDIR}/.customscripts_done
+	@echo " done"
+.endif
+
+compress-usr: install prune config genkeys customfiles customscripts boot packages ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
 .if defined(NO_ROOTHACK)
 	@echo -n "Compressing usr ..."
@@ -531,9 +551,9 @@ ${WRKDIR}/.boot_done:
 	@echo " done"
 
 .if !defined(NO_ROOTHACK)
-mfsroot: install prune config genkeys customfiles boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys customfiles customscripts boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
 .else
-mfsroot: install prune config genkeys customfiles boot compress-usr packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune config genkeys customfiles customscripts boot compress-usr packages ${WRKDIR}/.mfsroot_done
 .endif
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
@@ -550,7 +570,7 @@ ${WRKDIR}/.mfsroot_done:
 	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-fbsddist: install prune config genkeys customfiles boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
+fbsddist: install prune config genkeys customfiles customscripts boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
@@ -559,7 +579,7 @@ ${WRKDIR}/.fbsddist_done:
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.fbsddist_done
 
-image: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${IMAGE}
+image: install prune config genkeys customfiles customscripts boot compress-usr mfsroot fbsddist ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 .if defined(BSDPART)
@@ -574,7 +594,7 @@ ${IMAGE}:
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
 
-gce: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${IMAGE} ${GCEFILE}
+gce: install prune config genkeys customfiles customscripts boot compress-usr mfsroot fbsddist ${IMAGE} ${GCEFILE}
 ${GCEFILE}:
 	@echo -n "Creating GCE-compatible tarball..."
 .if !exists(${GTAR})
@@ -585,7 +605,7 @@ ${GCEFILE}:
 	${_v}${LS} -l ${GCEFILE}
 .endif
 
-iso: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${ISOIMAGE}
+iso: install prune config genkeys customfiles customscripts boot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
 .if defined(USE_MKISOFS)
@@ -600,7 +620,7 @@ ${ISOIMAGE}:
 	@echo " done"
 	${_v}${LS} -l ${ISOIMAGE}
 
-tar: install prune config customfiles boot compress-usr mfsroot fbsddist ${TARFILE}
+tar: install prune config customfiles customscripts boot compress-usr mfsroot fbsddist ${TARFILE}
 ${TARFILE}:
 	@echo -n "Creating tar file ..."
 	${_v}cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
