@@ -1,7 +1,7 @@
 PROG=	roothack
 MAN=
 
-LDADD=	-larchive -lbz2 -lz -llzma -lcrypto -lbsdxml
+LDADD=	-larchive -lbz2 -lz -llzma -lcrypto -lbsdxml -lmd
 
 NO_SHARED=
 
