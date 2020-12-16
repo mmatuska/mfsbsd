@@ -417,7 +417,7 @@ ${WRKDIR}/.config_done:
 	${_v}${TOUCH} ${_DESTDIR}/etc/fstab
 .endif
 .if defined(ROOTPW)
-	${_v}echo '${ROOTPW}'| ${OPENSSL} -6 -stdin | ${PW} -V ${_DESTDIR}/etc usermod root -H 0
+	${_v}echo '${ROOTPW}'| ${OPENSSL} passwd -6 -stdin | ${PW} -V ${_DESTDIR}/etc usermod root -H 0
 .elif !empty(ROOTPW_HASH)
 	${_v}echo '${ROOTPW_HASH}'| ${PW} -V ${_DESTDIR}/etc usermod root -H 0
 .endif
