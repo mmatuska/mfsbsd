@@ -79,9 +79,9 @@ DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
 .if defined(LOADER_4TH)
-BOOTFILES?=	defaults device.hints loader_4th *.rc *.4th
+BOOTFILES?=	cdboot defaults device.hints loader_4th *.rc *.4th
 .else
-BOOTFILES?=	defaults device.hints loader_lua lua
+BOOTFILES?=	cdboot defaults device.hints loader_lua lua
 .endif
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
 		ipmi ntfs nullfs opensolaris smbus snp tmpfs zfs
@@ -526,7 +526,7 @@ ${WRKDIR}/.boot_done:
 .endif
 	${_v}${RM} -rf ${_BOOTDIR}/${KERNDIR} ${_BOOTDIR}/*.symbols
 	${_v}${MKDIR} -p ${WRKDIR}/boot
-	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot
+	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${_DESTDIR}/boot/loader.efi ${WRKDIR}/boot
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
@@ -559,6 +559,14 @@ ${WRKDIR}/.fbsddist_done:
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.fbsddist_done
 
+efiboot: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${WRKDIR}/.efiboot_done
+${WRKDIR}/.efiboot_done:
+	${_v}${RM} -rf ${WRKDIR}/efiboot
+	${_v}${MKDIR} ${WRKDIR}/efiboot/EFI/BOOT
+	${_v}${CP} ${WRKDIR}/boot/loader.efi ${WRKDIR}/efiboot/EFI/BOOT/BOOTX64.efi
+	${_v}${MAKEFS} -t msdos -s 40m -o sectors_per_cluster=1,at_type=32,media_descriptor=248 ${WRKDIR}/boot/efiboot ${WRKDIR}/efiboot
+	${_v}${TOUCH} ${WRKDIR}/.efiboot_done
+
 image: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
@@ -585,17 +593,17 @@ ${GCEFILE}:
 	${_v}${LS} -l ${GCEFILE}
 .endif
 
-iso: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist ${ISOIMAGE}
+iso: install prune config genkeys customfiles boot compress-usr mfsroot fbsddist efiboot ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
 .if defined(USE_MKISOFS)
 . if !exists(${MKISOFS})
 	@echo "${MKISOFS} is missing, please install sysutils/cdrtools first"; exit 1
 . else
-	${_v}${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk > /dev/null 2> /dev/null
+	${_v}${MKISOFS} -b boot/cdboot -no-emul-boot -eltorito-alt-boot -eltorito-platform efi -b boot/efiboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk > /dev/null 2> /dev/null
 . endif
 .else
-	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;${WRKDIR}/boot/efiboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
 .endif
 	@echo " done"
 	${_v}${LS} -l ${ISOIMAGE}
