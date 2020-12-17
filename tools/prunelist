@@ -25,6 +25,14 @@ usr/bin/gdbreplay
 usr/bin/ld
 usr/bin/ld.bfd
 usr/bin/lldb
+usr/bin/llvm-addr2line
+usr/bin/llvm-ar
+usr/bin/llvm-cov
+usr/bin/llvm-nm
+usr/bin/llvm-objdump
+usr/bin/llvm-profdata
+usr/bin/llvm-ranlib
+usr/bin/llvm-symbolizer
 usr/bin/llvm-tblgen
 usr/bin/nm
 usr/bin/objcopy
@@ -39,6 +47,7 @@ usr/games
 usr/include
 usr/lib32
 usr/lib/*.a
+usr/lib/clang
 usr/lib/private/*.a
 usr/lib/private/libunbound*
 usr/libexec/cc1
