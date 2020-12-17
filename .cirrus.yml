@@ -3,7 +3,7 @@ env:
   ARCH: amd64
 
 freebsd_instance:
-  image_family: freebsd-12-1
+  image_family: freebsd-12-2
 
 build_task:
   prepare_script:

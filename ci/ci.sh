@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 BASE=/tmp/freebsd-dist
-RELEASE=${RELEASE:-12.1-RELEASE}
+RELEASE=${RELEASE:-12.2-RELEASE}
 DOWNLOAD_URL=http://ftp.freebsd.org/pub/FreeBSD/releases/amd64/${RELEASE}
 while getopts b:r: opt
 do
