@@ -150,3 +150,5 @@ usr/sbin/usbconfig
 usr/sbin/usbdump
 usr/share/misc/iso3166
 usr/share/misc/termcap
+usr/share/misc/magic
+usr/share/misc/magic.mgc
