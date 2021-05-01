@@ -12,5 +12,7 @@ tools/pkg-static
 tools/roothack/.depend
 tools/roothack/.depend.roothack.o
 tools/roothack/roothack
+tools/roothack/roothack.debug
+tools/roothack/roothack.full
 tools/roothack/roothack.o
 work

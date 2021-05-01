@@ -10,7 +10,11 @@ bin/tmux
 lib/libevent-2.1.so*
 lib/libiconv.so.*
 lib/libintl.so.*
+lib/liblz4.so.*
 lib/libreadline.so.*
 lib/libutf8proc.so.*
+lib/libxxhash.so.*
+lib/libzstd.so.*
 sbin/dropbear
 sbin/dmidecode
+sbin/smartctl

@@ -10,7 +10,7 @@ BASE?=			/cdrom/usr/freebsd-dist
 KERNCONF?=		GENERIC
 MFSROOT_FREE_INODES?=	10%
 MFSROOT_FREE_BLOCKS?=	10%
-MFSROOT_MAXSIZE?=	100m
+MFSROOT_MAXSIZE?=	120m
 ROOTPW_HASH?=		$$6$$051DdQA7fTvLymkY$$Z5f6snVFQJKugWmGi8y0motBNaKn9em0y2K0ZsJMku3v9gkiYh8M.OTIIie3RvHpzT6udumtZUtc0kXwJcCMR1
 
 # If you want to build your own kernel and make you own world, you need to set
