@@ -65,6 +65,7 @@ usr/bin/grep
 usr/bin/last
 usr/bin/ldd
 usr/bin/login
+usr/bin/openssl
 usr/bin/passwd
 usr/bin/sort
 usr/bin/top
