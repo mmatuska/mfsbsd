@@ -11,7 +11,6 @@ sbin/sha256
 sbin/sha512
 sbin/shutdown
 lib/casper/libcap_dns.so*
-lib/casper/libcap_fileargs.so*
 lib/libalias*
 lib/libbegemot.so*
 lib/libbsdxml.so*
@@ -87,7 +86,6 @@ usr/lib/libbsm.so*
 usr/lib/libbz2.so*
 usr/lib/libc++.so*
 usr/lib/libcap_dns.so*
-usr/lib/libcap_fileargs.so*
 usr/lib/libdialog.so*
 usr/lib/libdevctl.so*
 usr/lib/libdevinfo.so*

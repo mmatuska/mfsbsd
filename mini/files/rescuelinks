@@ -26,7 +26,6 @@ bin/pgrep
 bin/pkill
 bin/ps
 bin/pwd
-bin/rcp
 bin/realpath
 bin/red
 bin/rm
@@ -37,8 +36,6 @@ bin/sync
 bin/tcsh
 bin/test
 bin/unlink
-sbin/atmconfig
-sbin/badsect
 sbin/bsdlabel
 sbin/camcontrol
 sbin/ccdconfig
