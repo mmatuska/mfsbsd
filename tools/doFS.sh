@@ -7,9 +7,9 @@ set -ex
 
 export BLOCKSIZE=512
 
-DISKLABEL=$1; shift
-MACHINE=${1:+"-m $1"}; shift
-FSIMG=$1; shift
+DISKLABEL=$1 ; shift
+MACHINE=${1:+"-m $1"} ; shift
+FSIMG=$1 ; shift
 RD=$1 ; shift
 MNT=$1 ; shift
 FSSIZE=$1 ; shift

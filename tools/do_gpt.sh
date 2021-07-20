@@ -10,6 +10,9 @@ VERBOSE=$5
 
 FSLABEL="auto"
 
+IMG_FILE=${1##*/}
+IMG_DIR=${1%/*}
+if [ -z "${IMG_DIR}" ]; then IMG_DIR="."; fi
 
 exit_with() {
 	local status="$1"
@@ -43,7 +46,7 @@ if [ -n "$VERBOSE" ]; then
   echo "FSIMG ${FSIMG} FSPROTO ${FSPROTO} FSSIZE ${FSSIZE}"
 fi
 
-TMPIMG=`env TMPDIR=. mktemp -t ${FSIMG}`
+TMPIMG=`env TMPDIR=${IMG_DIR} mktemp -t ${IMG_FILE}`
 
 dd of=${FSIMG} if=/dev/zero count=${IMG_SIZE} bs=1k
 dd of=${TMPIMG} if=/dev/zero count=${FSSIZE} bs=1k
