@@ -6,7 +6,8 @@ FSIMG=$1
 FSPROTO=$2
 FSSIZE=$3
 BOOTDIR=$4
-VERBOSE=$5
+EFIESP=$5
+VERBOSE=$6
 
 FSLABEL="auto"
 
@@ -64,10 +65,13 @@ fi
 gpart create -s gpt ${unit}
 gpart add -t freebsd-boot -b 40 -l boot -s 472 ${unit}
 gpart bootcode -b ${BOOTDIR}/pmbr -p ${BOOTDIR}/gptboot -i 1 ${unit}
+gpart add -t efi -s 2M ${unit}
 gpart add -t freebsd-ufs -l rootfs ${unit}
 
+${TIME} dd if=${EFIESP} of=/dev/${unit}p2 bs=128k
+
 ${TIME} makefs -B little ${TMPIMG} ${FSPROTO}
-${TIME} dd if=${TMPIMG} of=/dev/${unit}p2 bs=128k
+${TIME} dd if=${TMPIMG} of=/dev/${unit}p3 bs=128k
 
 if [ -n "$VERBOSE" ]; then
   set +x

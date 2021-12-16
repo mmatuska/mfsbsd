@@ -92,6 +92,8 @@ TARFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
 GCEFILE?= ${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar.gz
 _DISTDIR= ${WRKDIR}/dist/${RELEASE}-${TARGET}
 
+EFISP?= ../work/efisp.img
+
 .if !defined(DEBUG)
 EXCLUDE=--exclude *.symbols
 .else
@@ -272,7 +274,7 @@ ${IMAGE}:
 	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
 .else
-	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${BASEDIR}/boot ${VERB}
+	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${BASEDIR}/boot ${EFISP} ${VERB}
 .endif
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
@@ -291,7 +293,7 @@ ${GCEFILE}:
 iso: install config boot mfsroot ${ISOIMAGE}
 ${ISOIMAGE}:
 	${_v}echo -n "Creating ISO image ..."
-	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD -o bootimage=i386\;/boot/cdboot,no-emul-boot -o bootimage=i386\;${EFISP},no-emul-boot,platformid=efi ${ISOIMAGE} ${WRKDIR}/disk
 	${_v}echo " done"
 	${_v}${LS} -l ${ISOIMAGE}
 

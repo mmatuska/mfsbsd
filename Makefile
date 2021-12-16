@@ -132,6 +132,11 @@ EXCLUDE=	--exclude *.symbols
 EXCLUDE=
 .endif
 
+# EFI boot support
+EFISP?=	${WRKDIR}/efisp.img
+EFIBOOTNAME_i386?= bootia32.efi
+EFIBOOTNAME_amd64?= bootx64.efi
+
 # Roothack stuff
 .if !defined(NO_ROOTHACK)
 . if defined(ROOTHACK_FILE) && exists(${ROOTHACK_FILE})
@@ -509,13 +514,16 @@ ${WRKDIR}/.boot_done:
 	${_v}${CHOWN} root:wheel ${WRKDIR}/disk
 	${_v}${TAR} -c -X ${KERN_EXCLUDE} -C ${_BOOTDIR}/${KERNDIR} -f - . | ${TAR} -xv -C ${WRKDIR}/disk/boot/kernel -f -
 	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
+	${_v}${MKDIR} -p ${WRKDIR}/efi/EFI/BOOT
 .for FILE in ${BOOTFILES}
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
 .if defined(LOADER_4TH)
 	${_v}${MV} -f ${WRKDIR}/disk/boot/loader_4th ${WRKDIR}/disk/boot/loader
+	${_v}${CP} -f ${_DESTDIR}/boot/loader_4th.efi ${WRKDIR}/efi/EFI/BOOT/${EFIBOOTNAME_${TARGET}}
 .else
 	${_v}${MV} -f ${WRKDIR}/disk/boot/loader_lua ${WRKDIR}/disk/boot/loader
+	${_v}${CP} -f ${_DESTDIR}/boot/loader_lua.efi ${WRKDIR}/efi/EFI/BOOT/${EFIBOOTNAME_${TARGET}}
 .endif
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
@@ -570,6 +578,7 @@ ${WRKDIR}/.mfsroot_done:
 	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
+
 fbsddist: install prune config genkeys customfiles customscripts boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
@@ -579,8 +588,19 @@ ${WRKDIR}/.fbsddist_done:
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.fbsddist_done
 
+# create a 2M sized image file containing a FAT12 filesystem with the contents of the prototype directory
+${EFISP}: boot
+	@echo -n "Creating EFI SP image ..."
+	${_v}${MAKEFS} -t msdos \
+	    -o fat_type=12 \
+	    -o sectors_per_cluster=1 \
+	    -o volume_label=EFISYS \
+	    -s 2048k \
+	    "$@" "${WRKDIR}/efi"
+	@echo " done"
+
 image: install prune config genkeys customfiles customscripts boot compress-usr mfsroot fbsddist ${IMAGE}
-${IMAGE}:
+${IMAGE}: ${EFISP}
 	@echo -n "Creating image file ..."
 .if defined(BSDPART)
 	${_v}${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
@@ -589,7 +609,7 @@ ${IMAGE}:
 	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
 .else
-	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${WRKDIR}/boot ${VERB}
+	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${WRKDIR}/boot ${EFISP} ${VERB}
 .endif
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
@@ -605,8 +625,9 @@ ${GCEFILE}:
 	${_v}${LS} -l ${GCEFILE}
 .endif
 
+
 iso: install prune config genkeys customfiles customscripts boot compress-usr mfsroot fbsddist ${ISOIMAGE}
-${ISOIMAGE}:
+${ISOIMAGE}: ${EFISP}
 	@echo -n "Creating ISO image ..."
 .if defined(USE_MKISOFS)
 . if !exists(${MKISOFS})
@@ -615,7 +636,7 @@ ${ISOIMAGE}:
 	${_v}${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk > /dev/null 2> /dev/null
 . endif
 .else
-	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD -o bootimage=i386\;/boot/cdboot,no-emul-boot -o bootimage=i386\;${EFISP},no-emul-boot,platformid=efi ${ISOIMAGE} ${WRKDIR}/disk
 .endif
 	@echo " done"
 	${_v}${LS} -l ${ISOIMAGE}
@@ -628,7 +649,7 @@ ${TARFILE}:
 	@echo " done"
 	${_v}${LS} -l ${TARFILE}
 
-prepare-mini: packages-mini config boot
+prepare-mini: packages-mini config boot ${EFISP}
 
 clean-roothack:
 	${_v}${RM} -rf ${WRKDIR}/roothack
@@ -639,8 +660,9 @@ clean-pkgcache:
 clean:
 	${_v}if [ -d ${WRKDIR} ]; then \
 	${CHFLAGS} -R noschg ${WRKDIR} && \
+	${RM} -f ${EFISP} && \
 	cd ${WRKDIR} && \
-	${RM} -rf mfs mnt disk dist trees .*_done; \
+	${RM} -rf mfs mnt disk dist trees efi .*_done; \
 	fi
 
 clean-all: clean clean-roothack clean-pkgcache
