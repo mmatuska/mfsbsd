@@ -320,7 +320,16 @@ ${WRKDIR}/.prune_done:
 	@echo " done"
 .endif
 
-packages: install prune ${WRKDIR}/.packages_done
+cdboot: install prune ${WRKDIR}/.cdboot_done
+${WRKDIR}/.cdboot_done:
+	@echo -n "Copying out cdboot and loader.efi ..."
+	${_v}${MKDIR} ${WRKDIR}/cdboot
+	${_v}${CP} ${_DESTDIR}/boot/cdboot ${WRKDIR}/cdboot/
+	${_v}${CP} ${_DESTDIR}/boot/loader.efi ${WRKDIR}/cdboot/
+	${_v}${TOUCH} ${WRKDIR}/.cdboot_done
+	@echo " done"
+
+packages: install prune cdboot ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
 	@echo -n "Installing pkgng ..."
 .  if !exists(${PKG_STATIC})
@@ -472,7 +481,7 @@ ${WRKDIR}/.customscripts_done:
 	@echo " done"
 .endif
 
-compress-usr: install prune config genkeys customfiles customscripts boot packages ${WRKDIR}/.compress-usr_done
+compress-usr: install prune cdboot config genkeys customfiles customscripts boot efiboot packages ${WRKDIR}/.compress-usr_done
 ${WRKDIR}/.compress-usr_done:
 .if defined(NO_ROOTHACK)
 	@echo -n "Compressing usr ..."
@@ -502,7 +511,7 @@ ${WRKDIR}/.install-roothack_done:
 	${_v}${TOUCH} ${WRKDIR}/.install-roothack_done
 	@echo " done"
 
-boot: install prune ${WRKDIR}/.boot_done
+boot: install prune cdboot ${WRKDIR}/.boot_done
 ${WRKDIR}/.boot_done:
 	@echo -n "Configuring boot environment ..."
 	${_v}${MKDIR} -p ${WRKDIR}/disk/boot/kernel
@@ -550,10 +559,21 @@ ${WRKDIR}/.boot_done:
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
+efiboot: install prune cdboot config genkeys customfiles customscripts boot ${WRKDIR}/.efiboot_done
+${WRKDIR}/.efiboot_done:
+.if defined(EFI)
+	@echo -n "Creating EFI boot image ..."
+	${_v}${MKDIR} -p ${WRKDIR}/efiroot/EFI/BOOT
+	${_v}${CP} ${WRKDIR}/cdboot/loader.efi ${WRKDIR}/efiroot/EFI/BOOT/BOOTX64.efi
+	${_v}${MAKEFS} -t msdos -s 40m -o fat_type=32,sectors_per_cluster=1,media_descriptor=248 ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
+	${_v}${TOUCH} ${WRKDIR}/.efiboot_done
+	@echo " done"
+.endif
+
 .if !defined(NO_ROOTHACK)
-mfsroot: install prune config genkeys customfiles customscripts boot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
+mfsroot: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr packages install-roothack ${WRKDIR}/.mfsroot_done
 .else
-mfsroot: install prune config genkeys customfiles customscripts boot compress-usr packages ${WRKDIR}/.mfsroot_done
+mfsroot: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr packages ${WRKDIR}/.mfsroot_done
 .endif
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
@@ -570,7 +590,7 @@ ${WRKDIR}/.mfsroot_done:
 	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
 	@echo " done"
 
-fbsddist: install prune config genkeys customfiles customscripts boot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
+fbsddist: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
 ${WRKDIR}/.fbsddist_done:
 .if defined(SE)
 	@echo -n "Copying FreeBSD installation image ..."
@@ -579,7 +599,7 @@ ${WRKDIR}/.fbsddist_done:
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.fbsddist_done
 
-image: install prune config genkeys customfiles customscripts boot compress-usr mfsroot fbsddist ${IMAGE}
+image: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${IMAGE}
 ${IMAGE}:
 	@echo -n "Creating image file ..."
 .if defined(BSDPART)
@@ -594,7 +614,7 @@ ${IMAGE}:
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
 
-gce: install prune config genkeys customfiles customscripts boot compress-usr mfsroot fbsddist ${IMAGE} ${GCEFILE}
+gce: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${IMAGE} ${GCEFILE}
 ${GCEFILE}:
 	@echo -n "Creating GCE-compatible tarball..."
 .if !exists(${GTAR})
@@ -605,7 +625,7 @@ ${GCEFILE}:
 	${_v}${LS} -l ${GCEFILE}
 .endif
 
-iso: install prune config genkeys customfiles customscripts boot compress-usr mfsroot fbsddist ${ISOIMAGE}
+iso: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
 .if defined(USE_MKISOFS)
@@ -615,12 +635,16 @@ ${ISOIMAGE}:
 	${_v}${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk > /dev/null 2> /dev/null
 . endif
 .else
-	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+. if defined(EFI)
+	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;${WRKDIR}/cdboot/efiboot.img,no-emul-boot,bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+. else
+	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+. endif
 .endif
 	@echo " done"
 	${_v}${LS} -l ${ISOIMAGE}
 
-tar: install prune config customfiles customscripts boot compress-usr mfsroot fbsddist ${TARFILE}
+tar: install prune cdboot config customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${TARFILE}
 ${TARFILE}:
 	@echo -n "Creating tar file ..."
 	${_v}cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
@@ -640,7 +664,7 @@ clean:
 	${_v}if [ -d ${WRKDIR} ]; then \
 	${CHFLAGS} -R noschg ${WRKDIR} && \
 	cd ${WRKDIR} && \
-	${RM} -rf mfs mnt disk dist trees .*_done; \
+	${RM} -rf boot mfs mnt disk dist trees cdboot efiroot .*_done; \
 	fi
 
 clean-all: clean clean-roothack clean-pkgcache
