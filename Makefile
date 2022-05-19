@@ -65,7 +65,6 @@ UNAME?=		/usr/bin/uname
 BZIP2?=		/usr/bin/bzip2
 XZ?=		/usr/bin/xz
 MAKEFS?=	/usr/sbin/makefs
-MKISOFS?=	/usr/local/bin/mkisofs
 SSHKEYGEN?=	/usr/bin/ssh-keygen
 SYSCTL?=	/sbin/sysctl
 PKG?=		/usr/local/sbin/pkg
@@ -628,18 +627,10 @@ ${GCEFILE}:
 iso: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
-.if defined(USE_MKISOFS)
-. if !exists(${MKISOFS})
-	@echo "${MKISOFS} is missing, please install sysutils/cdrtools first"; exit 1
-. else
-	${_v}${MKISOFS} -b boot/cdboot -no-emul-boot -r -J -V mfsBSD -o ${ISOIMAGE} ${WRKDIR}/disk > /dev/null 2> /dev/null
-. endif
-.else
-. if defined(EFI)
+.if defined(EFI)
 	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;${WRKDIR}/cdboot/efiboot.img,no-emul-boot,bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
-. else
+.else
 	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
-. endif
 .endif
 	@echo " done"
 	${_v}${LS} -l ${ISOIMAGE}
