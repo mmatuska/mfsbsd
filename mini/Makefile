@@ -11,6 +11,7 @@
 #
 BASEDIR?=${CURDIR}/../work/mfs/rw
 BOOTBASE?=${CURDIR}/../work/disk/boot
+CDBOOTBASE?=${CURDIR}/../work/cdboot
 CFGDIR?=${CURDIR}/conf
 MFSROOT_FREE_INODES?=5000
 MFSROOT_FREE_BLOCKS?=10%
@@ -21,8 +22,10 @@ LOCALBASEDIR?=${BASEDIR}
 
 .if defined(LOADER_4TH)
 BOOTFILES?=     defaults device.hints loader *.rc *.4th
+EFILOADER?=	loader_4th.efi
 .else
 BOOTFILES?=     defaults device.hints loader lua
+EFILOADER?=	loader_lua.efi
 .endif
 
 #
@@ -238,6 +241,17 @@ ${WRKDIR}/.boot_done:
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
 	${_v}echo " done"
 
+efiboot: boot ${WRKDIR}/.efiboot_done
+${WRKDIR}/.efiboot_done:
+.if !defined(NO_EFIBOOT)
+	@echo -n "Creating EFI boot image ..."
+	${_v}${MKDIR} -p ${WRKDIR}/efiroot/EFI/BOOT ${WRKDIR}/cdboot
+	${_v}${CP} ${CDBOOTBASE}/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/BOOTX64.efi
+	${_v}${MAKEFS} -t msdos -s 2048k -o fat_type=12,sectors_per_cluster=1 ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
+	${_v}${TOUCH} ${WRKDIR}/.efiboot_done
+	@echo " done"
+.endif
+
 boottar: boot ${WRKDIR}/.boottar_done
 ${WRKDIR}/.boottar_done:
 	${_v}echo -n "Compressing mfsroot boot ..."
@@ -272,7 +286,7 @@ ${IMAGE}:
 	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
 .else
-	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${BASEDIR}/boot ${VERB}
+	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${BASEDIR}/boot ${WRKDIR}/cdboot/efiboot.img ${VERB}
 .endif
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
@@ -288,10 +302,19 @@ ${GCEFILE}:
 	${_v}${LS} -l ${GCEFILE}
 .endif
 
-iso: install config boot mfsroot ${ISOIMAGE}
+iso: install config boot efiboot mfsroot ${ISOIMAGE}
 ${ISOIMAGE}:
 	${_v}echo -n "Creating ISO image ..."
-	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;/boot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+.if !defined(NO_EFIBOOT)
+	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD \
+	-o bootimage=i386\;${CDBOOTBASE}/cdboot,no-emul-boot \
+	-o bootimage=i386\;${WRKDIR}/cdboot/efiboot.img,no-emul-boot,platformid=efi \
+	${ISOIMAGE} ${WRKDIR}/disk
+.else
+	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD \
+	-o bootimage=i386\;${CDBOOTBASE}/cdboot,no-emul-boot \
+	${ISOIMAGE} ${WRKDIR}/disk
+.endif
 	${_v}echo " done"
 	${_v}${LS} -l ${ISOIMAGE}
 
@@ -306,5 +329,5 @@ ${TARFILE}:
 clean: 
 	${_v}if [ -d ${WRKDIR} ]; then \
 	${CHFLAGS} -R noschg ${WRKDIR} && \
-	cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees .*_done; \
+	cd ${WRKDIR} && ${RM} -rf mfs mnt disk dist trees efiroot cdboot .*_done; \
 	fi

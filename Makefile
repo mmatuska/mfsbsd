@@ -80,8 +80,10 @@ SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
 .if defined(LOADER_4TH)
 BOOTFILES?=	defaults device.hints loader_4th *.rc *.4th
+EFILOADER?=	loader_4th.efi
 .else
 BOOTFILES?=	defaults device.hints loader_lua lua
+EFILOADER?=	loader_lua.efi
 .endif
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
 		ipmi ntfs nullfs opensolaris smbus snp tmpfs zfs
@@ -321,10 +323,10 @@ ${WRKDIR}/.prune_done:
 
 cdboot: install prune ${WRKDIR}/.cdboot_done
 ${WRKDIR}/.cdboot_done:
-	@echo -n "Copying out cdboot and loader.efi ..."
+	@echo -n "Copying out cdboot and EFI loader ..."
 	${_v}${MKDIR} ${WRKDIR}/cdboot
 	${_v}${CP} ${_DESTDIR}/boot/cdboot ${WRKDIR}/cdboot/
-	${_v}${CP} ${_DESTDIR}/boot/loader.efi ${WRKDIR}/cdboot/
+	${_v}${CP} ${_DESTDIR}/boot/loader_4th.efi ${_DESTDIR}/boot/loader_lua.efi ${WRKDIR}/cdboot/
 	${_v}${TOUCH} ${WRKDIR}/.cdboot_done
 	@echo " done"
 
@@ -560,11 +562,11 @@ ${WRKDIR}/.boot_done:
 
 efiboot: install prune cdboot config genkeys customfiles customscripts boot ${WRKDIR}/.efiboot_done
 ${WRKDIR}/.efiboot_done:
-.if defined(EFI)
+.if !defined(NO_EFIBOOT)
 	@echo -n "Creating EFI boot image ..."
 	${_v}${MKDIR} -p ${WRKDIR}/efiroot/EFI/BOOT
-	${_v}${CP} ${WRKDIR}/cdboot/loader.efi ${WRKDIR}/efiroot/EFI/BOOT/BOOTX64.efi
-	${_v}${MAKEFS} -t msdos -s 40m -o fat_type=32,sectors_per_cluster=1,media_descriptor=248 ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
+	${_v}${CP} ${WRKDIR}/cdboot/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/BOOTX64.efi
+	${_v}${MAKEFS} -t msdos -s 2048k -o fat_type=12,sectors_per_cluster=1 ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
 	${_v}${TOUCH} ${WRKDIR}/.efiboot_done
 	@echo " done"
 .endif
@@ -608,7 +610,7 @@ ${IMAGE}:
 	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
 	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
 .else
-	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${WRKDIR}/boot ${VERB}
+	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${WRKDIR}/boot ${WRKDIR}/cdboot/efiboot.img ${VERB}
 .endif
 	@echo " done"
 	${_v}${LS} -l ${.TARGET}
@@ -627,10 +629,15 @@ ${GCEFILE}:
 iso: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
-.if defined(EFI)
-	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;${WRKDIR}/cdboot/efiboot.img,no-emul-boot,bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+.if !defined(NO_EFIBOOT)
+	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD \
+	-o bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot \
+	-o bootimage=i386\;${WRKDIR}/cdboot/efiboot.img,no-emul-boot,platformid=efi \
+	${ISOIMAGE} ${WRKDIR}/disk
 .else
-	${_v}${MAKEFS} -t cd9660 -o rockridge,bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot,label=mfsBSD ${ISOIMAGE} ${WRKDIR}/disk
+	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD \
+	-o bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot \
+	${ISOIMAGE} ${WRKDIR}/disk
 .endif
 	@echo " done"
 	${_v}${LS} -l ${ISOIMAGE}
@@ -643,7 +650,7 @@ ${TARFILE}:
 	@echo " done"
 	${_v}${LS} -l ${TARFILE}
 
-prepare-mini: packages-mini config boot
+prepare-mini: packages-mini config boot cdboot
 
 clean-roothack:
 	${_v}${RM} -rf ${WRKDIR}/roothack
