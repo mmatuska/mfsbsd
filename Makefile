@@ -656,7 +656,7 @@ clean-roothack:
 	${_v}${RM} -rf ${WRKDIR}/roothack
 
 clean-pkgcache:
-	${_v}${RM} -rf ${WRKDIR}/cache
+	${_v}${RM} -rf ${WRKDIR}/pkgcache
 
 clean:
 	${_v}if [ -d ${WRKDIR} ]; then \
