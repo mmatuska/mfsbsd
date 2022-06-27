@@ -24,9 +24,10 @@ help() {
 	echo; echo "Required flags:"
 	echo "-d geom_provider  : geom provider(s) to install to (e.g. da0)"
 	echo; echo "Optional flags:"
+	echo "-r raidz|mirror   : select raid mode if more than one -d provider given"
+	echo "                    (must begin after -d)"
 	echo "-u dist_url       : URL or directory with base.txz and kernel.txz"
 	echo "                    (defaults to FreeBSD FTP mirror)"
-	echo "-r raidz|mirror   : select raid mode if more than one -d provider given"
 	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
 	echo "-z zfs_part_size  : create zfs parition of this size (default: all space left)"
 	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
@@ -40,6 +41,10 @@ help() {
 	echo; echo "Examples:"
 	echo "Install on a single drive with 2GB swap:"
 	echo "$0 -u /path/to/release -d da0 -s 2G"
+	echo "Install on four-disk stripe:"
+	echo "$0 -u /path/to/release -d da0 -d da1 -d da2 -d da3"
+	echo "Install on an stripped mirror:"
+	echo "$0 -u /path/to/release -d da0 -d da1 -r mirror -d da2 -d da3 -r mirror"
 	echo "Install on a mirror without swap, pool name rpool:"
 	echo "$0 -u /path/to/release -d da0 -d da1 -r mirror -p rpool"
 	echo; echo "Notes:"
@@ -50,13 +55,40 @@ help() {
 
 while getopts d:u:t:r:p:s:z:m:V:Chcl4A o; do
 	case "$o" in
-        	d) DEVS="$DEVS ${OPTARG##/dev/}" ;;
+        	d) DEVS="$DEVS ${OPTARG##/dev/}"; ZDEVS="$ZDEVS ${OPTARG##/dev/}" ;;
 		u) URL="${OPTARG}" ;;
 		t) ARCHIVE="${OPTARG}" ;;
 		p) POOL="${OPTARG}" ;;
 		s) SWAP="${OPTARG}" ;;
 		m) MNT="${OPTARG}" ;;
-		r) RAID="${OPTARG}" ;;
+		r) 
+			if [ -z "${ZDEVS}" ]; then
+				echo "Error: geom providers must be defined before using \
+					this option"
+				usage
+				exit 1
+			fi
+
+			if [ -n "${RAID}" -a "${RAID}" != "${OPTARG}" ]; then
+				echo "Error: array types do not match"
+				exit 1
+			else
+				RAID="${OPTARG}"
+			fi
+
+			COUNT=`echo ${ZDEVS} | /usr/bin/wc -w | /usr/bin/awk '{ print $1 }'`
+			if [ "$COUNT" -lt "3" -a "$RAID" = "raidz" ]; then
+				echo "Error: raidz needs at least three devices (-d switch)"
+				exit 1
+			elif [ "$COUNT" = "1" -a "$RAID" = "mirror" ]; then
+				echo "Error: mirror needs at least two devices (-d switch)"
+				exit 1
+			fi
+			
+			ZARRAY="${ZARRAY} ${RAID} ${ZDEVS}"
+
+			unset ZDEVS
+			;;
 		z) ZPART="${OPTARG}" ;;
 		V) VERSION="${OPTARG}" ;;
 		C) COMPAT=1 ;;
@@ -135,19 +167,9 @@ if [ -n "${EXPOOLS}" ]; then
 	done
 fi
 
-COUNT=`echo ${DEVS} | /usr/bin/wc -w | /usr/bin/awk '{ print $1 }'`
-if [ "$COUNT" -lt "3" -a "$RAID" = "raidz" ]; then
-	echo "Error: raidz needs at least three devices (-d switch)"
-	exit 1
-elif [ "$COUNT" = "1" -a "$RAID" = "mirror" ]; then
-	echo "Error: mirror needs at least two devices (-d switch)"
-	exit 1
-elif [ "$COUNT" = "2" -a "$RAID" != "mirror" ]; then
-	echo "Notice: two drives selected, automatically choosing mirror mode"
-	RAID="mirror"
-elif [ "$COUNT" -gt "2" -a "$RAID" != "mirror" -a "$RAID" != "raidz" ]; then
-	echo "Error: please choose raid mode with the -r switch (mirror or raidz)"
-	exit 1
+if [ -z "${ZARRAY}" ]; then
+	echo Notice: no raid type has been chosen, it will be \`stripe\`
+	ZARRAY="${DEVS}"
 fi
 
 for DEV in ${DEVS}; do
@@ -272,7 +294,16 @@ done
 
 # Create zpool and zfs
 
-for DEV in ${DEVS}; do
+for DEV in ${ZARRAY}; do
+	if [ "${DEV}" = "mirror" -o "${DEV}" = "raidz" ]; then
+		if [ -n "${_PARTS}" ]; then
+			ZPARTS="${ZPARTS} ${RAID} ${_PARTS}"
+			
+			unset _PARTS
+		fi
+		continue
+	fi
+
 	PART=`/sbin/gpart show ${DEV} | /usr/bin/grep freebsd-zfs | /usr/bin/awk '{ print $3 }'`
 
 	if [ -z "${PART}" ]; then
@@ -284,10 +315,12 @@ for DEV in ${DEVS}; do
 
 	GPARTS="${GPARTS} ${GPART}"
 	PARTS="${PARTS} ${DEV}p${PART}"
+	_PARTS="${_PARTS} ${DEV}p${PART}"
 done
+ZPARTS="${ZPARTS} ${RAID} ${_PARTS}"
 
-echo -n "Creating ZFS pool ${POOL} on${PARTS} ..."
-if ! /sbin/zpool create -f -m none ${ALTROOT} ${COMPATFLAGS} ${VERSION} ${POOL} ${RAID} ${PARTS} > /dev/null 2> /dev/null; then
+echo -n "Creating ZFS pool ${POOL} on ${PARTS} ..."
+if ! /sbin/zpool create -f -m none ${ALTROOT} ${COMPATFLAGS} ${VERSION} ${POOL} ${ZPARTS} > /dev/null 2> /dev/null; then
 	echo " error"
 	exit 1
 fi
