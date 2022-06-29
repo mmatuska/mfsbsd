@@ -6,9 +6,10 @@
 #
 FREEBSD_MIRROR="${FREEBSD_MIRROR:-ftp://ftp.freebsd.org/pub/FreeBSD}"
 FS_LIST="var tmp"
+RAID_TYPES="mirror raidz raidz1 raidz2 raidz3"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] [ -u dist_url ] [-r mirror|raidz] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4] [-A]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] [ -u dist_url ] [-r mirror|raidz[1|2|3]] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4] [-A]"
 }
 
 osarch() {
@@ -19,25 +20,38 @@ osrelease() {
 	/sbin/sysctl -n kern.osrelease | /usr/bin/sed -E -e 's,-p[0-9]+$,,g'
 }
 
+check_raid() {
+	RAID_TYPE="$1"
+	test -n "$RAID_TYPE" || return 1
+
+	for raid_type in $RAID_TYPES; do
+		if [ "$raid_type" = $RAID_TYPE ]; then
+			return 0
+		fi
+	done
+
+	return 1
+}
+
 help() {
 	echo; echo "Install FreeBSD using ZFS from a compressed archive"
 	echo; echo "Required flags:"
 	echo "-d geom_provider  : geom provider(s) to install to (e.g. da0)"
 	echo; echo "Optional flags:"
-	echo "-r raidz|mirror   : select raid mode if more than one -d provider given"
-	echo "                    (must begin after -d)"
-	echo "-u dist_url       : URL or directory with base.txz and kernel.txz"
-	echo "                    (defaults to FreeBSD FTP mirror)"
-	echo "-s swap_part_size : create a swap partition with given size (default: no swap)"
-	echo "-z zfs_part_size  : create zfs parition of this size (default: all space left)"
-	echo "-p pool_name      : specify a name for the ZFS pool (default: tank)"
-	echo "-C                : compatibility mode with limited feature flags"
-	echo "                    (enable only async_destroy, empty_bpobj and lz4_compress)"
-	echo "-m mount_point    : use this mount point for operations (default: /mnt)"
-	echo "-c                : enable compression for all datasets"
-	echo "-l                : use legacy mounts (via fstab) instead of ZFS mounts"
-	echo "-4                : use fletcher4 as default checksum algorithm"
-	echo "-A                : align partitions to 4K blocks"
+	echo "-r raidz[1|2|3]|mirror   : select raid mode if more than one -d provider given"
+	echo "                           (must begin after -d)"
+	echo "-u dist_url              : URL or directory with base.txz and kernel.txz"
+	echo "                           (defaults to FreeBSD FTP mirror)"
+	echo "-s swap_part_size        : create a swap partition with given size (default: no swap)"
+	echo "-z zfs_part_size         : create zfs parition of this size (default: all space left)"
+	echo "-p pool_name             : specify a name for the ZFS pool (default: tank)"
+	echo "-C                       : compatibility mode with limited feature flags"
+	echo "                           (enable only async_destroy, empty_bpobj and lz4_compress)"
+	echo "-m mount_point           : use this mount point for operations (default: /mnt)"
+	echo "-c                       : enable compression for all datasets"
+	echo "-l                       : use legacy mounts (via fstab) instead of ZFS mounts"
+	echo "-4                       : use fletcher4 as default checksum algorithm"
+	echo "-A                       : align partitions to 4K blocks"
 	echo; echo "Examples:"
 	echo "Install on a single drive with 2GB swap:"
 	echo "$0 -u /path/to/release -d da0 -s 2G"
@@ -45,6 +59,8 @@ help() {
 	echo "$0 -u /path/to/release -d da0 -d da1 -d da2 -d da3"
 	echo "Install on an stripped mirror:"
 	echo "$0 -u /path/to/release -d da0 -d da1 -r mirror -d da2 -d da3 -r mirror"
+	echo "Install on a raidz2:"
+	echo "$0 -u /path/to/release -d da0 -d da1 -d da2 -d da3 -r raidz2"
 	echo "Install on a mirror without swap, pool name rpool:"
 	echo "$0 -u /path/to/release -d da0 -d da1 -r mirror -p rpool"
 	echo; echo "Notes:"
@@ -76,9 +92,20 @@ while getopts d:u:t:r:p:s:z:m:V:Chcl4A o; do
 				RAID="${OPTARG}"
 			fi
 
+			if ! check_raid "$RAID"; then
+				echo "Error: please choose raid mode with the -r switch (mirror or raidz[1|2|3])"
+				exit 1
+			fi
+
 			COUNT=`echo ${ZDEVS} | /usr/bin/wc -w | /usr/bin/awk '{ print $1 }'`
-			if [ "$COUNT" -lt "3" -a "$RAID" = "raidz" ]; then
+			if [ "$COUNT" -lt "3" ] && [ "$RAID" = "raidz" -o "$RAID" = "raidz1" ]; then
 				echo "Error: raidz needs at least three devices (-d switch)"
+				exit 1
+			elif [ "$COUNT" -lt "4" -a "$RAID" = "raidz2" ]; then
+				echo "Error: raidz2 needs at least four devices (-d switch)"
+				exit 1
+			elif [ "$COUNT" -lt "5" -a "$RAID" = "raidz3" ]; then
+				echo "Error: raidz3 needs at least five devices (-d switch)"
 				exit 1
 			elif [ "$COUNT" = "1" -a "$RAID" = "mirror" ]; then
 				echo "Error: mirror needs at least two devices (-d switch)"
@@ -295,7 +322,7 @@ done
 # Create zpool and zfs
 
 for DEV in ${ZARRAY}; do
-	if [ "${DEV}" = "mirror" -o "${DEV}" = "raidz" ]; then
+	if check_raid "${DEV}"; then
 		if [ -n "${_PARTS}" ]; then
 			ZPARTS="${ZPARTS} ${RAID} ${_PARTS}"
 			
