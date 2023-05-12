@@ -8,7 +8,15 @@ these files to files without .sample ending and make modifications to suit
 your needs.
 
 The default root password is "mfsroot". You can pick a difrerent password
-with the ROOTPW or ROOTPW_HASH make variables.
+with the `ROOTPW` or `ROOTPW_HASH` make variables.
+
+This password can be used to log in as root over SSH.
+
+To disable remote root login, pass `PERMIT_ROOT_LOGIN=no` to make.
+
+To disallow password authentication for root, set
+`PERMIT_ROOT_LOGIN=without-password`. If you do so, remember to add your SSH
+keys to `conf/authorized_keys` if you want to be able to log in via SSH.
 
 ## Additional packages and files
 If you want any packages installed, copy the .tbz files that should be 
