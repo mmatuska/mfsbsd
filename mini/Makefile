@@ -15,8 +15,8 @@ CDBOOTBASE?=${CURDIR}/../work/cdboot
 CFGDIR?=${CURDIR}/conf
 MFSROOT_FREE_INODES?=5000
 MFSROOT_FREE_BLOCKS?=10%
-MFSROOT_MINSIZE?=64m
-MFSROOT_MAXSIZE?=64m
+MFSROOT_MINSIZE?=80m
+MFSROOT_MAXSIZE?=80m
 ROOTPW_HASH?=$$6$$051DdQA7fTvLymkY$$Z5f6snVFQJKugWmGi8y0motBNaKn9em0y2K0ZsJMku3v9gkiYh8M.OTIIie3RvHpzT6udumtZUtc0kXwJcCMR1
 LOCALBASEDIR?=${BASEDIR}
 
@@ -46,6 +46,7 @@ MAKEFS=/usr/sbin/makefs
 MKDIR=/bin/mkdir -p
 MTREE=/usr/sbin/mtree
 MV=/bin/mv
+OPENSSL=/usr/bin/openssl
 PW=/usr/sbin/pw
 PWD=/bin/pwd
 RM=/bin/rm
@@ -155,7 +156,7 @@ basetar: hierarchy rescuelinks ${WRKDIR}/.basetar_done
 ${WRKDIR}/.basetar_done:
 	${_v}echo -n "Creating tar of base libraries and binaries ..."
 	${_v}cd ${BASEDIR} && ${TAR} -cJf ${_ROOTDIR}/.mfs_base.txz \
-	`cat ${FILESDIR}/basedirs` `cat ${FILESDIR}/basefiles`
+	`cat ${FILESDIR}/basedirs` `cat ${FILESDIR}/basefiles` || exit 0
 	${_v}${TOUCH} ${WRKDIR}/.basetar_done
 	${_v}echo " done"
 

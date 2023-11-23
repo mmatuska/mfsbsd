@@ -37,7 +37,7 @@ if [ ${FSSIZE} -eq 0 -a ${FSLABEL} = "auto" ]; then
 	nf=$(find ${FSPROTO} |wc -l)
 	sk=$(du -skA ${FSPROTO} |cut -f1)
 	FSSIZE=$(roundup $(($sk*12/10)) 1024)
-	IMG_SIZE=$((${FSSIZE}+32))
+	IMG_SIZE=$((${FSSIZE}+128))
 fi
 
 if [ -n "$VERBOSE" ]; then

@@ -12,6 +12,8 @@ lib/libiconv.so.*
 lib/libintl.so.*
 lib/liblz4.so.*
 lib/libreadline.so.*
+lib/libtomcrypt.so.*
+lib/libtommath.so.*
 lib/libutf8proc.so.*
 lib/libxxhash.so.*
 lib/libzstd.so.*
