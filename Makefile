@@ -243,7 +243,7 @@ ${WRKDIR}/.build_done:
 . endif
 . if defined(BUILDKERNEL)
 	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
-	${_v}cd ${SRC_DIR} && make buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET}
+	${_v}cd ${SRC_DIR} && make ${_MAKEJOBS} buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET}
 . endif
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.build_done
