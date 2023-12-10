@@ -12,6 +12,7 @@ MFSROOT_FREE_INODES?=	10%
 MFSROOT_FREE_BLOCKS?=	10%
 MFSROOT_MAXSIZE?=	120m
 ROOTPW_HASH?=		$$6$$051DdQA7fTvLymkY$$Z5f6snVFQJKugWmGi8y0motBNaKn9em0y2K0ZsJMku3v9gkiYh8M.OTIIie3RvHpzT6udumtZUtc0kXwJcCMR1
+PERMIT_ROOT_LOGIN?=	yes
 
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
@@ -439,7 +440,7 @@ ${WRKDIR}/.config_done:
 .elif !empty(ROOTPW_HASH)
 	${_v}echo '${ROOTPW_HASH}'| ${PW} -V ${_DESTDIR}/etc usermod root -H 0
 .endif
-	${_v}echo PermitRootLogin yes >> ${_DESTDIR}/etc/ssh/sshd_config
+	${_v}echo PermitRootLogin ${PERMIT_ROOT_LOGIN} >> ${_DESTDIR}/etc/ssh/sshd_config
 .if exists(${CFGDIR}/hosts)
 	${_v}${INSTALL} -m 0644 ${CFGDIR}/hosts ${_DESTDIR}/etc/hosts
 .elif exists(${CFGDIR}/hosts.sample)
