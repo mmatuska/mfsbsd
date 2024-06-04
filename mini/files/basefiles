@@ -114,6 +114,7 @@ usr/lib/pam_rootok.so*
 usr/lib/pam_securetty.so*
 usr/lib/pam_self.so*
 usr/lib/pam_unix.so*
+usr/lib/pam_xdg.so*
 usr/libexec/getty
 usr/sbin/acpidump
 usr/sbin/arp
