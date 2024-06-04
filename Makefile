@@ -84,21 +84,22 @@ TARGET=		${ARCH}
 DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
-.if ${TARGET} == aarch64
-.	if defined(LOADER_4TH)
+#
+.if defined(LOADER_4TH)
 BOOTFILES?=	defaults *.rc *.4th
 EFILOADER?=	loader_4th.efi
-.	else
+.else
 BOOTFILES?=	defaults lua
 EFILOADER?=	loader_lua.efi
-.	endif
-.elif defined(LOADER_4TH)
-BOOTFILES?=	defaults device.hints loader_4th *.rc *.4th
-EFILOADER?=	loader_4th.efi
-.else
-BOOTFILES?=	defaults device.hints loader_lua lua
-EFILOADER?=	loader_lua.efi
 .endif
+#
+.if ${TARGET} == aarch64
+EFIBOOT?= BOOTAA64.efi
+.else
+EFIBOOT?= BOOTX64.efi
+BOOTFILES+= device.hints
+.endif
+#
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
 		ipmi ntfs nullfs opensolaris smbus snp tmpfs zfs
 # Sometimes the kernel is compiled with a different destination.
@@ -534,9 +535,9 @@ ${WRKDIR}/.boot_done:
 .endfor
 .if ${TARGET} != aarch64
 .	if defined(LOADER_4TH)
-		${_v}${MV} -f ${WRKDIR}/disk/boot/loader_4th ${WRKDIR}/disk/boot/loader
+		${_v}${CP} ${_DESTDIR}/boot/loader_4th ${WRKDIR}/disk/boot/loader
 .	else
-		${_v}${MV} -f ${WRKDIR}/disk/boot/loader_lua ${WRKDIR}/disk/boot/loader
+		${_v}${CP} ${_DESTDIR}/boot/loader_lua ${WRKDIR}/disk/boot/loader
 .	endif
 .endif
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
@@ -579,11 +580,7 @@ ${WRKDIR}/.efiboot_done:
 .if !defined(NO_EFIBOOT)
 	@echo -n "Creating EFI boot image ..."
 	${_v}${MKDIR} -p ${WRKDIR}/efiroot/EFI/BOOT
-.	if ${TARGET} == aarch64
-		${_v}${CP} ${WRKDIR}/cdboot/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/BOOTAA64.efi
-.	else
-		${_v}${CP} ${WRKDIR}/cdboot/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/BOOTX64.efi
-.	endif
+	${_v}${CP} ${WRKDIR}/cdboot/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/${EFIBOOT}
 	${_v}${MAKEFS} -t msdos -s 2048k -o fat_type=12,sectors_per_cluster=1 ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
 	${_v}${TOUCH} ${WRKDIR}/.efiboot_done
 	@echo " done"
