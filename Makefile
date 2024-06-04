@@ -76,16 +76,31 @@ WRKDIR?=	${.CURDIR}/work
 #
 BSDLABEL?=	bsdlabel
 #
+.if !defined(ARCH)
+TARGET!=	${SYSCTL} -n hw.machine_arch
+.else
+TARGET=		${ARCH}
+.endif
+#
 DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
+#
 .if defined(LOADER_4TH)
-BOOTFILES?=	defaults device.hints loader_4th *.rc *.4th
+BOOTFILES?=	defaults *.rc *.4th
 EFILOADER?=	loader_4th.efi
 .else
-BOOTFILES?=	defaults device.hints loader_lua lua
+BOOTFILES?=	defaults lua
 EFILOADER?=	loader_lua.efi
 .endif
+#
+.if ${TARGET} == aarch64
+EFIBOOT?= BOOTAA64.efi
+.else
+EFIBOOT?= BOOTX64.efi
+BOOTFILES+= device.hints
+.endif
+#
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
 		ipmi ntfs nullfs opensolaris smbus snp tmpfs zfs
 # Sometimes the kernel is compiled with a different destination.
@@ -100,12 +115,6 @@ VERB=1
 .else
 _v=@
 VERB=
-.endif
-
-.if !defined(ARCH)
-TARGET!=	${SYSCTL} -n hw.machine_arch
-.else
-TARGET=		${ARCH}
 .endif
 
 .if !defined(RELEASE)
@@ -326,7 +335,9 @@ cdboot: install prune ${WRKDIR}/.cdboot_done
 ${WRKDIR}/.cdboot_done:
 	@echo -n "Copying out cdboot and EFI loader ..."
 	${_v}${MKDIR} ${WRKDIR}/cdboot
+.if ${TARGET} != aarch64
 	${_v}${CP} ${_DESTDIR}/boot/cdboot ${WRKDIR}/cdboot/
+.endif
 	${_v}${CP} ${_DESTDIR}/boot/loader_4th.efi ${_DESTDIR}/boot/loader_lua.efi ${WRKDIR}/cdboot/
 	${_v}${TOUCH} ${WRKDIR}/.cdboot_done
 	@echo " done"
@@ -523,10 +534,12 @@ ${WRKDIR}/.boot_done:
 .for FILE in ${BOOTFILES}
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
-.if defined(LOADER_4TH)
-	${_v}${MV} -f ${WRKDIR}/disk/boot/loader_4th ${WRKDIR}/disk/boot/loader
-.else
-	${_v}${MV} -f ${WRKDIR}/disk/boot/loader_lua ${WRKDIR}/disk/boot/loader
+.if ${TARGET} != aarch64
+.	if defined(LOADER_4TH)
+		${_v}${CP} ${_DESTDIR}/boot/loader_4th ${WRKDIR}/disk/boot/loader
+.	else
+		${_v}${CP} ${_DESTDIR}/boot/loader_lua ${WRKDIR}/disk/boot/loader
+.	endif
 .endif
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
@@ -557,7 +570,9 @@ ${WRKDIR}/.boot_done:
 .endif
 	${_v}${RM} -rf ${_BOOTDIR}/${KERNDIR} ${_BOOTDIR}/*.symbols
 	${_v}${MKDIR} -p ${WRKDIR}/boot
-	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot
+.	if ${TARGET} != aarch64
+		${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot
+.	endif
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
@@ -566,7 +581,7 @@ ${WRKDIR}/.efiboot_done:
 .if !defined(NO_EFIBOOT)
 	@echo -n "Creating EFI boot image ..."
 	${_v}${MKDIR} -p ${WRKDIR}/efiroot/EFI/BOOT
-	${_v}${CP} ${WRKDIR}/cdboot/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/BOOTX64.efi
+	${_v}${CP} ${WRKDIR}/cdboot/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/${EFIBOOT}
 	${_v}${MAKEFS} -t msdos -s 2048k -o fat_type=12,sectors_per_cluster=1 ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
 	${_v}${TOUCH} ${WRKDIR}/.efiboot_done
 	@echo " done"
