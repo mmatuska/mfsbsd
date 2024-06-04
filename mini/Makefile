@@ -248,7 +248,7 @@ ${WRKDIR}/.efiboot_done:
 	@echo -n "Creating EFI boot image ..."
 	${_v}${MKDIR} -p ${WRKDIR}/efiroot/EFI/BOOT ${WRKDIR}/cdboot
 	${_v}${CP} ${CDBOOTBASE}/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/BOOTX64.efi
-	${_v}${MAKEFS} -t msdos -s 2048k -o fat_type=12,sectors_per_cluster=1 ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
+	${_v}${MAKEFS} -t msdos -s 2048k -o fat_type=12,sectors_per_cluster=1,volume_label=EFISYS ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
 	${_v}${TOUCH} ${WRKDIR}/.efiboot_done
 	@echo " done"
 .endif
