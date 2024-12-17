@@ -644,7 +644,11 @@ ${GCEFILE}:
 iso: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
-.if !defined(NO_EFIBOOT)
+.if ${TARGET} == aarch64
+	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD \
+	-o bootimage=efi\;${WRKDIR}/cdboot/efiboot.img,no-emul-boot,platformid=efi \
+	${ISOIMAGE} ${WRKDIR}/disk
+.elif !defined(NO_EFIBOOT)
 	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD \
 	-o bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot \
 	-o bootimage=i386\;${WRKDIR}/cdboot/efiboot.img,no-emul-boot,platformid=efi \
