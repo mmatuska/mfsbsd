@@ -5,9 +5,9 @@ env:
 build_task:
   matrix:
     freebsd_instance:
-      image_family: freebsd-14-1
+      image_family: freebsd-14-2
     freebsd_instance:
-      image_family: freebsd-13-3
+      image_family: freebsd-13-5
   prepare_script:
   - ci/ci.sh -b prepare
   build_std_script:
