@@ -15,7 +15,7 @@ e.g. a hard disk or a USB stick e.g. /dev/da0, or a bootable slice only,
 e.g. /dev/ada0s1
 
 ## Build-time requirements
- - FreeBSD 11 or higher installed, tested on i386 or amd64
+ - FreeBSD 11 or higher installed, tested on i386, amd64, arm64
  - base.txz and kernel.txz from a FreeBSD 11 or higher distribution
 
 ## Runtime requirements
