@@ -197,7 +197,7 @@ ${WRKDIR}/.config_done:
 .endfor
 	${_v}${INSTALL} ${TOOLSDIR}/zfsinstall ${_ROOTDIR}/root/bin
 	${_v}${INSTALL} ${TOOLSDIR}/destroygeom ${_ROOTDIR}/root/bin
-	${_v}echo "/dev/md0 / ufs rw 0 0" > ${_ROOTDIR}/etc/fstab
+	${_v}echo "/dev/ufs/mfsroot / ufs rw 0 0" > ${_ROOTDIR}/etc/fstab
 	${_v}echo "tmpfs /tmp tmpfs rw,mode=1777 0 0" >> ${_ROOTDIR}/etc/fstab
 .if defined(ROOTPW)
 	${_v}echo '${ROOTPW}'| ${OPENSSL} passwd -6 -stdin | ${PW} -V ${_ROOTDIR}/etc usermod root -H 0
@@ -265,7 +265,7 @@ mfsroot: boottar ${WRKDIR}/.mfsroot_done
 ${WRKDIR}/.mfsroot_done:
 	${_v}echo -n "Creating and compressing mfsroot ..."
 	${_v}${MKDIR} ${WRKDIR}/mnt
-	${_v}${MAKEFS} -t ffs -M ${MFSROOT_MINSIZE} -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
+	${_v}${MAKEFS} -t ffs -o label=mfsroot -M ${MFSROOT_MINSIZE} -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
 	${_v}${RM} -rf ${WRKDIR}/mnt
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel

@@ -1,4 +1,4 @@
 mfs_load="YES"
 mfs_type="mfs_root"
 mfs_name="/mfsroot"
-vfs.root.mountfrom="ufs:/dev/md0"
+vfs.root.mountfrom="ufs:/dev/ufs/mfsroot"
