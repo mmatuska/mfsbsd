@@ -338,6 +338,11 @@ ${WRKDIR}/.packages_done:
 	@echo "pkg-static not found at: ${PKG_STATIC}"
 	${_v}exit 1
 .  endif
+# pkg name replacement for 15.x compatibility, see:
+# https://github.com/mmatuska/mfsbsd/issues/160
+.  if ${RELEASE:M15.*-RELEASE}
+_PKGS_SED= | sed "s/cpdup-freebsd/cpdup-FreeBSD/g"
+.  endif
 	${_v}mkdir -p ${_DESTDIR}/usr/local/sbin
 	${_v}${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
 	${_v}${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
@@ -352,7 +357,7 @@ ${WRKDIR}/.packages_done:
 		env ASSUME_ALWAYS_YES=yes \
 		PKG_ABI="${PKG_ABI}" \
 		PKG_CACHEDIR=${WRKDIR}/pkgcache \
-		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
+		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS} ${_PKGS_SED}`; \
 		fi;
 	${_v}${TOUCH} ${WRKDIR}/.packages_done
 
