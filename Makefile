@@ -331,17 +331,18 @@ ${WRKDIR}/.cdboot_done:
 	${_v}${TOUCH} ${WRKDIR}/.cdboot_done
 	@echo " done"
 
+# pkg name replacement for 15.x compatibility, see:
+# https://github.com/mmatuska/mfsbsd/issues/160
+.  if ${RELEASE:M15.*-RELEASE}
+_PKGS_SED= | sed "s/cpdup-freebsd/cpdup-FreeBSD/g"
+.  endif
+
 packages: install prune cdboot ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
 	@echo -n "Installing pkgng ..."
 .  if !exists(${PKG_STATIC})
 	@echo "pkg-static not found at: ${PKG_STATIC}"
 	${_v}exit 1
-.  endif
-# pkg name replacement for 15.x compatibility, see:
-# https://github.com/mmatuska/mfsbsd/issues/160
-.  if ${RELEASE:M15.*-RELEASE}
-_PKGS_SED= | sed "s/cpdup-freebsd/cpdup-FreeBSD/g"
 .  endif
 	${_v}mkdir -p ${_DESTDIR}/usr/local/sbin
 	${_v}${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
