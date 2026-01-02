@@ -3,11 +3,14 @@ env:
   ARCH: amd64
 
 build_task:
+  timeout_in: 1h
   matrix:
-    freebsd_instance:
-      image_family: freebsd-14-2
-    freebsd_instance:
-      image_family: freebsd-13-5
+    - name: 15.0-RELEASE
+      freebsd_instance:
+        image_family: freebsd-15-0-amd64-ufs
+    - name: 14.3-RELEASE
+      freebsd_instance:
+        image_family: freebsd-14-3
   prepare_script:
   - ci/ci.sh -b prepare
   build_std_script:
