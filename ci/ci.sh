@@ -15,7 +15,7 @@ then
 	mkdir -p ${BASE}
 	fetch -m -o ${BASE}/base.txz ${DOWNLOAD_URL}/base.txz
 	fetch -m -o ${BASE}/kernel.txz ${DOWNLOAD_URL}/kernel.txz
-	if [ -x tools/roothack/roothack ]
+	if [ ! -x tools/roothack/roothack ]
 	then
 		cd tools/roothack && make depend && make
 	fi
