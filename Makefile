@@ -7,6 +7,11 @@
 # User-defined variables
 #
 BASE?=			/cdrom/usr/freebsd-dist
+ABI?=			FreeBSD:13:$(sysctl -n hw.marchine_arch)
+ARCH?=			$(sysctl -n hw.machine)
+VERSION?=		13.1-RELEASE
+SITE?=			https://download.freebsd.org/ftp/releases/${ARCH}/${VERSION}
+BASE?=			/cdrom/usr/freebsd-dist
 KERNCONF?=		GENERIC
 MFSROOT_FREE_INODES?=	10%
 MFSROOT_FREE_BLOCKS?=	10%
