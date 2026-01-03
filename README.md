@@ -29,8 +29,7 @@ one can build the supported mfsbsd file formats.
 
 ## Build-time requirements
  - FreeBSD 11 or higher installed.
-      - This was tested on i386 or amd64, but should work on other
-        host architectures (like aarch64) as well.
+      - This was tested on i386, amd64 and arm64
  - `base.txz` and `kernel.txz` from a FreeBSD 11 or higher distribution, _or_ a
     FreeBSD 11 based or newer FreeBSD source tree.
 
