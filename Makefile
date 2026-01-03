@@ -336,6 +336,12 @@ ${WRKDIR}/.cdboot_done:
 	${_v}${TOUCH} ${WRKDIR}/.cdboot_done
 	@echo " done"
 
+# pkg name replacement for 15.x compatibility, see:
+# https://github.com/mmatuska/mfsbsd/issues/160
+.  if ${RELEASE:M15.*-RELEASE}
+_PKGS_SED= | sed "s/cpdup-freebsd/cpdup-FreeBSD/g"
+.  endif
+
 packages: install prune cdboot ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
 	@echo -n "Installing pkgng ..."
@@ -357,7 +363,7 @@ ${WRKDIR}/.packages_done:
 		env ASSUME_ALWAYS_YES=yes \
 		PKG_ABI="${PKG_ABI}" \
 		PKG_CACHEDIR=${WRKDIR}/pkgcache \
-		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
+		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS} ${_PKGS_SED}`; \
 		fi;
 	${_v}${TOUCH} ${WRKDIR}/.packages_done
 
