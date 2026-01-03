@@ -257,7 +257,7 @@ ${WRKDIR}/.extract_done:
 .endif
 	@echo " done"
 .endif
-	${_v}${TOUCH} ${WRKDIR}/.extract_done
+	${_v}${TOUCH} ${.TARGET}
 
 build: extract ${WRKDIR}/.build_done
 ${WRKDIR}/.build_done:
@@ -272,7 +272,7 @@ ${WRKDIR}/.build_done:
 	${_v}cd ${SRC_DIR} && make ${_MAKEJOBS} buildkernel KERNCONF=${KERNCONF}
 . endif
 .endif
-	${_v}${TOUCH} ${WRKDIR}/.build_done
+	${_v}${TOUCH} ${.TARGET}
 
 install: destdir build ${WRKDIR}/.install_done
 ${WRKDIR}/.install_done:
@@ -330,7 +330,7 @@ ${WRKDIR}/.install_done:
 .if defined(WITHOUT_RESCUE)
 	${_v}cd ${_DESTDIR} && ${RM} -rf rescue
 .endif
-	${_v}${TOUCH} ${WRKDIR}/.install_done
+	${_v}${TOUCH} ${.TARGET}
 
 prune: install ${WRKDIR}/.prune_done
 ${WRKDIR}/.prune_done:
@@ -343,7 +343,7 @@ ${WRKDIR}/.prune_done:
 			fi; \
 		done; \
 	fi
-	${_v}${TOUCH} ${WRKDIR}/.prune_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 .endif
 
@@ -357,7 +357,7 @@ ${WRKDIR}/.cdboot_done:
 .else
 	${_v}${CP} ${_DESTDIR}/boot/loader_lua.efi ${WRKDIR}/cdboot/
 .endif
-	${_v}${TOUCH} ${WRKDIR}/.cdboot_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 
 packages: install prune cdboot ${WRKDIR}/.packages_done
@@ -384,7 +384,7 @@ ${WRKDIR}/.packages_done:
 			    PKG_CACHEDIR=${WRKDIR}/pkgcache \
 			    ${XARGS} ${PKG} -r ${_DESTDIR} install; \
 		fi;
-	${_v}${TOUCH} ${WRKDIR}/.packages_done
+	${_v}${TOUCH} ${.TARGET}
 
 packages-mini: packages ${WRKDIR}/.packages_mini_done
 ${WRKDIR}/.packages_mini_done:
@@ -400,7 +400,7 @@ ${WRKDIR}/.packages_mini_done:
 		PKG_CACHEDIR=${WRKDIR}/pkgcache \
 		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
 		fi;
-	${_v}${TOUCH} ${WRKDIR}/.packages_mini_done
+	${_v}${TOUCH} ${.TARGET}
 
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
@@ -478,7 +478,7 @@ ${WRKDIR}/.config_done:
 .else
 	@echo "Missing ${CFGDIR}/hosts.sample" && exit 1
 .endif
-	${_v}${TOUCH} ${WRKDIR}/.config_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 
 genkeys: config ${WRKDIR}/.genkeys_done
@@ -489,7 +489,7 @@ ${WRKDIR}/.genkeys_done:
 	${_v}test -f ${_DESTDIR}/etc/ssh/ssh_host_rsa_key || ${SSHKEYGEN} -t rsa -f ${_DESTDIR}/etc/ssh/ssh_host_rsa_key -N '' > /dev/null
 	${_v}test -f ${_DESTDIR}/etc/ssh/ssh_host_ecdsa_key || ${SSHKEYGEN} -t ecdsa -f ${_DESTDIR}/etc/ssh/ssh_host_ecdsa_key -N '' > /dev/null
 	${_v}test -f ${_DESTDIR}/etc/ssh/ssh_host_ed25519_key || ${SSHKEYGEN} -t ed25519 -f ${_DESTDIR}/etc/ssh/ssh_host_ed25519_key -N '' > /dev/null
-	${_v}${TOUCH} ${WRKDIR}/.genkeys_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 
 customfiles: config ${WRKDIR}/.customfiles_done
@@ -497,7 +497,7 @@ ${WRKDIR}/.customfiles_done:
 .if exists(${CUSTOMFILESDIR})
 	@echo "Copying user files ..."
 	${_v}${CP} -afv ${CUSTOMFILESDIR}/ ${_DESTDIR}/
-	${_v}${TOUCH} ${WRKDIR}/.customfiles_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 .endif
 
@@ -509,7 +509,7 @@ ${WRKDIR}/.customscripts_done:
 		chmod +x $$SCRIPT; \
 		${CUSTOMSCRIPTENV} $$SCRIPT; \
 	done
-	${_v}${TOUCH} ${WRKDIR}/.customscripts_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 .endif
 
@@ -525,7 +525,7 @@ ${WRKDIR}/.compress-usr_done:
 	${XZ} ${XZ_FLAGS} -v -c > ${_ROOTDIR}/root.txz
 	${_v}${RM} -rf ${_DESTDIR} && ${MKDIR} ${_DESTDIR}
 .endif
-	${_v}${TOUCH} ${WRKDIR}/.compress-usr_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 
 roothack: ${WRKDIR}/roothack/roothack
@@ -540,7 +540,7 @@ ${WRKDIR}/.install-roothack_done:
 	@printf "Installing roothack ..."
 	${_v}${MKDIR} -p ${_ROOTDIR}/dev ${_ROOTDIR}/sbin
 	${_v}${INSTALL} -m 555 ${ROOTHACK_FILE} ${_ROOTDIR}/sbin/init
-	${_v}${TOUCH} ${WRKDIR}/.install-roothack_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 
 boot: install prune cdboot ${WRKDIR}/.boot_done
@@ -588,7 +588,7 @@ ${WRKDIR}/.boot_done:
 	${_v}${RM} -rf ${_BOOTDIR}/${KERNDIR} ${_BOOTDIR}/*.symbols
 	${_v}${MKDIR} -p ${WRKDIR}/boot
 	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot
-	${_v}${TOUCH} ${WRKDIR}/.boot_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 
 efiboot: install prune cdboot config genkeys customfiles customscripts boot ${WRKDIR}/.efiboot_done
@@ -598,7 +598,7 @@ ${WRKDIR}/.efiboot_done:
 	${_v}${MKDIR} -p ${WRKDIR}/efiroot/EFI/BOOT
 	${_v}${CP} ${WRKDIR}/cdboot/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/BOOTX64.efi
 	${_v}${MAKEFS} -t msdos -s 2048k -o fat_type=12,sectors_per_cluster=1 ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
-	${_v}${TOUCH} ${WRKDIR}/.efiboot_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 .endif
 
@@ -619,7 +619,7 @@ ${WRKDIR}/.mfsroot_done:
 	else \
 		${INSTALL} -m 0644 ${CFGDIR}/loader.conf.sample ${WRKDIR}/disk/boot/loader.conf; \
 	fi
-	${_v}${TOUCH} ${WRKDIR}/.mfsroot_done
+	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 
 fbsddist: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
@@ -629,7 +629,7 @@ ${WRKDIR}/.fbsddist_done:
 	${_v}${CP} -rf ${_DISTDIR} ${WRKDIR}/disk/
 	@echo " done"
 .endif
-	${_v}${TOUCH} ${WRKDIR}/.fbsddist_done
+	${_v}${TOUCH} ${.TARGET}
 
 image: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${IMAGE}
 ${IMAGE}:
