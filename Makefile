@@ -381,10 +381,10 @@ ${WRKDIR}/.config_done:
 . endif
 .endfor
 .if defined(SE)
-	${_v}${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${_DESTDIR}/etc/motd
+	${_v}${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${_DESTDIR}/etc/motd.template
 	${_v}${INSTALL} -d -m 0755 ${_DESTDIR}/cdrom
 .else
-	${_v}${INSTALL} -m 0644 ${TOOLSDIR}/motd ${_DESTDIR}/etc/motd
+	${_v}${INSTALL} -m 0644 ${TOOLSDIR}/motd ${_DESTDIR}/etc/motd.template
 .endif
 	${_v}${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
 	${_v}if [ -f "${CFGDIR}/boot.config" ]; then \
