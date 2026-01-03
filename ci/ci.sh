@@ -2,7 +2,8 @@
 set -e
 BASE=/tmp/freebsd-dist
 RELEASE=${RELEASE:-`uname -r`}
-DOWNLOAD_URL=http://ftp.freebsd.org/pub/FreeBSD/releases/amd64/${RELEASE}
+ARCH=$(sysctl -n hw.machine)
+DOWNLOAD_URL=http://ftp.freebsd.org/pub/FreeBSD/releases/${ARCH}/${RELEASE}
 while getopts b:r: opt
 do
 	case $opt in
