@@ -60,7 +60,9 @@ SYSCTL?=	/sbin/sysctl
 PKG?=		/usr/local/sbin/pkg
 OPENSSL?=	/usr/bin/openssl
 CUT?=		/usr/bin/cut
-ENV?=		/usr/bin/env
+# NOTE: `ENV` is used by /bin/sh for setting up `.profile` in interactive
+# shells, so this can't be named `ENV`.
+_ENV?=		/usr/bin/env
 GREP?=		/usr/bin/grep
 XARGS?=		/usr/bin/xargs
 #
@@ -188,7 +190,7 @@ _DESTDIR=	${_ROOTDIR}
 
 .if !defined(SE)
 # Environment for custom build
-BUILDENV?= ${ENV} \
+BUILDENV?= ${_ENV} \
 	NO_FSCHG=1 \
 	WITHOUT_CLANG=1 \
 	WITHOUT_DICT=1 \
@@ -205,7 +207,7 @@ BUILDENV+= \
 	TARGET_ARCH=${TARGET_ARCH}
 
 # Environment for custom scripts
-CUSTOMSCRIPTENV?= ${ENV} \
+CUSTOMSCRIPTENV?= ${_ENV} \
 	WRKDIR=${WRKDIR} \
 	DESTDIR=${_DESTDIR} \
 	DISTDIR=${_DISTDIR} \
@@ -377,7 +379,7 @@ ${WRKDIR}/.packages_done:
 		fi; \
 		if [ -n "$${_PKGS}" ]; then \
 			${GREP} -v "^#" $${_PKGS} | \
-			${ENV} ASSUME_ALWAYS_YES=yes \
+			${_ENV} ASSUME_ALWAYS_YES=yes \
 			    PKG_ABI="${PKG_ABI}" \
 			    PKG_CACHEDIR=${WRKDIR}/pkgcache \
 			    ${XARGS} ${PKG} -r ${_DESTDIR} install; \
@@ -393,7 +395,7 @@ ${WRKDIR}/.packages_mini_done:
 		_PKGS="${TOOLSDIR}/packages-mini.sample"; \
 		fi; \
 		if [ -n "$${_PKGS}" ]; then \
-		${ENV} ASSUME_ALWAYS_YES=yes \
+		${_ENV} ASSUME_ALWAYS_YES=yes \
 		PKG_ABI="${PKG_ABI}" \
 		PKG_CACHEDIR=${WRKDIR}/pkgcache \
 		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
@@ -530,7 +532,7 @@ roothack: ${WRKDIR}/roothack/roothack
 ${WRKDIR}/roothack/roothack:
 .if !defined(ROOTHACK_PREBUILT)
 	${_v}${MKDIR} -p ${WRKDIR}/roothack
-	${_v}cd ${TOOLSDIR}/roothack && ${ENV} MAKEOBJDIR=${WRKDIR}/roothack make
+	${_v}cd ${TOOLSDIR}/roothack && ${_ENV} MAKEOBJDIR=${WRKDIR}/roothack make
 .endif
 
 install-roothack: compress-usr roothack ${WRKDIR}/.install-roothack_done
