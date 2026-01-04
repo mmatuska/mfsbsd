@@ -227,8 +227,9 @@ ${_DESTDIR}:
 ${_BOOTDIR}:
 	${_v}${MKDIR} ${_BOOTDIR}/kernel ${_BOOTDIR}/modules && ${CHOWN} -R root:wheel ${_BOOTDIR}
 
-extract: destdir ${WRKDIR}/.extract_done
-${WRKDIR}/.extract_done:
+_EXTRACT=	${WRKDIR}/.extract_done
+extract: destdir ${_EXTRACT}
+${_EXTRACT}:
 .if !defined(CUSTOM)
 	${_v}if [ ! -d "${BASE}" ]; then \
 		echo "Please set the environment variable BASE to a path"; \
@@ -259,8 +260,9 @@ ${WRKDIR}/.extract_done:
 .endif
 	${_v}${TOUCH} ${.TARGET}
 
-build: extract ${WRKDIR}/.build_done
-${WRKDIR}/.build_done:
+_BUILD=		${WRKDIR}/.build_done
+build: extract ${_BUILD}
+${_BUILD}:
 .if defined(CUSTOM)
 . if defined(BUILDWORLD)
 	@printf "Building world ..."
@@ -274,8 +276,9 @@ ${WRKDIR}/.build_done:
 .endif
 	${_v}${TOUCH} ${.TARGET}
 
-install: destdir build ${WRKDIR}/.install_done
-${WRKDIR}/.install_done:
+_INSTALL=	${WRKDIR}/.install_done
+install: destdir build ${_INSTALL}
+${_INSTALL}:
 .if defined(CUSTOM)
 	@printf "Installing world and kernel KERNCONF=${KERNCONF} ..."
 	${_v}cd ${SRC_DIR} && \
@@ -332,8 +335,9 @@ ${WRKDIR}/.install_done:
 .endif
 	${_v}${TOUCH} ${.TARGET}
 
-prune: install ${WRKDIR}/.prune_done
-${WRKDIR}/.prune_done:
+_PRUNE=		${WRKDIR}/.prune_done
+prune: install ${_PRUNE}
+${_PRUNE}:
 .if !defined(NO_PRUNE)
 	@printf "Removing selected files from distribution ..."
 	${_v}if [ -f "${PRUNELIST}" ]; then \
@@ -347,8 +351,9 @@ ${WRKDIR}/.prune_done:
 	@echo " done"
 .endif
 
-cdboot: install prune ${WRKDIR}/.cdboot_done
-${WRKDIR}/.cdboot_done:
+_CDBOOT=	${WRKDIR}/.cdboot_done
+cdboot: install prune ${_CDBOOT}
+${_CDBOOT}:
 	@printf "Copying out cdboot and EFI loader ..."
 	${_v}${MKDIR} ${WRKDIR}/cdboot
 	${_v}${CP} ${_DESTDIR}/boot/cdboot ${WRKDIR}/cdboot/
@@ -360,13 +365,15 @@ ${WRKDIR}/.cdboot_done:
 	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 
-packages: install prune cdboot ${WRKDIR}/.packages_done
-${WRKDIR}/.packages_done:
+_PACKAGES=		${WRKDIR}/.packages_done
+packages: install prune cdboot ${_PACKAGES}
+${_PACKAGES}:
+.if !defined(NO_PACKAGES)
 	@printf "Installing pkgng ..."
-.  if !exists(${PKG_STATIC})
+. if !exists(${PKG_STATIC})
 	@echo "pkg-static not found at: ${PKG_STATIC}"
 	${_v}exit 1
-.  endif
+. endif
 	${_v}mkdir -p ${_DESTDIR}/usr/local/sbin
 	${_v}${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
 	${_v}${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
@@ -383,11 +390,14 @@ ${WRKDIR}/.packages_done:
 			    PKG_ABI="${PKG_ABI}" \
 			    PKG_CACHEDIR=${WRKDIR}/pkgcache \
 			    ${XARGS} ${PKG} -r ${_DESTDIR} install; \
-		fi;
+		fi
+.endif
 	${_v}${TOUCH} ${.TARGET}
 
-packages-mini: packages ${WRKDIR}/.packages_mini_done
-${WRKDIR}/.packages_mini_done:
+_PACKAGES_MINI=	${WRKDIR}/.packages_mini_done
+packages-mini: packages ${_PACKAGES_MINI}
+${_PACKAGES_MINI}:
+.if !defined(NO_PACKAGES)
 	@echo "Installing additional mini packages ..."
 	${_v}if [ -f "${TOOLSDIR}/packages-mini" ]; then \
 		_PKGS="${TOOLSDIR}/packages-mini"; \
@@ -395,15 +405,18 @@ ${WRKDIR}/.packages_mini_done:
 		_PKGS="${TOOLSDIR}/packages-mini.sample"; \
 		fi; \
 		if [ -n "$${_PKGS}" ]; then \
-		${_ENV} ASSUME_ALWAYS_YES=yes \
-		PKG_ABI="${PKG_ABI}" \
-		PKG_CACHEDIR=${WRKDIR}/pkgcache \
-		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
+			${GREP} -v "^#" $${_PKGS} | \
+			${_ENV} ASSUME_ALWAYS_YES=yes \
+			   PKG_ABI="${PKG_ABI}" \
+			   PKG_CACHEDIR=${WRKDIR}/pkgcache \
+			   ${XARGS} ${PKG} -r ${_DESTDIR} install; \
 		fi;
+.endif
 	${_v}${TOUCH} ${.TARGET}
 
-config: install ${WRKDIR}/.config_done
-${WRKDIR}/.config_done:
+_CONFIG=	${WRKDIR}/.config_done
+config: install ${_CONFIG}
+${_CONFIG}:
 	@printf "Installing configuration scripts and files ..."
 .for FILE in boot.config loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
 . if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
@@ -622,8 +635,9 @@ ${WRKDIR}/.mfsroot_done:
 	${_v}${TOUCH} ${.TARGET}
 	@echo " done"
 
-fbsddist: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr packages mfsroot ${WRKDIR}/.fbsddist_done
-${WRKDIR}/.fbsddist_done:
+_FSBDDIST=	${WRKDIR}/.fbsddist_done
+fbsddist: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr packages mfsroot ${_FBSDDIST}
+${_FBSDDIST}:
 .if defined(SE)
 	@printf "Copying FreeBSD installation image ..."
 	${_v}${CP} -rf ${_DISTDIR} ${WRKDIR}/disk/
@@ -631,34 +645,39 @@ ${WRKDIR}/.fbsddist_done:
 .endif
 	${_v}${TOUCH} ${.TARGET}
 
-image: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${IMAGE}
-${IMAGE}:
+_IMAGE=	${WRKDIR}/.image_done
+image: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${_IMAGE}
+${_IMAGE}:
 	@printf "Creating image file ..."
 .if defined(BSDPART)
 	${_v}${MKDIR} ${WRKDIR}/mnt ${WRKDIR}/trees/base/boot
 	${_v}${INSTALL} -m 0444 ${WRKDIR}/disk/boot/boot ${WRKDIR}/trees/base/boot/
 	${_v}${DOFS} ${BSDLABEL} "" ${WRKDIR}/disk.img ${WRKDIR} ${WRKDIR}/mnt 0 ${WRKDIR}/disk 80000 auto > /dev/null 2> /dev/null
 	${_v}${RM} -rf ${WRKDIR}/mnt ${WRKDIR}/trees
-	${_v}${MV} ${WRKDIR}/disk.img ${.TARGET}
+	${_v}${MV} ${WRKDIR}/disk.img ${IMAGE}
 .else
-	${_v}${TOOLSDIR}/do_gpt.sh ${.TARGET} ${WRKDIR}/disk 0 ${WRKDIR}/boot ${WRKDIR}/cdboot/efiboot.img ${VERB}
+	${_v}${TOOLSDIR}/do_gpt.sh ${IMAGE} ${WRKDIR}/disk 0 ${WRKDIR}/boot ${WRKDIR}/cdboot/efiboot.img ${VERB}
 .endif
 	@echo " done"
-	${_v}${LS} -l ${.TARGET}
+	${_v}${TOUCH} ${.TARGET}
+	${_v}${LS} -l ${IMAGE}
 
-gce: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${IMAGE} ${GCEFILE}
-${GCEFILE}:
+_GCE=	${WRKDIR}/.gce_done
+gce: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${_GCE}
+${_GCE}: ${_IMAGE}
 	@printf "Creating GCE-compatible tarball..."
 .if !exists(${GTAR})
 	${_v}echo "${GTAR} is missing, please install archivers/gtar first"; exit 1
 .else
 	${_v}${GTAR} -C ${.CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
 	@echo " GCE tarball built"
+	${_v}${TOUCH} ${.TARGET}
 	${_v}${LS} -l ${GCEFILE}
 .endif
 
-iso: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${ISOIMAGE}
-${ISOIMAGE}:
+_ISO=	${WRKDIR}/.iso_done
+iso: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${_ISO}
+${_ISO}:
 	@printf "Creating ISO image ..."
 .if !defined(NO_EFIBOOT)
 	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD \
@@ -671,10 +690,12 @@ ${ISOIMAGE}:
 	${ISOIMAGE} ${WRKDIR}/disk
 .endif
 	@echo " done"
+	${_v}${TOUCH} ${.TARGET}
 	${_v}${LS} -l ${ISOIMAGE}
 
-tar: install prune cdboot config customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${TARFILE}
-${TARFILE}:
+_TAR=	${WRKDIR}/.tar_done
+tar: install prune cdboot config customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${_TAR}
+${_TAR}:
 	@printf "Creating tar file ..."
 	${_v}cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
 		-exec ${TAR} -r -f ${.CURDIR}/${TARFILE} {} \;
