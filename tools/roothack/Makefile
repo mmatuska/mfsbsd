@@ -1,5 +1,3 @@
-.include <bsd.init.mk>
-
 PROG=	roothack
 MAN=
 
