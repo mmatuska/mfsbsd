@@ -4,12 +4,19 @@
 # Copyright (c) 2019 Martin Matuska <mm at FreeBSD.org>
 
 #
+# System default variables
+#
+SYS_ABI!=		echo "FreeBSD:`uname -U | cut -c 1-2`:`uname -m`"
+SYS_ARCH!=		sysctl -n hw.machine
+SYS_VERSION!=		uname -r
+
+#
 # User-defined variables
 #
 BASE?=			/cdrom/usr/freebsd-dist
-ABI?=			FreeBSD:13:$(sysctl -n hw.marchine_arch)
-ARCH?=			$(sysctl -n hw.machine)
-VERSION?=		13.1-RELEASE
+ABI?=			${SYS_ABI}
+ARCH?=			${SYS_ARCH}
+VERSION?=		${SYS_VERSION}
 SITE?=			https://download.freebsd.org/ftp/releases/${ARCH}/${VERSION}
 BASE?=			/cdrom/usr/freebsd-dist
 KERNCONF?=		GENERIC
