@@ -3,22 +3,6 @@
 # mfsBSD
 # Copyright (c) 2019 Martin Matuska <mm at FreeBSD.org>
 
-#
-# User-defined variables
-#
-BASE?=			/cdrom/usr/freebsd-dist
-ABI?=			FreeBSD:13:$(sysctl -n hw.marchine_arch)
-ARCH?=			$(sysctl -n hw.machine)
-VERSION?=		13.1-RELEASE
-SITE?=			https://download.freebsd.org/ftp/releases/${ARCH}/${VERSION}
-BASE?=			/cdrom/usr/freebsd-dist
-KERNCONF?=		GENERIC
-MFSROOT_FREE_INODES?=	10%
-MFSROOT_FREE_BLOCKS?=	10%
-MFSROOT_MAXSIZE?=	200m
-ROOTPW_HASH?=		$$6$$051DdQA7fTvLymkY$$Z5f6snVFQJKugWmGi8y0motBNaKn9em0y2K0ZsJMku3v9gkiYh8M.OTIIie3RvHpzT6udumtZUtc0kXwJcCMR1
-PERMIT_ROOT_LOGIN?=	yes
-
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
 #
@@ -76,6 +60,9 @@ SYSCTL?=	/sbin/sysctl
 PKG?=		/usr/local/sbin/pkg
 OPENSSL?=	/usr/bin/openssl
 CUT?=		/usr/bin/cut
+ENV?=		/usr/bin/env
+GREP?=		/usr/bin/grep
+XARGS?=		/usr/bin/xargs
 #
 WRKDIR?=	${.CURDIR}/work
 #
@@ -99,6 +86,35 @@ KERNDIR?=	kernel
 XZ_FLAGS?=
 #
 
+#
+# User-defined variables
+#
+
+.if !defined(VERSION)
+# e.g., 14.3-RELEASE
+VERSION!=		${UNAME} -r | ${SED} -Ee 's/-p[[:digit:]]$$//'
+.endif
+# e.g., 14
+_VERSION_MAJOR_VER=	${VERSION:R}
+
+.if defined(ARCH)
+.error "Please use TARGET/TARGET_ARCH instead of ARCH."
+.endif
+
+TARGET?=	${MACHINE_ARCH}
+TARGET_ARCH?=	${MACHINE_CPUARCH}
+
+BASE?=			/cdrom/usr/freebsd-dist
+PKG_ABI?=		FreeBSD:${_VERSION_MAJOR_VER}:${TARGET_ARCH}
+SITE?=			https://download.freebsd.org/ftp/releases/${TARGET}/${VERSION}
+BASE?=			/cdrom/usr/freebsd-dist
+KERNCONF?=		GENERIC
+MFSROOT_FREE_INODES?=	10%
+MFSROOT_FREE_BLOCKS?=	10%
+MFSROOT_MAXSIZE?=	200m
+ROOTPW_HASH?=		$$6$$051DdQA7fTvLymkY$$Z5f6snVFQJKugWmGi8y0motBNaKn9em0y2K0ZsJMku3v9gkiYh8M.OTIIie3RvHpzT6udumtZUtc0kXwJcCMR1
+PERMIT_ROOT_LOGIN?=	yes
+
 .if defined(V)
 _v=
 VERB=1
@@ -107,18 +123,8 @@ _v=@
 VERB=
 .endif
 
-.if !defined(ARCH)
-TARGET!=	${SYSCTL} -n hw.machine_arch
-.else
-TARGET=		${ARCH}
-.endif
-
 .if !defined(RELEASE)
 RELEASE!=	${UNAME} -r
-.endif
-
-.if !defined(PKG_ABI)
-PKG_ABI!=	echo "FreeBSD:`${UNAME} -U | ${CUT} -c 1-2`:`${UNAME} -m`"
 .endif
 
 .if !defined(SE)
@@ -127,10 +133,18 @@ IMAGE_PREFIX?=	mfsbsd
 IMAGE_PREFIX?=	mfsbsd-se
 .endif
 
-IMAGE?=		${IMAGE_PREFIX}-${RELEASE}-${TARGET}.img
-ISOIMAGE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.iso
-TARFILE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
-GCEFILE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar.gz
+.if ${TARGET} != ${TARGET_ARCH}
+# e.g.,	14.3-RELEASE-powerpc-powerpc64
+_TARGET_RELEASE= ${RELEASE}-${TARGET}-${TARGET_ARCH}
+.else
+# e.g.,	14.3-RELEASE-amd64
+_TARGET_RELEASE= ${RELEASE}-${TARGET}
+.endif
+
+IMAGE?=		${IMAGE_PREFIX}-${_TARGET_RELEASE}.img
+ISOIMAGE?=	${IMAGE_PREFIX}-${_TARGET_RELEASE}.iso
+TARFILE?=	${IMAGE_PREFIX}-${_TARGET_RELEASE}.tar
+GCEFILE?=	${IMAGE_PREFIX}-${_TARGET_RELEASE}.tar.gz
 _DISTDIR=	${WRKDIR}/dist/${RELEASE}-${TARGET}
 
 .if !defined(DEBUG)
@@ -174,7 +188,7 @@ _DESTDIR=	${_ROOTDIR}
 
 .if !defined(SE)
 # Environment for custom build
-BUILDENV?= env \
+BUILDENV?= ${ENV} \
 	NO_FSCHG=1 \
 	WITHOUT_CLANG=1 \
 	WITHOUT_DICT=1 \
@@ -186,8 +200,12 @@ INSTALLENV?= ${BUILDENV} \
 	WITHOUT_TOOLCHAIN=1
 .endif
 
+BUILDENV+= \
+	TARGET=${TARGET} \
+	TARGET_ARCH=${TARGET_ARCH}
+
 # Environment for custom scripts
-CUSTOMSCRIPTENV?= env \
+CUSTOMSCRIPTENV?= ${ENV} \
 	WRKDIR=${WRKDIR} \
 	DESTDIR=${_DESTDIR} \
 	DISTDIR=${_DISTDIR} \
@@ -245,11 +263,11 @@ ${WRKDIR}/.build_done:
 . if defined(BUILDWORLD)
 	@echo -n "Building world ..."
 	${_v}cd ${SRC_DIR} && \
-	${BUILDENV} make ${_MAKEJOBS} buildworld TARGET=${TARGET}
+	${BUILDENV} make ${_MAKEJOBS} buildworld
 . endif
 . if defined(BUILDKERNEL)
 	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
-	${_v}cd ${SRC_DIR} && make ${_MAKEJOBS} buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET}
+	${_v}cd ${SRC_DIR} && make ${_MAKEJOBS} buildkernel KERNCONF=${KERNCONF}
 . endif
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.build_done
@@ -259,8 +277,8 @@ ${WRKDIR}/.install_done:
 .if defined(CUSTOM)
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
 	${_v}cd ${SRC_DIR} && \
-	${INSTALLENV} make installworld distribution DESTDIR="${_DESTDIR}" TARGET=${TARGET} && \
-	${INSTALLENV} make installkernel KERNCONF=${KERNCONF} DESTDIR="${_ROOTDIR}" TARGET=${TARGET}
+	${INSTALLENV} make installworld distribution DESTDIR="${_DESTDIR}" && \
+	${INSTALLENV} make installkernel KERNCONF=${KERNCONF} DESTDIR="${_ROOTDIR}"
 .endif
 .if defined(SE)
 . if !defined(CUSTOM) && exists(${BASE}/base.txz) && exists(${BASE}/kernel.txz)
@@ -340,12 +358,6 @@ ${WRKDIR}/.cdboot_done:
 	${_v}${TOUCH} ${WRKDIR}/.cdboot_done
 	@echo " done"
 
-# pkg name replacement for 15.x compatibility, see:
-# https://github.com/mmatuska/mfsbsd/issues/160
-.  if ${RELEASE:M15.*-RELEASE}
-_PKGS_SED= | sed "s/cpdup-freebsd/cpdup-FreeBSD/g"
-.  endif
-
 packages: install prune cdboot ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
 	@echo -n "Installing pkgng ..."
@@ -364,10 +376,11 @@ ${WRKDIR}/.packages_done:
 		_PKGS="${TOOLSDIR}/packages.sample"; \
 		fi; \
 		if [ -n "$${_PKGS}" ]; then \
-		env ASSUME_ALWAYS_YES=yes \
-		PKG_ABI="${PKG_ABI}" \
-		PKG_CACHEDIR=${WRKDIR}/pkgcache \
-		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS} ${_PKGS_SED}`; \
+			${GREP} -v "^#" $${_PKGS} | \
+			${ENV} ASSUME_ALWAYS_YES=yes \
+			    PKG_ABI="${PKG_ABI}" \
+			    PKG_CACHEDIR=${WRKDIR}/pkgcache \
+			    ${XARGS} ${PKG} -r ${_DESTDIR} install; \
 		fi;
 	${_v}${TOUCH} ${WRKDIR}/.packages_done
 
@@ -380,7 +393,7 @@ ${WRKDIR}/.packages_mini_done:
 		_PKGS="${TOOLSDIR}/packages-mini.sample"; \
 		fi; \
 		if [ -n "$${_PKGS}" ]; then \
-		env ASSUME_ALWAYS_YES=yes \
+		${ENV} ASSUME_ALWAYS_YES=yes \
 		PKG_ABI="${PKG_ABI}" \
 		PKG_CACHEDIR=${WRKDIR}/pkgcache \
 		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
@@ -517,7 +530,7 @@ roothack: ${WRKDIR}/roothack/roothack
 ${WRKDIR}/roothack/roothack:
 .if !defined(ROOTHACK_PREBUILT)
 	${_v}${MKDIR} -p ${WRKDIR}/roothack
-	${_v}cd ${TOOLSDIR}/roothack && env MAKEOBJDIR=${WRKDIR}/roothack make
+	${_v}cd ${TOOLSDIR}/roothack && ${ENV} MAKEOBJDIR=${WRKDIR}/roothack make
 .endif
 
 install-roothack: compress-usr roothack ${WRKDIR}/.install-roothack_done

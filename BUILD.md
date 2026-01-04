@@ -78,7 +78,7 @@ specify the `BUILDWORLD=1` and `BUILDKERNEL=1` variables to `make`, respectively
 5. Custom release edition, i.e., using a FreeBSD release distribution:
 
   ```bash
-  make iso BASE=/cdrom/11.0-RELEASE RELEASE=11.0-RELEASE ARCH=amd64
+  make iso BASE=/cdrom/11.0-RELEASE RELEASE=11.0-RELEASE TARGET=amd64
   ```
 
 6. GCE-compatible .tar.gz file:

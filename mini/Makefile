@@ -9,10 +9,10 @@
 #
 # User-defined variables
 #
-BASEDIR?=${CURDIR}/../work/mfs/rw
-BOOTBASE?=${CURDIR}/../work/disk/boot
-CDBOOTBASE?=${CURDIR}/../work/cdboot
-CFGDIR?=${CURDIR}/conf
+BASEDIR?=${.CURDIR:H}/work/mfs/rw
+BOOTBASE?=${.CURDIR:H}/work/disk/boot
+CDBOOTBASE?=${.CURDIR:H}/work/cdboot
+CFGDIR?=${.CURDIR}/conf
 MFSROOT_FREE_INODES?=5000
 MFSROOT_FREE_BLOCKS?=10%
 MFSROOT_MINSIZE?=80m
@@ -31,7 +31,6 @@ EFILOADER?=	loader_lua.efi
 #
 # Program defaults
 #
-CAT=/bin/cat
 CHFLAGS=/bin/chflags
 CHOWN=/usr/sbin/chown
 CP=/bin/cp
@@ -55,14 +54,16 @@ SYSCTL=/sbin/sysctl
 TAR=/usr/bin/tar
 TOUCH=/usr/bin/touch
 UNAME=/usr/bin/uname
+CAT?=	/bin/cat
+SED?=	/usr/bin/sed
+XARGS?=	/usr/bin/xargs
 #
 BSDLABEL=bsdlabel
 
 #
-CURDIR!=${PWD}
-WRKDIR?=${CURDIR}/tmp
-FILESDIR=${CURDIR}/files
-TOOLSDIR=${CURDIR}/../tools
+WRKDIR?=${.CURDIR}/tmp
+FILESDIR=${.CURDIR}/files
+TOOLSDIR=${.CURDIR:H}/tools
 #
 #
 DOFS=${TOOLSDIR}/doFS.sh
@@ -70,18 +71,27 @@ BOOTMODULES=acpi ahci
 MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs smbus ipmi ntfs nullfs tmpfs \
 	aesni crypto cryptodev geom_eli
 #
+
+.if !defined(VERSION)
+# e.g., 14.3-RELEASE
+VERSION!=		${UNAME} -r | ${SED} -Ee 's/-p[[:digit:]]$$//'
+.endif
+# e.g., 14
+_VERSION_MAJOR_VER=	${VERSION:R}
+
+.if defined(ARCH)
+.error "Please use TARGET/TARGET_ARCH instead of ARCH."
+.endif
+
+TARGET?=	${MACHINE_ARCH}
+TARGET_ARCH?=	${MACHINE_CPUARCH}
+
 .if defined(V)
 _v=
 VERB=1
 .else
 _v=@
 VERB=
-.endif
-
-.if !defined(ARCH)
-TARGET!=	${SYSCTL} -n hw.machine_arch
-.else
-TARGET=		${ARCH} 
 .endif
 
 .if !defined(RELEASE)
@@ -134,29 +144,31 @@ rescuelinks: hierarchy ${WRKDIR}/.rescuelinks_done
 ${WRKDIR}/.rescuelinks_done:
 	${_v}echo -n "Installing rescue with linking script ..."
 	${_v}${INSTALL} -m 0555 ${BASEDIR}/rescue/rescue ${_ROOTDIR}/rescue/rescue
-	${_v}for FILE in `cat ${FILESDIR}/rescuelinks`; do \
-		${LN} ${_ROOTDIR}/rescue/rescue ${_ROOTDIR}/$${FILE}; \
-	done
+	${_v}cd ${_ROOTDIR}/rescue && \
+	    ${CAT} ${FILESDIR}/rescuelinks | \
+	    ${XARGS} -n 3 -I % ${LN} -f ./rescue ${_ROOTDIR}/%
 	${_v}${TOUCH} ${WRKDIR}/.rescuelinks_done
 	${_v}echo " done"
 
 installbase: hierarchy rescuelinks ${WRKDIR}/.installbase_done
 ${WRKDIR}/.installbase_done:
 	${_v}echo -n "Installing base files ..."
-	${_v}cd ${_ROOTDIR} && for FILE in `cat ${FILESDIR}/instfiles`; do \
-		${CP} -pP ${BASEDIR}/$${FILE} ${_ROOTDIR}/$${FILE}; \
-	done
-	${_v}cd ${_ROOTDIR} && for DIR in `cat ${FILESDIR}/instdirs`; do \
-		${CP} -a ${BASEDIR}/$${DIR}/ ${_ROOTDIR}/$${DIR}; \
-	done
+	${_v}cd ${_ROOTDIR} && \
+	${_v}cd ${BASEDIR} && \
+	    ${CAT} ${FILESDIR}/instfiles | \
+	    ${XARGS} -n 3 -I % ${CP} -pP ./% ${_ROOTDIR}/%
+	${_v}cd ${BASEDIR} && \
+	    ${CAT} ${FILESDIR}/instdirs | \
+	    ${XARGS} -n 3 -I % ${CP} -a ./% ${_ROOTDIR}/%
 	${_v}${TOUCH} ${WRKDIR}/.installbase_done
 	${_v}echo " done"
 
 basetar: hierarchy rescuelinks ${WRKDIR}/.basetar_done
 ${WRKDIR}/.basetar_done:
 	${_v}echo -n "Creating tar of base libraries and binaries ..."
-	${_v}cd ${BASEDIR} && ${TAR} -cJf ${_ROOTDIR}/.mfs_base.txz \
-	`cat ${FILESDIR}/basedirs` `cat ${FILESDIR}/basefiles` || exit 0
+	${_v}-cd ${BASEDIR} && \
+	${TAR} -cJf ${_ROOTDIR}/.mfs_base.txz \
+	    `${CAT} ${FILESDIR}/basedirs ${FILESDIR}/basefiles`
 	${_v}${TOUCH} ${WRKDIR}/.basetar_done
 	${_v}echo " done"
 
@@ -164,8 +176,9 @@ localtar: hierarchy ${WRKDIR}/.localtar_done
 ${WRKDIR}/.localtar_done:
 .if exists(${FILESDIR}/localfiles)
 	${_v}echo -n "Creating local files tar ..."
-	${_v}cd ${LOCALBASEDIR}/usr/local && ${TAR} -cJf ${_ROOTDIR}/.mfs_local.txz \
-	`cat ${FILESDIR}/localfiles`
+	${_v}cd ${LOCALBASEDIR}/usr/local && \
+	${TAR} -cJf ${_ROOTDIR}/.mfs_local.txz \
+	    `${CAT} ${FILESDIR}/localfiles`
 	${_v}${TOUCH} ${WRKDIR}/.localtar_done
 	${_v}echo " done"
 .endif
@@ -298,7 +311,7 @@ ${GCEFILE}:
 .if !exists(${GTAR})
 	${_v}echo "${GTAR} is missing, please install archivers/gtar first"; exit 1
 .else
-	${_v}${GTAR} -C ${CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
+	${_v}${GTAR} -C ${.CURDIR} -Szcf ${GCEFILE} --transform='s/${IMAGE}/disk.raw/' ${IMAGE}
 	${_v}echo " GCE tarball built"
 	${_v}${LS} -l ${GCEFILE}
 .endif
@@ -323,7 +336,7 @@ tar: install config boot mfsroot ${TARFILE}
 ${TARFILE}:
 	${_v}echo -n "Creating tar file ..."
 	${_v}cd ${WRKDIR}/disk && ${FIND} . -depth 1 \
-		-exec ${TAR} -r -f ${CURDIR}/${TARFILE} {} \;
+		-exec ${TAR} -r -f ${.CURDIR}/${TARFILE} {} \;
 	${_v}echo " done"
 	${_v}${LS} -l ${TARFILE}
 
