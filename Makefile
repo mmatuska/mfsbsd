@@ -358,11 +358,11 @@ ${WRKDIR}/.cdboot_done:
 	${_v}${MKDIR} ${WRKDIR}/cdboot
 .if ${TARGET} != aarch64
 	${_v}${CP} ${_DESTDIR}/boot/cdboot ${WRKDIR}/cdboot/
-.	if defined(LOADER_4TH)
-		${_v}${CP} ${_DESTDIR}/boot/loader_4th.efi ${WRKDIR}/cdboot/
-.	else
-		${_v}${CP} ${_DESTDIR}/boot/loader_lua.efi ${WRKDIR}/cdboot/
-.	endif
+.endif
+.if defined(LOADER_4TH)
+	${_v}${CP} ${_DESTDIR}/boot/loader_4th.efi ${WRKDIR}/cdboot/
+.else
+	${_v}${CP} ${_DESTDIR}/boot/loader_lua.efi ${WRKDIR}/cdboot/
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.cdboot_done
 	@echo " done"
