@@ -78,7 +78,6 @@ EFILOADER?=	loader_4th.efi
 BOOTFILES?=	defaults lua
 EFILOADER?=	loader_lua.efi
 .endif
-#
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
 		ipmi ntfs nullfs opensolaris smbus snp tmpfs zfs
 # Sometimes the kernel is compiled with a different destination.
