@@ -72,10 +72,10 @@ DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
 .if defined(LOADER_4TH)
-BOOTFILES?=	defaults loader_4th *.rc *.4th
+BOOTFILES?=	defaults *.rc *.4th
 EFILOADER?=	loader_4th.efi
 .else
-BOOTFILES?=	defaults loader_lua lua
+BOOTFILES?=	defaults lua
 EFILOADER?=	loader_lua.efi
 .endif
 #
