@@ -3,17 +3,6 @@
 # mfsBSD
 # Copyright (c) 2019 Martin Matuska <mm at FreeBSD.org>
 
-#
-# User-defined variables
-#
-BASE?=			/cdrom/usr/freebsd-dist
-KERNCONF?=		GENERIC
-MFSROOT_FREE_INODES?=	10%
-MFSROOT_FREE_BLOCKS?=	10%
-MFSROOT_MAXSIZE?=	120m
-ROOTPW_HASH?=		$$6$$051DdQA7fTvLymkY$$Z5f6snVFQJKugWmGi8y0motBNaKn9em0y2K0ZsJMku3v9gkiYh8M.OTIIie3RvHpzT6udumtZUtc0kXwJcCMR1
-PERMIT_ROOT_LOGIN?=	yes
-
 # If you want to build your own kernel and make you own world, you need to set
 # -DCUSTOM or CUSTOM=1
 #
@@ -71,34 +60,23 @@ SYSCTL?=	/sbin/sysctl
 PKG?=		/usr/local/sbin/pkg
 OPENSSL?=	/usr/bin/openssl
 CUT?=		/usr/bin/cut
+ENV?=		/usr/bin/env
+GREP?=		/usr/bin/grep
+XARGS?=		/usr/bin/xargs
 #
 WRKDIR?=	${.CURDIR}/work
 #
 BSDLABEL?=	bsdlabel
 #
-.if !defined(ARCH)
-TARGET!=	${SYSCTL} -n hw.machine_arch
-.else
-TARGET=		${ARCH}
-.endif
-#
 DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
-#
 .if defined(LOADER_4TH)
-BOOTFILES?=	defaults *.rc *.4th
+BOOTFILES?=	defaults loader_4th *.rc *.4th
 EFILOADER?=	loader_4th.efi
 .else
-BOOTFILES?=	defaults lua
+BOOTFILES?=	defaults loader_lua lua
 EFILOADER?=	loader_lua.efi
-.endif
-#
-.if ${TARGET} == aarch64
-EFIBOOT?= BOOTAA64.efi
-.else
-EFIBOOT?= BOOTX64.efi
-BOOTFILES+= device.hints
 .endif
 #
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
@@ -108,6 +86,42 @@ KERNDIR?=	kernel
 #
 XZ_FLAGS?=
 #
+
+#
+# User-defined variables
+#
+
+.if !defined(VERSION)
+# e.g., 14.3-RELEASE
+VERSION!=		${UNAME} -r | ${SED} -Ee 's/-p[[:digit:]]$$//'
+.endif
+# e.g., 14
+_VERSION_MAJOR_VER=	${VERSION:R}
+
+.if defined(ARCH)
+.error "Please use TARGET/TARGET_ARCH instead of ARCH."
+.endif
+
+TARGET?=	${MACHINE_ARCH}
+TARGET_ARCH?=	${MACHINE_CPUARCH}
+
+.if ${TARGET} == aarch64
+EFIBOOT?= BOOTAA64.efi
+.else
+EFIBOOT?= BOOTX64.efi
+BOOTFILES+= device.hints
+.endif
+
+BASE?=			/cdrom/usr/freebsd-dist
+PKG_ABI?=		FreeBSD:${_VERSION_MAJOR_VER}:${TARGET_ARCH}
+SITE?=			https://download.freebsd.org/ftp/releases/${TARGET}/${VERSION}
+BASE?=			/cdrom/usr/freebsd-dist
+KERNCONF?=		GENERIC
+MFSROOT_FREE_INODES?=	10%
+MFSROOT_FREE_BLOCKS?=	10%
+MFSROOT_MAXSIZE?=	200m
+ROOTPW_HASH?=		$$6$$051DdQA7fTvLymkY$$Z5f6snVFQJKugWmGi8y0motBNaKn9em0y2K0ZsJMku3v9gkiYh8M.OTIIie3RvHpzT6udumtZUtc0kXwJcCMR1
+PERMIT_ROOT_LOGIN?=	yes
 
 .if defined(V)
 _v=
@@ -121,20 +135,24 @@ VERB=
 RELEASE!=	${UNAME} -r
 .endif
 
-.if !defined(PKG_ABI)
-PKG_ABI!=	echo "FreeBSD:`${UNAME} -U | ${CUT} -c 1-2`:`${UNAME} -m`"
-.endif
-
 .if !defined(SE)
 IMAGE_PREFIX?=	mfsbsd
 .else
 IMAGE_PREFIX?=	mfsbsd-se
 .endif
 
-IMAGE?=		${IMAGE_PREFIX}-${RELEASE}-${TARGET}.img
-ISOIMAGE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.iso
-TARFILE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar
-GCEFILE?=	${IMAGE_PREFIX}-${RELEASE}-${TARGET}.tar.gz
+.if ${TARGET} != ${TARGET_ARCH}
+# e.g.,	14.3-RELEASE-powerpc-powerpc64
+_TARGET_RELEASE= ${RELEASE}-${TARGET}-${TARGET_ARCH}
+.else
+# e.g.,	14.3-RELEASE-amd64
+_TARGET_RELEASE= ${RELEASE}-${TARGET}
+.endif
+
+IMAGE?=		${IMAGE_PREFIX}-${_TARGET_RELEASE}.img
+ISOIMAGE?=	${IMAGE_PREFIX}-${_TARGET_RELEASE}.iso
+TARFILE?=	${IMAGE_PREFIX}-${_TARGET_RELEASE}.tar
+GCEFILE?=	${IMAGE_PREFIX}-${_TARGET_RELEASE}.tar.gz
 _DISTDIR=	${WRKDIR}/dist/${RELEASE}-${TARGET}
 
 .if !defined(DEBUG)
@@ -178,7 +196,7 @@ _DESTDIR=	${_ROOTDIR}
 
 .if !defined(SE)
 # Environment for custom build
-BUILDENV?= env \
+BUILDENV?= ${ENV} \
 	NO_FSCHG=1 \
 	WITHOUT_CLANG=1 \
 	WITHOUT_DICT=1 \
@@ -190,8 +208,12 @@ INSTALLENV?= ${BUILDENV} \
 	WITHOUT_TOOLCHAIN=1
 .endif
 
+BUILDENV+= \
+	TARGET=${TARGET} \
+	TARGET_ARCH=${TARGET_ARCH}
+
 # Environment for custom scripts
-CUSTOMSCRIPTENV?= env \
+CUSTOMSCRIPTENV?= ${ENV} \
 	WRKDIR=${WRKDIR} \
 	DESTDIR=${_DESTDIR} \
 	DISTDIR=${_DISTDIR} \
@@ -249,11 +271,11 @@ ${WRKDIR}/.build_done:
 . if defined(BUILDWORLD)
 	@echo -n "Building world ..."
 	${_v}cd ${SRC_DIR} && \
-	${BUILDENV} make ${_MAKEJOBS} buildworld TARGET=${TARGET}
+	${BUILDENV} make ${_MAKEJOBS} buildworld
 . endif
 . if defined(BUILDKERNEL)
 	@echo -n "Building kernel KERNCONF=${KERNCONF} ..."
-	${_v}cd ${SRC_DIR} && make ${_MAKEJOBS} buildkernel KERNCONF=${KERNCONF} TARGET=${TARGET}
+	${_v}cd ${SRC_DIR} && make ${_MAKEJOBS} buildkernel KERNCONF=${KERNCONF}
 . endif
 .endif
 	${_v}${TOUCH} ${WRKDIR}/.build_done
@@ -263,8 +285,8 @@ ${WRKDIR}/.install_done:
 .if defined(CUSTOM)
 	@echo -n "Installing world and kernel KERNCONF=${KERNCONF} ..."
 	${_v}cd ${SRC_DIR} && \
-	${INSTALLENV} make installworld distribution DESTDIR="${_DESTDIR}" TARGET=${TARGET} && \
-	${INSTALLENV} make installkernel KERNCONF=${KERNCONF} DESTDIR="${_ROOTDIR}" TARGET=${TARGET}
+	${INSTALLENV} make installworld distribution DESTDIR="${_DESTDIR}" && \
+	${INSTALLENV} make installkernel KERNCONF=${KERNCONF} DESTDIR="${_ROOTDIR}"
 .endif
 .if defined(SE)
 . if !defined(CUSTOM) && exists(${BASE}/base.txz) && exists(${BASE}/kernel.txz)
@@ -337,8 +359,12 @@ ${WRKDIR}/.cdboot_done:
 	${_v}${MKDIR} ${WRKDIR}/cdboot
 .if ${TARGET} != aarch64
 	${_v}${CP} ${_DESTDIR}/boot/cdboot ${WRKDIR}/cdboot/
+.	if defined(LOADER_4TH)
+		${_v}${CP} ${_DESTDIR}/boot/loader_4th.efi ${WRKDIR}/cdboot/
+.	else
+		${_v}${CP} ${_DESTDIR}/boot/loader_lua.efi ${WRKDIR}/cdboot/
+.	endif
 .endif
-	${_v}${CP} ${_DESTDIR}/boot/loader_4th.efi ${_DESTDIR}/boot/loader_lua.efi ${WRKDIR}/cdboot/
 	${_v}${TOUCH} ${WRKDIR}/.cdboot_done
 	@echo " done"
 
@@ -360,10 +386,11 @@ ${WRKDIR}/.packages_done:
 		_PKGS="${TOOLSDIR}/packages.sample"; \
 		fi; \
 		if [ -n "$${_PKGS}" ]; then \
-		env ASSUME_ALWAYS_YES=yes \
-		PKG_ABI="${PKG_ABI}" \
-		PKG_CACHEDIR=${WRKDIR}/pkgcache \
-		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
+			${GREP} -v "^#" $${_PKGS} | \
+			${ENV} ASSUME_ALWAYS_YES=yes \
+			    PKG_ABI="${PKG_ABI}" \
+			    PKG_CACHEDIR=${WRKDIR}/pkgcache \
+			    ${XARGS} ${PKG} -r ${_DESTDIR} install; \
 		fi;
 	${_v}${TOUCH} ${WRKDIR}/.packages_done
 
@@ -376,7 +403,7 @@ ${WRKDIR}/.packages_mini_done:
 		_PKGS="${TOOLSDIR}/packages-mini.sample"; \
 		fi; \
 		if [ -n "$${_PKGS}" ]; then \
-		env ASSUME_ALWAYS_YES=yes \
+		${ENV} ASSUME_ALWAYS_YES=yes \
 		PKG_ABI="${PKG_ABI}" \
 		PKG_CACHEDIR=${WRKDIR}/pkgcache \
 		${PKG} -r ${_DESTDIR} install `${CAT} $${_PKGS}`; \
@@ -392,10 +419,10 @@ ${WRKDIR}/.config_done:
 . endif
 .endfor
 .if defined(SE)
-	${_v}${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${_DESTDIR}/etc/motd
+	${_v}${INSTALL} -m 0644 ${TOOLSDIR}/motd.se ${_DESTDIR}/etc/motd.template
 	${_v}${INSTALL} -d -m 0755 ${_DESTDIR}/cdrom
 .else
-	${_v}${INSTALL} -m 0644 ${TOOLSDIR}/motd ${_DESTDIR}/etc/motd
+	${_v}${INSTALL} -m 0644 ${TOOLSDIR}/motd ${_DESTDIR}/etc/motd.template
 .endif
 	${_v}${MKDIR} ${_DESTDIR}/stand ${_DESTDIR}/etc/rc.conf.d
 	${_v}if [ -f "${CFGDIR}/boot.config" ]; then \
@@ -441,7 +468,7 @@ ${WRKDIR}/.config_done:
 	done
 #	${_v}${SED} -I -E 's/\(ttyv[2-7].*\)on /\1off/g' ${_DESTDIR}/etc/ttys
 .if defined(NO_ROOTHACK)
-	${_v}echo "/dev/md0 / ufs rw 0 0" > ${_DESTDIR}/etc/fstab
+	${_v}echo "/dev/ufs/mfsroot / ufs rw 0 0" > ${_DESTDIR}/etc/fstab
 	${_v}echo "tmpfs /tmp tmpfs rw,mode=1777 0 0" >> ${_DESTDIR}/etc/fstab
 .else
 	${_v}${TOUCH} ${_DESTDIR}/etc/fstab
@@ -513,7 +540,7 @@ roothack: ${WRKDIR}/roothack/roothack
 ${WRKDIR}/roothack/roothack:
 .if !defined(ROOTHACK_PREBUILT)
 	${_v}${MKDIR} -p ${WRKDIR}/roothack
-	${_v}cd ${TOOLSDIR}/roothack && env MAKEOBJDIR=${WRKDIR}/roothack make
+	${_v}cd ${TOOLSDIR}/roothack && ${ENV} MAKEOBJDIR=${WRKDIR}/roothack make
 .endif
 
 install-roothack: compress-usr roothack ${WRKDIR}/.install-roothack_done
@@ -595,7 +622,7 @@ mfsroot: install prune cdboot config genkeys customfiles customscripts boot efib
 ${WRKDIR}/.mfsroot_done:
 	@echo -n "Creating and compressing mfsroot ..."
 	${_v}${MKDIR} ${WRKDIR}/mnt
-	${_v}${MAKEFS} -t ffs -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
+	${_v}${MAKEFS} -t ffs -o label=mfsroot -m ${MFSROOT_MAXSIZE} -f ${MFSROOT_FREE_INODES} -b ${MFSROOT_FREE_BLOCKS} ${WRKDIR}/disk/mfsroot ${_ROOTDIR} > /dev/null
 	${_v}${RM} -rf ${WRKDIR}/mnt
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/mfsroot
 	${_v}${GZIP} -9 -f ${WRKDIR}/disk/boot/kernel/kernel

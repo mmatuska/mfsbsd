@@ -1,8 +1,25 @@
 #!/bin/sh
+
 set -e
-BASE=/tmp/freebsd-dist
-RELEASE=${RELEASE:-`uname -r`}
-DOWNLOAD_URL=http://ftp.freebsd.org/pub/FreeBSD/releases/amd64/${RELEASE}
+
+vmake()
+{
+	env TARGET=${TARGET} \
+	    TARGET_ARCH=${TARGET_ARCH} \
+	    V=1 \
+	    make "$@"
+}
+
+BASE="${TMPDIR:-/tmp}/freebsd-dist"
+
+# Chop the patch off the release for the running host, e.g.,
+# '14.3-RELEASE-p7' -> '14.3-RELEASE'.
+#
+: "${RELEASE=$(uname -r | sed -Ee 's/-p[[:digit:]]$//')}"
+: "${TARGET=$(uname -m)}"
+: "${TARGET_ARCH=$(uname -p)}"
+DOWNLOAD_URL=http://ftp.freebsd.org/pub/FreeBSD/releases/${TARGET}/${RELEASE}
+
 while getopts b:r: opt
 do
 	case $opt in
@@ -10,37 +27,41 @@ do
 		r) RELEASE="${OPTARG}";;
 	esac
 done
-if [ "${ACTION}" = "prepare" ]
-then
+
+case "${ACTION}" in
+prepare)
 	mkdir -p ${BASE}
 	fetch -m -o ${BASE}/base.txz ${DOWNLOAD_URL}/base.txz
 	fetch -m -o ${BASE}/kernel.txz ${DOWNLOAD_URL}/kernel.txz
-	if [ -x tools/roothack/roothack ]
+	if [ ! -x tools/roothack/roothack ]
 	then
 		cd tools/roothack && make depend && make
 	fi
-elif [ "${ACTION}" = "build-std" ]
-then
-	make clean V=1
-	make iso V=1 RELEASE=${RELEASE} BASE=${BASE} ROOTHACK=1
-	make V=1 RELEASE=${RELEASE} BASE=${BASE} ROOTHACK=1
-elif [ "${ACTION}" = "build-se" ]
-then
-	make clean V=1
-	make iso V=1 RELEASE=${RELEASE} BASE=${BASE} ROOTHCK=1 SE=1
-	make V=1 RELEASE=${RELEASE} BASE=${BASE} ROOTHACK=1 SE=1
-elif [ "${ACTION}" = "build-mini" ]
-then
-	make clean V=1
-	make prepare-mini V=1 RELEASE=${RELEASE} ROOTHACK=1 BASE=${BASE}
-	cd mini
-	make clean V=1
-	make iso V=1 RELEASE=${RELEASE} ROOTHACK=1 BASE=${BASE}
-	make clean V=1
-	cd ..
-	make clean V=1
+	;;
+build-std)
+	vmake clean
+	vmake iso RELEASE=${RELEASE} BASE=${BASE} ROOTHACK=1
+	vmake RELEASE=${RELEASE} BASE=${BASE} ROOTHACK=1
+	;;
+build-se)
+	vmake clean
+	vmake iso RELEASE=${RELEASE} BASE=${BASE} ROOTHACK=1 SE=1
+	vmake RELEASE=${RELEASE} BASE=${BASE} ROOTHACK=1 SE=1
+	;;
+build-mini)
+	vmake clean
+	vmake prepare-mini RELEASE=${RELEASE} ROOTHACK=1 BASE=${BASE}
+	(
+		cd mini
+		vmake clean
+		vmake iso RELEASE=${RELEASE} ROOTHACK=1 BASE=${BASE}
+		vmake clean
+	)
+	vmake clean
 	mv mini/*.iso .
-else
+	;;
+*)
 	echo "Unknown build step"
 	false
-fi
+	;;
+esac
