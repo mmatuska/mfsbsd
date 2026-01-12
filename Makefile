@@ -74,10 +74,10 @@ DOFS?=		${TOOLSDIR}/doFS.sh
 SCRIPTS?=	mdinit mfsbsd interfaces packages
 BOOTMODULES?=	acpi ahci
 .if defined(LOADER_4TH)
-BOOTFILES?=	defaults device.hints loader_4th *.rc *.4th
+BOOTFILES?=	defaults *.rc *.4th
 EFILOADER?=	loader_4th.efi
 .else
-BOOTFILES?=	defaults device.hints loader_lua lua
+BOOTFILES?=	defaults lua
 EFILOADER?=	loader_lua.efi
 .endif
 MFSMODULES?=	aesni crypto cryptodev ext2fs geom_eli geom_mirror geom_nop \
@@ -105,6 +105,13 @@ _VERSION_MAJOR_VER=	${VERSION:R}
 
 TARGET?=	${MACHINE_ARCH}
 TARGET_ARCH?=	${MACHINE_CPUARCH}
+
+.if ${TARGET} == aarch64
+EFIBOOT?= BOOTAA64.efi
+.else
+EFIBOOT?= BOOTX64.efi
+BOOTFILES+= device.hints
+.endif
 
 BASE?=			/cdrom/usr/freebsd-dist
 PKG_ABI?=		FreeBSD:${_VERSION_MAJOR_VER}:${TARGET_ARCH}
@@ -351,7 +358,9 @@ cdboot: install prune ${WRKDIR}/.cdboot_done
 ${WRKDIR}/.cdboot_done:
 	@echo -n "Copying out cdboot and EFI loader ..."
 	${_v}${MKDIR} ${WRKDIR}/cdboot
+.if ${TARGET} != aarch64
 	${_v}${CP} ${_DESTDIR}/boot/cdboot ${WRKDIR}/cdboot/
+.endif
 .if defined(LOADER_4TH)
 	${_v}${CP} ${_DESTDIR}/boot/loader_4th.efi ${WRKDIR}/cdboot/
 .else
@@ -553,10 +562,12 @@ ${WRKDIR}/.boot_done:
 .for FILE in ${BOOTFILES}
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
-.if defined(LOADER_4TH)
-	${_v}${MV} -f ${WRKDIR}/disk/boot/loader_4th ${WRKDIR}/disk/boot/loader
-.else
-	${_v}${MV} -f ${WRKDIR}/disk/boot/loader_lua ${WRKDIR}/disk/boot/loader
+.if ${TARGET} != aarch64
+.	if defined(LOADER_4TH)
+		${_v}${CP} ${_DESTDIR}/boot/loader_4th ${WRKDIR}/disk/boot/loader
+.	else
+		${_v}${CP} ${_DESTDIR}/boot/loader_lua ${WRKDIR}/disk/boot/loader
+.	endif
 .endif
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
 .if defined(DEBUG)
@@ -587,7 +598,9 @@ ${WRKDIR}/.boot_done:
 .endif
 	${_v}${RM} -rf ${_BOOTDIR}/${KERNDIR} ${_BOOTDIR}/*.symbols
 	${_v}${MKDIR} -p ${WRKDIR}/boot
-	${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot
+.	if ${TARGET} != aarch64
+		${_v}${CP} -p ${_DESTDIR}/boot/pmbr ${_DESTDIR}/boot/gptboot ${WRKDIR}/boot
+.	endif
 	${_v}${TOUCH} ${WRKDIR}/.boot_done
 	@echo " done"
 
@@ -596,7 +609,7 @@ ${WRKDIR}/.efiboot_done:
 .if !defined(NO_EFIBOOT)
 	@echo -n "Creating EFI boot image ..."
 	${_v}${MKDIR} -p ${WRKDIR}/efiroot/EFI/BOOT
-	${_v}${CP} ${WRKDIR}/cdboot/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/BOOTX64.efi
+	${_v}${CP} ${WRKDIR}/cdboot/${EFILOADER} ${WRKDIR}/efiroot/EFI/BOOT/${EFIBOOT}
 	${_v}${MAKEFS} -t msdos -s 2048k -o fat_type=12,sectors_per_cluster=1 ${WRKDIR}/cdboot/efiboot.img ${WRKDIR}/efiroot
 	${_v}${TOUCH} ${WRKDIR}/.efiboot_done
 	@echo " done"
@@ -660,7 +673,11 @@ ${GCEFILE}:
 iso: install prune cdboot config genkeys customfiles customscripts boot efiboot compress-usr mfsroot fbsddist ${ISOIMAGE}
 ${ISOIMAGE}:
 	@echo -n "Creating ISO image ..."
-.if !defined(NO_EFIBOOT)
+.if ${TARGET} == aarch64
+	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD \
+	-o bootimage=efi\;${WRKDIR}/cdboot/efiboot.img,no-emul-boot,platformid=efi \
+	${ISOIMAGE} ${WRKDIR}/disk
+.elif !defined(NO_EFIBOOT)
 	${_v}${MAKEFS} -t cd9660 -o rockridge,label=mfsBSD \
 	-o bootimage=i386\;${WRKDIR}/cdboot/cdboot,no-emul-boot \
 	-o bootimage=i386\;${WRKDIR}/cdboot/efiboot.img,no-emul-boot,platformid=efi \
