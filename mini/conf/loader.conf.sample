@@ -2,3 +2,6 @@ mfs_load="YES"
 mfs_type="mfs_root"
 mfs_name="/mfsroot"
 vfs.root.mountfrom="ufs:/dev/ufs/mfsroot"
+zfs_load="YES"
+# Support For VirtIO-BLK, like Aliyun
+kern.maxphys="65536"

@@ -1,0 +1,69 @@
+name: mfsBSD Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        freebsd: ['13.5', '14.3', '15.0']
+        script:
+          - build-std
+          - build-se
+          - build-mini
+
+    name: FreeBSD ${{ matrix.freebsd }} / ${{ matrix.script }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build inside FreeBSD VM
+        uses: vmactions/freebsd-vm@v1.3.6
+        with:
+          release: ${{ matrix.freebsd }}
+          usesh: true
+          run: |
+            freebsd-version -kru
+            pkg update -f
+            mkdir -p /tmp/freebsd-dist
+            fetch -o /tmp/freebsd-dist https://download.freebsd.org/ftp/releases/amd64/${{ matrix.freebsd }}-RELEASE/base.txz
+            fetch -o /tmp/freebsd-dist https://download.freebsd.org/ftp/releases/amd64/${{ matrix.freebsd }}-RELEASE/kernel.txz
+            ci/ci.sh -b prepare
+            ci/ci.sh -b ${{ matrix.script }}
+
+      - name: Upload ISO artifacts
+        uses: actions/upload-artifact@v6
+        with:
+          name: iso-${{ matrix.freebsd }}-${{ matrix.script }}
+          path: "*.iso"
+
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all ISO artifacts
+        uses: actions/download-artifact@v7
+        with:
+          path: dist
+
+      - name: Generate release tag
+        id: date
+        run: |
+          echo "tag=v$(date -u +%Y%m%d-%H%M%S)" >> $GITHUB_OUTPUT
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2.5.0
+        with:
+          tag_name: ${{ steps.date.outputs.tag }}
+          name: Release ${{ steps.date.outputs.tag }}
+          files: dist/**/*.iso
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
