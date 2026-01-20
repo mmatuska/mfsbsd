@@ -167,7 +167,7 @@ basetar: hierarchy rescuelinks ${WRKDIR}/.basetar_done
 ${WRKDIR}/.basetar_done:
 	${_v}echo -n "Creating tar of base libraries and binaries ..."
 	${_v}-cd ${BASEDIR} && \
-	${TAR} -cJf ${_ROOTDIR}/.mfs_base.txz \
+	${TAR} --ignore-failed-read -cJf ${_ROOTDIR}/.mfs_base.txz \
 	    `${CAT} ${FILESDIR}/basedirs ${FILESDIR}/basefiles`
 	${_v}${TOUCH} ${WRKDIR}/.basetar_done
 	${_v}echo " done"
