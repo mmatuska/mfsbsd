@@ -1,9 +1,12 @@
+---
 env:
   CIRRUS_CLONE_DEPTH: 1
   TARGET: amd64
 
 build_task:
   timeout_in: 1h
+  # Defer to the GHA workflow in this scenario.
+  only_if: $CIRRUS_TAG !=~ 'v[0-9]+\.[0-9]+\.[0-9]+'
   matrix:
     - name: 15.0-RELEASE
       freebsd_instance:
@@ -12,10 +15,10 @@ build_task:
       freebsd_instance:
         image_family: freebsd-14-3
   prepare_script:
-  - ci/ci.sh -b prepare
+    - ci/ci.sh -b prepare
   build_std_script:
-  - ci/ci.sh -b build-std
+    - ci/ci.sh -b build-std
   build_se_script:
-  - ci/ci.sh -b build-se
+    - ci/ci.sh -b build-se
   build_mini_script:
-  - ci/ci.sh -b build-mini
+    - ci/ci.sh -b build-mini
