@@ -1,0 +1,34 @@
+name: mfsBSD Build for PR
+
+on:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        freebsd: ['13.5', '14.3', '15.0']
+        script:
+          - build-std
+          - build-se
+          - build-mini
+
+    name: FreeBSD ${{ matrix.freebsd }} / ${{ matrix.script }}
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Build inside FreeBSD VM
+        uses: vmactions/freebsd-vm@v1.3.7
+        with:
+          release: ${{ matrix.freebsd }}
+          usesh: true
+          run: |
+            freebsd-version -kru
+            pkg update -f
+            mkdir -p /tmp/freebsd-dist
+            fetch -o /tmp/freebsd-dist https://download.freebsd.org/ftp/releases/amd64/${{ matrix.freebsd }}-RELEASE/base.txz
+            fetch -o /tmp/freebsd-dist https://download.freebsd.org/ftp/releases/amd64/${{ matrix.freebsd }}-RELEASE/kernel.txz
+            ci/ci.sh -b prepare
+            ci/ci.sh -b ${{ matrix.script }}
