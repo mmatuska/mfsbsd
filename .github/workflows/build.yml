@@ -1,9 +1,12 @@
-name: mfsBSD Build
+name: mfsBSD Build and Release
 
 on:
   push:
-  pull_request:
-  workflow_dispatch:
+    branches:
+      - master
+    paths-ignore:
+      - '.github/**'
+      - '**/*.md'
 
 jobs:
   build:
@@ -22,7 +25,7 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Build inside FreeBSD VM
-        uses: vmactions/freebsd-vm@v1.3.6
+        uses: vmactions/freebsd-vm@v1.3.7
         with:
           release: ${{ matrix.freebsd }}
           usesh: true
