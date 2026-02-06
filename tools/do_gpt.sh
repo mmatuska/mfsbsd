@@ -79,7 +79,9 @@ fi
 
 gpart create -s gpt ${unit}
 gpart add -t freebsd-boot -l boot -s ${BOOT_SIZE}k ${unit}
-gpart bootcode -b ${BOOTDIR}/pmbr -p ${BOOTDIR}/gptboot -i 1 ${unit}
+if [ -e "${BOOTDIR}/pmbr" ]; then
+    gpart bootcode -b ${BOOTDIR}/pmbr -p ${BOOTDIR}/gptboot -i 1 ${unit}
+fi
 if [ -n "${EFIIMG}" -a -f "${EFIIMG}" ]; then
   gpart add -t efi -l efi -s ${EFI_SIZE}k ${unit}
   ${TIME} dd if=${EFIIMG} of=/dev/${unit}p2 bs=128k
