@@ -9,7 +9,7 @@ FS_LIST="var tmp"
 RAID_TYPES="mirror raidz raidz1 raidz2 raidz3"
 
 usage() {
-	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] [ -u dist_url ] [-r mirror|raidz[1|2|3]] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-l] [-4] [-A]"
+	echo "Usage: $0 [-h] -d geom_provider [-d geom_provider ...] [ -u dist_url ] [-r mirror|raidz[1|2|3]] [-m mount_point] [-p zfs_pool_name] [-s swap_partition_size] [-z zfs_partition_size] [-c] [-C] [-E] [-e efi_partition_size] [-l] [-4] [-A]"
 }
 
 osarch() {
@@ -49,6 +49,9 @@ help() {
 	echo "                           (enable only async_destroy, empty_bpobj and lz4_compress)"
 	echo "-m mount_point           : use this mount point for operations (default: /mnt)"
 	echo "-c                       : enable compression for all datasets"
+	echo "-E                       : use UEFI boot (GPT efi partition + /boot/loader.efi)"
+	echo "                           instead of legacy BIOS (freebsd-boot + gptzfsboot)"
+	echo "-e efi_part_size         : EFI partition size (default: 200M, only with -E)"
 	echo "-l                       : use legacy mounts (via fstab) instead of ZFS mounts"
 	echo "-4                       : use fletcher4 as default checksum algorithm"
 	echo "-A                       : align partitions to 4K blocks"
@@ -63,13 +66,15 @@ help() {
 	echo "$0 -u /path/to/release -d da0 -d da1 -d da2 -d da3 -r raidz2"
 	echo "Install on a mirror without swap, pool name rpool:"
 	echo "$0 -u /path/to/release -d da0 -d da1 -r mirror -p rpool"
+	echo "Install in UEFI mode (required for most modern dedicated servers):"
+	echo "$0 -u /path/to/release -d da0 -s 2G -E"
 	echo; echo "Notes:"
 	echo "When using swap and raidz/mirror, the swap partition is created on all drives."
 	echo "The /etc/fstab entry will contatin only the first drive's swap partition."
 	echo "You can enable all swap partitions and/or make a gmirror-ed swap later."
 }
 
-while getopts d:u:t:r:p:s:z:m:V:Chcl4A o; do
+while getopts d:u:t:r:p:s:z:m:V:e:ChcEl4A o; do
 	case "$o" in
         	d) DEVS="$DEVS ${OPTARG##/dev/}"; ZDEVS="$ZDEVS ${OPTARG##/dev/}" ;;
 		u) URL="${OPTARG}" ;;
@@ -120,6 +125,8 @@ while getopts d:u:t:r:p:s:z:m:V:Chcl4A o; do
 		V) VERSION="${OPTARG}" ;;
 		C) COMPAT=1 ;;
 		c) COMPRESS=1 ;;
+		E) EFI=1 ;;
+		e) EFI_SIZE="${OPTARG}" ;;
 		l) LEGACY=1 ;;
 		4) FLETCHER=1 ;;
 		A) ALIGN=1 ;;
@@ -174,6 +181,19 @@ fi
 
 if [ "$ALIGN" = "1" ]; then
 	ALIGNMENT="-a 4096"
+fi
+
+if [ "$EFI" = "1" ]; then
+	if [ -z "$EFI_SIZE" ]; then
+		EFI_SIZE="200M"
+	fi
+	if ! [ -f "/boot/loader.efi" ]; then
+		echo "Error: /boot/loader.efi not found on this system — required for -E (UEFI mode)"
+		exit 1
+	fi
+elif [ -n "$EFI_SIZE" ]; then
+	echo "Error: -e efi_part_size requires -E (UEFI mode)"
+	exit 1
 fi
 
 if /sbin/zpool list $POOL > /dev/null 2> /dev/null; then
@@ -283,9 +303,18 @@ for DEV in ${DEVS}; do
 		echo " error"
 		exit 1
 	fi
-	if ! /sbin/gpart add -t freebsd-boot -b 40 -s 472 ${DEV} > /dev/null; then
-		echo " error"
-		exit 1
+	if [ "$EFI" = "1" ]; then
+		# UEFI boot: EFI System Partition (FAT32) instead of freebsd-boot.
+		if ! /sbin/gpart add -t efi -s "${EFI_SIZE}" ${DEV} > /dev/null; then
+			echo " error"
+			exit 1
+		fi
+	else
+		# Legacy BIOS boot: 472-sector freebsd-boot for gptzfsboot.
+		if ! /sbin/gpart add -t freebsd-boot -b 40 -s 472 ${DEV} > /dev/null; then
+			echo " error"
+			exit 1
+		fi
 	fi
 	if [ -n "${SWAP}" ]; then
 		if ! /sbin/gpart add -t freebsd-swap ${ALIGNMENT} -s "${SWAP}" ${DEV} > /dev/null; then
@@ -310,12 +339,42 @@ for DEV in ${DEVS}; do
 	fi
 	echo " done"
 
-	echo -n "Configuring ZFS bootcode on ${DEV} ..."
+	if [ "$EFI" = "1" ]; then
+		# UEFI boot: format EFI System Partition as FAT32 and install
+		# /boot/loader.efi as /EFI/BOOT/BOOTX64.EFI (fallback path
+		# looked up by any UEFI firmware when no NVRAM entry matches).
+		# Installed on EVERY provider so any disk can boot the pool
+		# (mirror/raidz survives single-disk loss including ESP).
+		echo -n "Installing UEFI boot loader on ${DEV}p1 ..."
+		if ! /sbin/newfs_msdos -F 32 -c 1 -L EFISYS /dev/${DEV}p1 > /dev/null 2> /dev/null; then
+			echo " error (newfs_msdos)"
+			exit 1
+		fi
+		ESP_MNT="/tmp/.zfsinstall_esp_${DEV}"
+		/bin/mkdir -p "${ESP_MNT}"
+		if ! /sbin/mount -t msdosfs /dev/${DEV}p1 "${ESP_MNT}" > /dev/null 2> /dev/null; then
+			echo " error (mount ESP)"
+			/bin/rmdir "${ESP_MNT}" 2> /dev/null
+			exit 1
+		fi
+		/bin/mkdir -p "${ESP_MNT}/EFI/BOOT"
+		if ! /bin/cp /boot/loader.efi "${ESP_MNT}/EFI/BOOT/BOOTX64.EFI" > /dev/null 2> /dev/null; then
+			echo " error (copy loader.efi)"
+			/sbin/umount "${ESP_MNT}" > /dev/null 2> /dev/null
+			/bin/rmdir "${ESP_MNT}" 2> /dev/null
+			exit 1
+		fi
+		/sbin/umount "${ESP_MNT}" > /dev/null 2> /dev/null
+		/bin/rmdir "${ESP_MNT}" 2> /dev/null
+		echo " done"
+	else
+		echo -n "Configuring ZFS bootcode on ${DEV} ..."
 		if ! /sbin/gpart bootcode -b /boot/pmbr -p /boot/gptzfsboot -i 1 ${DEV} > /dev/null; then
-		echo " error"
-		exit 1
+			echo " error"
+			exit 1
+		fi
+		echo " done"
 	fi
-	echo " done"
 	/sbin/gpart show ${DEV}
 done
 
